@@ -1,0 +1,170 @@
+🔧 **修复页面重复刷新问题**
+
+═══════════════════════════════════════════════════════════
+✅ 问题解决
+═══════════════════════════════════════════════════════════
+
+## 问题描述
+
+**现象**：并行模式下，每个任务完成后页面会刷新两次
+
+**影响**：
+- 用户体验不佳
+- 浪费了额外的加载时间
+- 看起来像是出错了
+
+---
+
+## 根本原因
+
+### 代码流程分析
+
+**并行模式下的执行流程**：
+
+```javascript
+// 1. parallel.js 创建新标签页
+page = await context.newPage();
+await page.goto(config.materialUrl);  // 第一次加载 ✅
+
+// 2. 调用 executeTask
+await executeTask(page, task, taskNumber - 1, totalTasks);
+
+// 3. executeTask 内部（之前的代码）
+if (taskIndex > 0) {  // ⚠️ 问题在这里
+  await navigateToMaterialPage(page);  // 第二次加载 ❌
+}
+```
+
+**问题所在**：
+- `taskIndex` 是全局任务序号（0, 1, 2, 3, 4, 5）
+- 所以除了第一个任务，其他任务都会触发 `taskIndex > 0`
+- 导致**重复刷新页面**
+
+---
+
+## 解决方案
+
+### 核心思路
+
+**区分串行和并行模式**：
+- **串行模式**：任务在同一标签页中执行，需要刷新页面
+- **并行模式**：每个任务在独立标签页中执行，不需要刷新
+
+### 代码修改
+
+#### 1. `executeTask` 增加 `isParallel` 参数
+
+```javascript
+// ✅ 修改后
+async function executeTask(page, task, taskIndex, totalTasks, isParallel = false) {
+  // Step 1: 导航到素材页面（首次或刷新）
+  // 注意：并行模式下，每个任务在独立标签页中运行，不需要刷新
+  if (!isParallel && taskIndex > 0) {
+    await withRetry(
+      () => navigateToMaterialPage(page),
+      '导航到素材页面'
+    );
+  }
+  
+  // ... 后续步骤
+}
+```
+
+#### 2. `parallel.js` 传递 `isParallel=true`
+
+```javascript
+// ✅ 修改后
+await executeTask(page, task, taskNumber - 1, totalTasks, true);
+//                                                          ^^^^
+//                                                  告诉函数这是并行模式
+```
+
+#### 3. `index.js` 串行模式保持默认
+
+```javascript
+// 串行模式（保持不变）
+await executeTask(page, task, i, tasks.length);
+// 默认 isParallel=false，所以会正常刷新页面
+```
+
+---
+
+## ✅ 修复效果
+
+### 修复前（并行模式）
+```
+1. parallel.js 创建标签页并加载素材页面 ← 第1次加载
+2. executeTask 检测到 taskIndex > 0
+3. executeTask 再次刷新页面 ← 第2次加载（多余）
+→ 用户看到页面刷新两次 ❌
+```
+
+### 修复后（并行模式）
+```
+1. parallel.js 创建标签页并加载素材页面 ← 第1次加载
+2. executeTask 检测到 isParallel=true
+3. executeTask 跳过刷新页面 ✅
+→ 用户只看到页面加载一次 ✅
+```
+
+### 串行模式（不受影响）
+```
+任务1：首次加载 ✅
+任务2：刷新页面 ✅
+任务3：刷新页面 ✅
+→ 串行模式行为保持不变 ✅
+```
+
+---
+
+## 🧪 测试验证
+
+### 测试重点
+1. ✅ **并行模式**：每个标签页只加载一次，不重复刷新
+2. ✅ **串行模式**：第2个任务开始时正常刷新页面
+3. ✅ **任务执行**：所有任务都能正常完成
+
+### 预期行为
+
+**并行模式（3个任务）**：
+```
+标签页1: 加载素材页面 → 执行任务 → 关闭
+标签页2: 加载素材页面 → 执行任务 → 关闭
+标签页3: 加载素材页面 → 执行任务 → 关闭
+         ^^^^^^^^^^      ^^^^^^^^
+         只加载1次       不再刷新 ✅
+```
+
+---
+
+## 📝 技术总结
+
+### 问题类型
+- **上下文混淆**：串行逻辑泄露到并行场景
+
+### 解决思路
+- **模式区分**：通过参数显式区分执行模式
+- **按需加载**：只在必要时刷新页面
+
+### 最佳实践
+```javascript
+// ✅ 好的设计：显式传递上下文信息
+function executeTask(page, task, index, total, isParallel = false) {
+  if (!isParallel && shouldRefresh) {
+    refreshPage();
+  }
+}
+
+// ❌ 坏的设计：隐式假设执行环境
+function executeTask(page, task, index, total) {
+  if (index > 0) {  // 隐式假设是串行模式
+    refreshPage();
+  }
+}
+```
+
+═══════════════════════════════════════════════════════════
+✅ 修复完成，可以重新测试了！
+═══════════════════════════════════════════════════════════
+
+

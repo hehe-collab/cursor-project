@@ -1,0 +1,17 @@
+{
+  "name": "ad-automation2.0",
+  "version": "2.0.0",
+  "description": "TikTok广告批量建设 2.0 - 批间轮询广告任务页直到0个进行中",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "template": "node create-template.js",
+    "test": "node test-excel.js",
+    "setup": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0",
+    "xlsx": "^0.18.5"
+  }
+}
+

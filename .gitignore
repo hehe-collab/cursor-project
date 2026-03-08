@@ -1,0 +1,50 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 嵌套的 Git 仓库（my-first-project 已在 GitHub 单独管理）
+my-first-project/
+
+# 构建产物（体积大，可重新生成）
+**/dist/
+**/build/
+
+# 浏览器数据（含敏感信息，不应提交）
+**/browser-data/
+**/Browser Data/
+
+# Playwright 浏览器（体积大，可自动下载）
+**/pw-browsers/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+*.egg-info/
+.eggs/
+
+# 环境变量、密钥
+.env
+.env.local
+*.pem
+*.key
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 日志、缓存
+*.log
+.cache/

@@ -1,0 +1,67 @@
+{
+  "name": "dramabagus-batch-ad-tool",
+  "version": "1.0.0",
+  "description": "DramaBagus 批量广告工具 - 基于 ad-automation2.0，适配 admin.dramabagus.com/tools/batch",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "node index.js",
+    "electron": "electron .",
+    "template": "node create-template.js",
+    "test": "node test-excel.js",
+    "setup": "npx playwright install chromium",
+    "build:win": "npm run template && electron-builder --win --x64",
+    "pack:win": "npm run template && electron-builder --win --x64 --dir",
+    "build:mac": "npm run template && electron-builder --mac",
+    "pack:mac": "npm run template && electron-builder --mac --dir"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.dramabagus.batch-ad-tool",
+    "productName": "DramaBagus批量广告工具",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-main.js",
+      "electron-ui.html",
+      "electron-preload.js",
+      "index-electron.js",
+      "config.js",
+      "create-template.js",
+      "lib/**/*",
+      "data/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["zh_CN"],
+      "language": "2052"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["universal"] }
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
+}

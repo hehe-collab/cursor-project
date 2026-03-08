@@ -1,0 +1,25 @@
+{
+  "name": "promotion-link-tool",
+  "version": "2.0.0",
+  "description": "TikTok推广链接批量复制工具 v2.0 - 并行执行+数据验证 - 完美稳定版",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "template": "node create-template.js",
+    "test": "node test-excel.js"
+  },
+  "keywords": [
+    "tiktok",
+    "promotion",
+    "link",
+    "automation",
+    "playwright"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "xlsx": "^0.18.5"
+  }
+}
+
