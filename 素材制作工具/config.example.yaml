@@ -1,0 +1,19 @@
+# 短剧素材制作工具 - 配置示例
+# 复制为 config.yaml 并填写
+
+# OpenAI API（必填）
+openai:
+  api_key: "sk-xxx"  # 从环境变量 OPENAI_API_KEY 读取也可
+  model: "gpt-4o-mini"  # 粗筛用 mini，可改为 gpt-4o 提高准确度
+
+# 分析参数
+analyze:
+  frame_size: 256        # 抽帧分辨率，越小越省成本
+  scenes_per_episode: 16  # 每集最多分析场景数（控制 API 成本）
+  hook_max_seconds: 30   # 钩子最长秒数
+
+# 输出
+output:
+  target_duration_min: 10   # 单条素材目标时长下限（分钟）
+  target_duration_max: 20   # 单条素材目标时长上限（分钟）
+  materials_count: 20      # 产出素材条数

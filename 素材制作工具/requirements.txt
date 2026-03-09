@@ -1,0 +1,14 @@
+# 短剧素材制作工具 - 依赖
+
+# 场景检测
+scenedetect[opencv]>=0.6.2
+
+# OpenAI API
+openai>=1.0.0
+
+# 视频处理
+ffmpeg-python>=0.2.0
+
+# 工具
+PyYAML>=6.0
+tqdm>=4.65.0
