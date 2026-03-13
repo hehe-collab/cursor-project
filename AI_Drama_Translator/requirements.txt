@@ -1,0 +1,8 @@
+PyQt6
+opencv-python
+numpy
+requests
+Pillow
+pyobjc-framework-Vision
+pyobjc-framework-Cocoa
+pyobjc-framework-Quartz

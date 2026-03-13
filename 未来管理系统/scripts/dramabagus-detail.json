@@ -1,0 +1,122 @@
+{
+  "sidebar": {
+    "bg": "rgb(48, 65, 86)",
+    "width": "210px",
+    "color": "rgb(0, 0, 0)"
+  },
+  "header": {
+    "bg": "rgb(255, 255, 255)",
+    "height": "60px"
+  },
+  "mainBg": "rgb(240, 242, 245)",
+  "cards": [
+    {
+      "bg": "rgb(255, 255, 255)",
+      "padding": "0px",
+      "borderRadius": "4px"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "padding": "20px",
+      "borderRadius": "0px"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px"
+    },
+    {
+      "bg": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px"
+    }
+  ],
+  "menuItems": [
+    {
+      "text": "看板",
+      "hasSub": null
+    },
+    {
+      "text": "统计",
+      "hasSub": null
+    },
+    {
+      "text": "短剧管理",
+      "hasSub": true
+    },
+    {
+      "text": "短剧管理",
+      "hasSub": null
+    },
+    {
+      "text": "剧集信息",
+      "hasSub": null
+    },
+    {
+      "text": "用户信息",
+      "hasSub": true
+    },
+    {
+      "text": "用户列表",
+      "hasSub": null
+    },
+    {
+      "text": "充值记录",
+      "hasSub": null
+    },
+    {
+      "text": "投放配置",
+      "hasSub": true
+    },
+    {
+      "text": "投放链接配置",
+      "hasSub": null
+    },
+    {
+      "text": "回传配置",
+      "hasSub": null
+    },
+    {
+      "text": "回传监控",
+      "hasSub": null
+    },
+    {
+      "text": "充值方案",
+      "hasSub": true
+    },
+    {
+      "text": "充值方案",
+      "hasSub": null
+    },
+    {
+      "text": "充值方案组",
+      "hasSub": null
+    },
+    {
+      "text": "投放工具",
+      "hasSub": true
+    },
+    {
+      "text": "账户管理",
+      "hasSub": null
+    },
+    {
+      "text": "广告素材",
+      "hasSub": null
+    },
+    {
+      "text": "标题包",
+      "hasSub": null
+    },
+    {
+      "text": "批量工具",
+      "hasSub": null
+    },
+    {
+      "text": "广告任务",
+      "hasSub": null
+    }
+  ],
+  "logoText": "短剧出海",
+  "breadcrumb": "首页\n/\n首页"
+}

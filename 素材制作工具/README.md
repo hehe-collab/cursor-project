@@ -7,7 +7,7 @@
 ## 项目目标
 
 - **输入**：原汁原味的多集短剧（每集 1–3 分钟）
-- **输出**：约 20 条 10–20 分钟广告素材，可直接投放 TikTok
+- **输出**：约 20 条广告素材（40% 为 15–20 分钟，60% 为 20–30 分钟），可直接投放 TikTok
 
 ---
 
@@ -31,7 +31,7 @@
 ```
 
 - **钩子**：几秒–几十秒，从剧内其他高能点剪
-- **主体**：10–20 分钟，含起量片段，按剧情顺序
+- **主体**：15–30 分钟（可配置），围绕高能片段前后扩展，保证剧情连贯
 
 ---
 
@@ -59,7 +59,7 @@
 - Python 3.10+
 - PySceneDetect（场景切分）
 - FFmpeg（裁剪拼接）
-- OpenAI API（GPT-4o-mini 分析）
+- OpenAI API（GPT-4o 分析，可在 config 中改）
 
 ---
 
@@ -98,8 +98,12 @@ python src/analyze.py --input /path/to/drama_episodes --output analysis.json
 # 测试时限制集数：--max-episodes 2
 python src/analyze.py -i /path/to/episodes -o analysis.json -n 2
 
-# 4. 生成 20 条组合方案
+# 4. 生成 20 条组合方案（必须基于最新 analysis.json）
+#    若增加剧集后重新 analyze，务必重新执行 plan，否则素材时长会偏短
 python src/plan.py --input analysis.json --output plan.json
+
+# 命令行覆盖时长：--short-ratio 0.4 --short-min 15 --short-max 20 --long-min 20 --long-max 30
+# 或 --materials 20 指定素材数量
 
 # 5. 导出成片（需安装 ffmpeg）
 python src/export.py --plan plan.json --output ./output

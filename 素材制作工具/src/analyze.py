@@ -7,7 +7,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from scene_detect import detect_scenes, get_scene_midpoint
 from frame_extract import extract_frame, frame_to_base64
@@ -58,19 +58,25 @@ def list_episodes(drama_dir: Union[str, Path]) -> list:
 
 def analyze_episode_with_ai(
     episode_path: Path,
-    scenes: list[tuple[float, float]],
-    frame_size: int = 256,
-    model: str = "gpt-4o-mini",
-    max_scenes_to_analyze: int = 16,
-) -> dict[str, Any]:
+    scenes: List[Tuple[float, float]],
+    frame_size: int = 384,
+    model: str = "gpt-4o",
+    max_scenes_to_analyze: int = 24,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+) -> dict:
     """
     对单集进行 AI 分析
-    每场景抽 1 帧，发送给 GPT-4o-mini 打分
+    每场景抽 1 帧，发送给 GPT 打分（模型由 config 指定）
     """
     if OpenAI is None:
         raise ImportError("请安装 openai: pip install openai")
 
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+    key = api_key or os.environ.get("OPENAI_API_KEY", "")
+    client_kw = {"api_key": key}
+    if base_url:
+        client_kw["base_url"] = base_url.rstrip("/")
+    client = OpenAI(**client_kw)
 
     # 限制分析场景数，避免成本过高
     scenes_to_use = scenes[:max_scenes_to_analyze]
@@ -137,14 +143,19 @@ type 说明：hook=适合做钩子, highlight=高能片段, normal=普通
 
     # 解析 JSON
     try:
-        # 尝试提取 JSON 块
-        if "```" in text:
-            start = text.find("```") + 3
-            if "json" in text[:start]:
-                start = text.find("json") + 4
-            end = text.find("```", start)
-            text = text[start:end] if end > 0 else text[start:]
-        return json.loads(text.strip())
+        raw = text.strip()
+        # 尝试提取 JSON 块（markdown 代码块）
+        if "```" in raw:
+            start = raw.find("```") + 3
+            if raw[start:start+4].lower() == "json":
+                start += 4
+            start = raw.find("{", start)  # 定位到 { 开始
+            end = raw.rfind("}") + 1
+            raw = raw[start:end]
+        # 处理 "json\n{...}" 格式
+        elif raw.lower().startswith("json"):
+            raw = raw[4:].lstrip()
+        return json.loads(raw)
     except json.JSONDecodeError:
         return {"raw": text, "scenes": [], "error": "JSON 解析失败"}
 
@@ -179,15 +190,21 @@ def run_analysis(
     if not episodes:
         return {"error": "未找到剧集文件", "episodes": []}
 
-    if max_episodes:
-        episodes = episodes[:max_episodes]
-        print(f"限制分析前 {max_episodes} 集")
-
     openai_cfg = config.get("openai", {})
     analyze_cfg = config.get("analyze", {})
-    model = openai_cfg.get("model", "gpt-4o-mini")
-    frame_size = analyze_cfg.get("frame_size", 256)
-    max_scenes = analyze_cfg.get("scenes_per_episode", 16)
+
+    # 优先用参数，其次用配置；0 或不填表示分析全部
+    limit = max_episodes
+    if limit is None:
+        limit = analyze_cfg.get("max_episodes") or 0
+    if limit and limit > 0:
+        episodes = episodes[:limit]
+        print(f"限制分析前 {limit} 集")
+    model = openai_cfg.get("model", "gpt-4o")
+    api_key = openai_cfg.get("api_key") or os.environ.get("OPENAI_API_KEY")
+    base_url = openai_cfg.get("base_url") or ""
+    frame_size = analyze_cfg.get("frame_size", 384)
+    max_scenes = analyze_cfg.get("scenes_per_episode", 24)
 
     result = {"episodes": [], "top_highlights": [], "top_hooks": []}
     all_highlights = []
@@ -210,6 +227,8 @@ def run_analysis(
             frame_size=frame_size,
             model=model,
             max_scenes_to_analyze=max_scenes,
+            api_key=api_key,
+            base_url=base_url if base_url else None,
         )
 
         ep_data = {

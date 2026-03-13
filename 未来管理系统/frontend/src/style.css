@@ -1,0 +1,132 @@
+/* 全局样式 - 短剧出海管理后台 (DramaBagus 风格) */
+:root {
+  --primary: #409EFF;
+  --primary-light: #66b1ff;
+  --success: #67c23a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+  --border: #ebeef5;
+  --bg-page: #f0f2f5;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --transition: 0.2s ease;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #app { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--primary); text-decoration: none; transition: color var(--transition); }
+a:hover { color: var(--primary-light); }
+
+/* 主内容区 */
+.main {
+  background: var(--bg-page) !important;
+  padding: 24px !important;
+}
+
+/* 页面卡片 - 柔和阴影 + 悬停 */
+.main .el-card {
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition);
+}
+.main .el-card:hover {
+  box-shadow: var(--shadow-md);
+}
+.main .el-card__header {
+  padding: 18px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.3px;
+}
+.main .el-card__header .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.main .el-card__body {
+  padding: 24px;
+}
+
+/* 筛选表单 */
+.filter-form { margin: 0 0 20px 0 !important; }
+.filter-form .el-form-item { margin-bottom: 12px !important; margin-right: 16px !important; }
+
+/* 表格 - 行悬停、圆角 */
+.el-table {
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.el-table th.el-table__cell {
+  background: linear-gradient(180deg, #fafbfc 0%, #f5f7fa 100%) !important;
+  color: var(--text-regular);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+}
+.el-table td.el-table__cell { transition: background var(--transition); }
+.el-table__empty-block { min-height: 140px; }
+
+/* 按钮 - 统一过渡 */
+.el-button { transition: all var(--transition) !important; border-radius: var(--radius-sm) !important; }
+
+/* 输入框 - 聚焦态 */
+.el-input__wrapper { transition: box-shadow var(--transition) !important; border-radius: var(--radius-sm) !important; }
+.el-input__wrapper:hover { box-shadow: 0 0 0 1px var(--primary-light) inset !important; }
+
+/* 弹窗 */
+.el-dialog {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.el-dialog__header {
+  padding: 18px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.el-dialog__body { padding: 24px; }
+.el-dialog__footer { padding: 16px 24px; border-top: 1px solid var(--border); }
+
+/* 表格工具栏 */
+.table-toolbar, .page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* 分页 */
+.el-pagination { margin-top: 20px; }
+.el-pagination .el-pager li { border-radius: var(--radius-sm) !important; }
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .main .el-card__body { padding: 16px; }
+  .filter-form .el-form-item { margin-right: 8px !important; }
+  .overview-row { flex-direction: column; }
+  .overview-card { min-width: 100%; }
+  .kpi-row { flex-wrap: wrap; }
+  .kpi-card { min-width: calc(50% - 8px); }
+}
+

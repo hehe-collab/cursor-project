@@ -12,7 +12,7 @@ from typing import Union
 def extract_frame(
     video_path: Union[str, Path],
     timestamp_sec: float,
-    size: int = 256,
+    size: int = 384,
     format: str = "jpeg",
     quality: int = 85,
 ) -> bytes:

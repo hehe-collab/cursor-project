@@ -1,0 +1,79 @@
+{
+  "投放链接-新增": {
+    "title": "新增投放链接",
+    "labels": ["推广ID", "投放媒体", "国家/地区", "推广名称", "剧ID", "方案组ID", "金豆数", "免费集数", "推广域名"],
+    "inputs": [
+      {"placeholder": "请输入推广ID", "type": "text"},
+      {"placeholder": "请选择投放媒体", "type": "select"},
+      {"placeholder": "请选择国家/地区", "type": "select"},
+      {"placeholder": "请输入推广名称", "type": "text"},
+      {"placeholder": "请输入剧ID", "type": "text"},
+      {"placeholder": "请选择方案组", "type": "select"},
+      {"placeholder": "请输入金豆数", "type": "number"},
+      {"placeholder": "请输入免费集数", "type": "number"},
+      {"placeholder": "例: chuhai1x3x4x5x8d", "type": "text"}
+    ],
+    "footBtns": ["取消", "确定"]
+  },
+  "投放链接-修改": {
+    "title": "修改投放链接",
+    "labels": ["推广ID", "投放媒体", "国家/地区", "推广名称", "剧ID", "方案组ID", "金豆数", "免费集数", "推广域名"],
+    "footBtns": ["取消", "确定"]
+  },
+  "投放链接-批量修改": {
+    "title": "批量修改",
+    "labels": ["选择要修改的字段", "推广ID", "投放媒体", "国家/地区", "剧ID", "方案组ID", "金豆数", "免费集数", "推广域名"],
+    "footBtns": ["取消", "确定"]
+  },
+  "充值方案-新增": {
+    "title": "新增充值方案",
+    "labels": ["名称", "金豆数", "赠送金豆数", "金额", "充值信息", "支付平台"],
+    "inputs": [
+      {"placeholder": "请输入名称", "type": "text"},
+      {"placeholder": "请输入金豆数", "type": "number"},
+      {"placeholder": "请输入赠送金豆数", "type": "number"},
+      {"placeholder": "请输入金额", "type": "number"},
+      {"placeholder": "请输入充值信息", "type": "text"},
+      {"placeholder": "请选择支付平台", "type": "select"}
+    ],
+    "footBtns": ["取消", "确定"]
+  },
+  "充值方案-修改": {
+    "title": "修改充值方案",
+    "labels": ["名称", "金豆数", "赠送金豆数", "金额", "充值信息", "支付平台"],
+    "footBtns": ["取消", "确定"]
+  },
+  "账户管理-新增": {
+    "title": "新增账户",
+    "labels": ["账户媒体", "国家", "账户主体", "账户ID", "账户名称"],
+    "inputs": [
+      {"placeholder": "请选择账户媒体", "type": "select"},
+      {"placeholder": "请选择国家", "type": "select"},
+      {"placeholder": "请输入账户主体", "type": "text"},
+      {"placeholder": "请输入账户ID", "type": "text"},
+      {"placeholder": "请输入账户名称", "type": "text"}
+    ],
+    "footBtns": ["取消", "确定"]
+  },
+  "账户管理-修改": {
+    "title": "修改账户",
+    "labels": ["账户媒体", "国家", "账户主体", "账户ID", "账户名称"],
+    "footBtns": ["取消", "确定"]
+  },
+  "用户详情": {
+    "title": "用户详情",
+    "labels": ["用户ID", "用户名", "金币余额", "推广ID", "推广名称", "注册时间"],
+    "readonly": true,
+    "footBtns": ["关闭"]
+  },
+  "删除确认": {
+    "title": "提示",
+    "content": "确定要删除吗？",
+    "footBtns": ["取消", "确定"]
+  },
+  "剧集-修改": {
+    "title": "修改剧集",
+    "labels": ["剧集ID", "剧ID", "剧名", "集数", "外部ID"],
+    "footBtns": ["取消", "确定"]
+  }
+}

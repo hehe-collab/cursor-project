@@ -38,6 +38,7 @@ venv/
 .env.local
 *.pem
 *.key
+config.yaml
 
 # 编辑器
 .idea/
@@ -48,3 +49,7 @@ venv/
 # 日志、缓存
 *.log
 .cache/
+
+# 截图、视频（体积大，不提交）
+**/screenshots/
+**/*.mp4
