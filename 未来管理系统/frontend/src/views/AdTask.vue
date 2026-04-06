@@ -1,156 +1,327 @@
 <template>
-  <div class="ad-task-page">
-    <el-card>
-      <template #header><span>广告任务</span></template>
-      <el-form :inline="true" class="filter-form">
-        <el-form-item>
-          <el-button type="primary" @click="showAdd">新增任务</el-button>
+  <div class="ad-task-container page-list-layout">
+    <el-card shadow="never" class="filter-card">
+      <el-form
+        :model="filterForm"
+        class="filter-form"
+        inline
+        size="small"
+        label-position="left"
+        @submit.prevent="handleQuery"
+        @keyup.enter="handleQuery"
+      >
+        <el-form-item label="任务ID" label-width="60px">
+          <div class="filter-item-xs">
+            <el-input v-model="filterForm.taskId" placeholder="任务ID" clearable />
+          </div>
+        </el-form-item>
+        <el-form-item label="账户id" label-width="60px">
+          <div class="filter-item-s">
+            <el-input v-model="filterForm.accountId" placeholder="账户id" clearable />
+          </div>
+        </el-form-item>
+        <el-form-item label="账户名称" label-width="70px">
+          <div class="filter-item-s">
+            <el-input v-model="filterForm.accountName" placeholder="账户名称" clearable />
+          </div>
+        </el-form-item>
+        <el-form-item label="状态" label-width="50px">
+          <div class="filter-item-s">
+            <el-select v-model="filterForm.status" placeholder="状态" clearable>
+              <el-option label="全部" value="" />
+              <el-option label="成功" value="success" />
+              <el-option label="失败" value="failed" />
+              <el-option label="进行中" value="running" />
+            </el-select>
+          </div>
+        </el-form-item>
+        <el-form-item label-width="0">
+          <div class="filter-buttons">
+            <el-button type="primary" :loading="loading" @click="handleQuery">
+              <el-icon class="el-icon--left"><Search /></el-icon>
+              搜索
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon class="el-icon--left"><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+            <el-button :loading="exporting" @click="handleExport">
+              <el-icon class="el-icon--left"><Download /></el-icon>
+              导出
+            </el-button>
+          </div>
         </el-form-item>
       </el-form>
-      <el-table :data="list" v-loading="loading" stripe>
-        <template #empty>
-          <el-empty description="暂无广告任务" />
-        </template>
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="任务名称" />
-        <el-table-column prop="status" label="状态" width="100">
+    </el-card>
+
+    <el-card shadow="never" class="table-card">
+      <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%" height="calc(100vh - 240px)">
+        <el-table-column prop="task_id" label="任务ID" width="120" align="center" />
+        <el-table-column prop="account_ids" label="账户ID" min-width="300" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag :type="row.status === 'running' ? 'success' : 'info'">{{ row.status === 'running' ? '运行中' : '已停止' }}</el-tag>
+            <div class="text-overflow">{{ row.account_ids }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="create_time" label="创建时间" width="180" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column prop="account_names" label="账户名称" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-button link type="primary" @click="showDetail(row)">查看</el-button>
-            <el-button link type="primary" @click="showEdit(row)">编辑</el-button>
-            <el-button link :type="row.status === 'running' ? 'warning' : 'success'" @click="toggleStatus(row)">
-              {{ row.status === 'running' ? '停止' : '启动' }}
-            </el-button>
-            <el-button link type="danger" @click="onDelete(row)">删除</el-button>
+            <div class="text-overflow">{{ row.account_names }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="promotion_type" label="推广类型" width="150" align="center" />
+        <el-table-column prop="status" label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_by" label="创建人" width="120" align="center" />
+        <el-table-column prop="created_at" label="创建时间" width="180" align="center" />
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="handleView(row)">查看</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination
-        v-model:current-page="query.page"
-        v-model:page-size="query.pageSize"
-        :total="total"
-        layout="total, sizes, prev, pager, next"
-        @current-change="loadList"
-        @size-change="loadList"
-        style="margin-top: 16px"
-      />
+
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[20, 50, 100, 200]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleQuery"
+          @current-change="handleQuery"
+        />
+      </div>
     </el-card>
 
-    <el-dialog v-model="formVisible" :title="formId ? '编辑任务' : '新增广告任务'" width="500px" destroy-on-close>
-      <el-form :model="form" label-width="100px">
-        <el-form-item label="任务名称" required>
-          <el-input v-model="form.name" placeholder="请输入任务名称" maxlength="50" show-word-limit />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="formVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
-      </template>
-    </el-dialog>
+    <el-dialog v-model="detailVisible" title="任务详情" width="70%" destroy-on-close class="ad-task-detail-dialog">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="任务ID" label-align="right">
+          {{ detailData.task_id }}
+        </el-descriptions-item>
 
-    <el-dialog v-model="detailVisible" title="任务详情" width="600px">
-      <el-descriptions v-if="currentTask" :column="1" border>
-        <el-descriptions-item label="任务ID">{{ currentTask.id }}</el-descriptions-item>
-        <el-descriptions-item label="任务名称">{{ currentTask.name }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ currentTask.status === 'running' ? '运行中' : '已停止' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ currentTask.create_time }}</el-descriptions-item>
+        <el-descriptions-item label="状态" label-align="right">
+          <el-tag :type="getStatusType(detailData.status)">
+            {{ getStatusText(detailData.status) }}
+          </el-tag>
+        </el-descriptions-item>
+
+        <el-descriptions-item label="推广类型" label-align="right">
+          {{ detailData.promotion_type }}
+        </el-descriptions-item>
+
+        <el-descriptions-item label="创建人" label-align="right">
+          {{ detailData.created_by }}
+        </el-descriptions-item>
+
+        <el-descriptions-item label="创建时间" label-align="right" :span="2">
+          {{ detailData.created_at }}
+        </el-descriptions-item>
+
+        <el-descriptions-item label="账户ID" label-align="right" :span="2">
+          <div class="detail-scroll">{{ detailData.account_ids }}</div>
+        </el-descriptions-item>
+
+        <el-descriptions-item label="账户名称" label-align="right" :span="2">
+          <div class="detail-scroll">{{ detailData.account_names }}</div>
+        </el-descriptions-item>
+
+        <el-descriptions-item v-if="detailData.config != null" label="任务配置" label-align="right" :span="2">
+          <el-scrollbar max-height="400px">
+            <pre class="config-json">{{ formatConfig(detailData.config) }}</pre>
+          </el-scrollbar>
+        </el-descriptions-item>
       </el-descriptions>
+
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Download, RefreshLeft } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import request from '../api/request'
 
-const loading = ref(false)
-const list = ref([])
-const total = ref(0)
-const formVisible = ref(false)
-const formId = ref(null)
-const detailVisible = ref(false)
-const currentTask = ref(null)
-const query = reactive({ page: 1, pageSize: 10 })
-const form = reactive({ name: '' })
+const filterForm = reactive({
+  taskId: '',
+  accountId: '',
+  accountName: '',
+  status: '',
+})
 
-async function loadList() {
+const tableData = ref([])
+const loading = ref(false)
+const exporting = ref(false)
+
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+})
+
+const detailVisible = ref(false)
+const detailData = ref({})
+
+function getStatusType(status) {
+  const map = {
+    success: 'success',
+    failed: 'danger',
+    running: 'warning',
+  }
+  return map[status] || 'info'
+}
+
+function getStatusText(status) {
+  const map = {
+    success: '成功',
+    failed: '失败',
+    running: '进行中',
+  }
+  return map[status] || '未知'
+}
+
+function formatConfig(config) {
+  try {
+    return JSON.stringify(config, null, 2)
+  } catch (e) {
+    return String(config)
+  }
+}
+
+function handleReset() {
+  filterForm.taskId = ''
+  filterForm.accountId = ''
+  filterForm.accountName = ''
+  filterForm.status = ''
+  pagination.page = 1
+  handleQuery()
+}
+
+async function handleQuery() {
+  if (loading.value) return
   loading.value = true
   try {
-    const res = await request.get('/ad-task', { params: query }).catch(() => ({ data: { list: [], total: 0 } }))
-    list.value = res.data?.list || []
-    total.value = res.data?.total || 0
-  } catch (e) {
-    ElMessage.error('加载失败')
+    const res = await request.get('/ad-task', {
+      params: {
+        task_id: filterForm.taskId,
+        account_id: filterForm.accountId,
+        account_name: filterForm.accountName,
+        status: filterForm.status,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+      },
+    })
+    tableData.value = res.data?.list || []
+    pagination.total = res.data?.total ?? 0
+  } catch (error) {
+    console.error('查询失败:', error)
   } finally {
     loading.value = false
   }
 }
 
-function showAdd() {
-  formId.value = null
-  Object.assign(form, { name: '' })
-  formVisible.value = true
+async function handleExport() {
+  exporting.value = true
+  try {
+    ElMessage.info('正在导出，请稍候…')
+    const axiosRes = await request.get('/ad-task/export', {
+      params: {
+        task_id: filterForm.taskId,
+        account_id: filterForm.accountId,
+        account_name: filterForm.accountName,
+        status: filterForm.status,
+      },
+      responseType: 'blob',
+    })
+    const blob = axiosRes.data
+    if (!(blob instanceof Blob)) {
+      ElMessage.error('导出失败')
+      return
+    }
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const timestamp = new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')
+    link.download = `广告任务_${timestamp}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+  } finally {
+    exporting.value = false
+  }
 }
 
-function showEdit(row) {
-  formId.value = row.id
-  Object.assign(form, { name: row.name })
-  formVisible.value = true
-}
-
-function showDetail(row) {
-  currentTask.value = row
+function handleView(row) {
+  detailData.value = { ...row }
   detailVisible.value = true
 }
 
-async function submitForm() {
-  if (!form.name?.trim()) return ElMessage.warning('请输入任务名称')
-  try {
-    if (formId.value) {
-      await request.put(`/ad-task/${formId.value}`, form)
-      ElMessage.success('修改成功')
-    } else {
-      await request.post('/ad-task', form)
-      ElMessage.success('新增成功')
-    }
-    formVisible.value = false
-    loadList()
-  } catch (e) {
-    ElMessage.error('操作失败')
-  }
-}
-
-async function toggleStatus(row) {
-  const nextStatus = row.status === 'running' ? 'stopped' : 'running'
-  try {
-    await request.put(`/ad-task/${row.id}`, { ...row, status: nextStatus })
-    ElMessage.success(nextStatus === 'running' ? '已启动' : '已停止')
-    loadList()
-  } catch (e) {
-    ElMessage.error('操作失败')
-  }
-}
-
-async function onDelete(row) {
-  try {
-    await ElMessageBox.confirm('确定要删除该任务吗？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-    await request.delete(`/ad-task/${row.id}`)
-    ElMessage.success('删除成功')
-    loadList()
-  } catch (e) {
-    if (e !== 'cancel') ElMessage.error('删除失败')
-  }
-}
-
-onMounted(loadList)
+onMounted(() => {
+  handleQuery()
+})
 </script>
 
 <style scoped>
-.filter-form { margin-bottom: 16px; }
+.ad-task-container {
+  padding: 0;
+}
+
+.filter-card {
+  margin-bottom: 20px;
+}
+
+.filter-card :deep(.el-card__body) {
+  padding-bottom: 10px;
+}
+
+.table-card {
+  margin-bottom: 20px;
+}
+
+.text-overflow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.detail-scroll {
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.config-json {
+  background-color: var(--el-fill-color-light);
+  padding: 15px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-primary);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+:deep(.el-descriptions__label) {
+  width: 120px;
+  font-weight: 600;
+}
 </style>

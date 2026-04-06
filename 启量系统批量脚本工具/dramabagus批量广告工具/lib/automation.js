@@ -17,7 +17,7 @@ const {
   log, pauseForUser, safeClick, safeType,
   waitForElement, withRetry,
 } = require('./utils');
-const { normalizeStartDate, normalizeStartTime } = require('./excel');
+const { normalizeStartDate, normalizeStartTime, allowsEmptyBid, emptyBidSkipDescription } = require('./excel');
 
 // ============================================================
 //  浏览器启动 & 登录
@@ -457,26 +457,77 @@ async function selectAccounts(page, accounts) {
     if (!accountId) continue;
     log(`  搜索账户 ${i + 1}/${accounts.length}: ${accountId}`);
 
-    await accountInput.click();
-    await page.waitForTimeout(300);
-    await accountInput.fill(accountId);
-    await page.waitForTimeout(800);
+    // 按 Escape 关闭下拉（不用点击页面，避免误触链接跳转）
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
 
-    const accountIdRe = new RegExp(accountId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    let dropdown = page.locator(dropdownSelector).filter({ hasText: accountIdRe }).first();
-    if (!(await dropdown.isVisible().catch(() => false))) {
-      dropdown = page.locator(dropdownSelector).last();
+    // 随机错峰延迟 (0~1.5秒)，避免并行模式下多个标签页瞬间并发压垮后端搜索接口
+    const randomDelay = Math.floor(Math.random() * 1500);
+    if (randomDelay > 0) await page.waitForTimeout(randomDelay);
+
+    let found = false;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      if (attempt > 1) {
+        log(`  🔄 第 ${attempt} 次尝试搜索账户: ${accountId}`, 'WARN');
+      }
+
+      await accountInput.click();
+      await page.waitForTimeout(300);
+      await accountInput.fill('');
+      await page.waitForTimeout(300);
+      await accountInput.fill(accountId);
+      
+      // 触发后端请求后给充足的时间等待第一波网络回包
+      await page.waitForTimeout(1000);
+
+      const accountIdRe = new RegExp(accountId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      let dropdown = page.locator(dropdownSelector).filter({ hasText: accountIdRe }).first();
+      if (!(await dropdown.isVisible().catch(() => false))) {
+        dropdown = page.locator(dropdownSelector).last();
+      }
+
+      // 智能等待：检测加载中状态
+      let isLoading = true;
+      let waitCount = 0;
+      const maxWait = 15; // 最多等待约 30 秒
+      
+      while (isLoading && waitCount < maxWait) {
+        waitCount++;
+        // 匹配 Element UI 和 Ant Design 的无数据/加载中提示
+        const loadingText = dropdown.locator('.el-select-dropdown__empty, .ant-empty-description').filter({ hasText: /加载|搜索中|Loading|searching/i });
+        if (await loadingText.isVisible().catch(() => false)) {
+          log(`  ⏳ 账户列表加载中... (等待 ${waitCount * 2}s)`);
+          await page.waitForTimeout(2000);
+        } else {
+          // 再多等一下确保渲染完成
+          if (waitCount === 1) await page.waitForTimeout(1500);
+          isLoading = false; 
+        }
+      }
+
+      const option = dropdown.locator(optionSelector).filter({ hasText: accountIdRe }).first();
+
+      try {
+        await option.waitFor({ state: 'visible', timeout: 15000 });
+        await option.click();
+        await page.waitForTimeout(500);
+        log(`  账户已选择: ${accountId}`, 'OK');
+        logValidation(`账户${i + 1}`, accountId, accountId);
+        found = true;
+        break; // 成功则跳出重试
+      } catch (err) {
+        if (attempt === 1) {
+          log(`  ⚠️ 第一次搜索未响应，准备重试清空并重新触发...`, 'WARN');
+          // 按 ESC 尝试收起下拉，让组件状态重置
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(500);
+        } else {
+          log(`  未找到账户选项: ${accountId} - ${err.message}`, 'WARN');
+        }
+      }
     }
-    const option = dropdown.locator(optionSelector).filter({ hasText: accountIdRe }).first();
 
-    try {
-      await option.waitFor({ state: 'visible', timeout: 10000 });
-      await option.click();
-      await page.waitForTimeout(400);
-      log(`  账户已选择: ${accountId}`, 'OK');
-      logValidation(`账户${i + 1}`, accountId, accountId);
-    } catch (err) {
-      log(`  未找到账户选项: ${accountId} - ${err.message}`, 'WARN');
+    if (!found) {
       await pauseForUser(`找不到账户: ${accountId}\n请手动选择该账户后按 Enter 继续`);
     }
   }
@@ -620,14 +671,13 @@ async function setupProject(page, taskGroup) {
     await selectPixelInRow(page, row, account.pixel);
 
     // --- 填写项目名称 ---
-    await fillProjectNameInRow(row, taskGroup.projectName);
+    await fillProjectNameInRow(row, account.projectName);
 
     // --- 开启/关闭 Smart+ ---
     await toggleSmartPlusInRow(row, true);
 
     // --- 开启/关闭 启用 ---
-    const enableValue = account.enable !== undefined ? account.enable : taskGroup.enable;
-    await toggleEnableInRow(row, enableValue !== false); // 默认启用
+    await toggleEnableInRow(row, account.enable); // 默认启用
   }
 
   // 点击确定
@@ -975,8 +1025,8 @@ async function setupAdGroup(page, taskGroup) {
     // 第1个账户需要更长等待时间来"预热"状态，其他账户可以极速执行
     const isFirstAccount = (i === 0);
     await withRetry(
-      () => selectMaterials(page, dialog, row, taskGroup.materialKeyword, taskGroup.materialIds, isFirstAccount),
-      `选择素材 [${taskGroup.materialKeyword || `${taskGroup.materialIds?.length}个ID`}]`
+      () => selectMaterials(page, dialog, row, account.materialKeyword, account.materialIds, isFirstAccount),
+      `选择素材 [${account.materialKeyword || `${account.materialIds?.length}个ID`}]`
     );
 
     // Step 15: 选择标题（带重试）
@@ -987,27 +1037,41 @@ async function setupAdGroup(page, taskGroup) {
 
     // Step 16: 选择优化目标（带重试，仅支持价值/转化）
     await withRetry(
-      () => selectOptimizationTarget(page, dialog, row, taskGroup.optimizationTarget),
-      `选择优化目标 [${taskGroup.optimizationTarget}]`
+      () => selectOptimizationTarget(page, dialog, row, account.optimizationTarget),
+      `选择优化目标 [${account.optimizationTarget}]`
     );
 
-    // Step 16b: 出价策略/优化策略不论价值或转化均不点击，保持默认
+    // Step 16b: 选择出价策略（根据优化目标自动匹配或读取配置）
+    await withRetry(
+      () => selectBiddingStrategy(page, dialog, row, account.optimizationTarget, account.biddingStrategy),
+      `选择出价策略 [${account.biddingStrategy || '自动匹配'}]`
+    );
 
     // Step 17: 输入出价和预算（带重试，价值≥1.1/转化≤1.3，预算≤5000）
     await withRetry(
-      () => inputBidAndBudget(page, dialog, row, taskGroup.bid, taskGroup.budget, taskGroup.optimizationTarget),
-      `输入出价和预算 [${taskGroup.bid}/${taskGroup.budget}]`
+      () => inputBidAndBudget(page, dialog, row, account.bid, account.budget, account.optimizationTarget, account.biddingStrategy),
+      `输入出价和预算 [${account.bid || '(空)'}/${account.budget}]`
     );
 
+    // 🏆 回马枪验证：填完出价预算后，检查优化目标是否被前端联动重置
+    const optTargetCurrent = await getOptimizationTargetValue(dialog, row);
+    if (optTargetCurrent && !optTargetCurrent.includes(account.optimizationTarget)) {
+      log(`    ⚠️ 警告: 填完出价后，优化目标被系统弹回成了 "${optTargetCurrent}"，正在修正...`, 'WARN');
+      await withRetry(
+        () => selectOptimizationTarget(page, dialog, row, account.optimizationTarget),
+        `重新修正优化目标 [${account.optimizationTarget}]`
+      );
+    }
+
     // 可选：设置年龄（在开始时间之前，避免时间设置后焦点落到优化事件）
-    if (taskGroup.age && taskGroup.age !== '18+') {
-      await selectAge(page, dialog, row, taskGroup.age);
+    if (account.age && account.age !== '18+') {
+      await selectAge(page, dialog, row, account.age);
     }
 
     // Step 18: 选择开始时间（带重试），设置完后直接点确定
     await withRetry(
-      () => selectStartTime(page, dialog, row, taskGroup.startDate, taskGroup.startTime),
-      `选择开始时间 [${taskGroup.startDate} ${taskGroup.startTime}]`
+      () => selectStartTime(page, dialog, row, account.startDate, account.startTime),
+      `选择开始时间 [${account.startDate} ${account.startTime}]`
     );
   }
 
@@ -1646,6 +1710,23 @@ async function getColumnIndexByHeader(dialog, headerText) {
   return -1;
 }
 
+// ── 获取当前优化目标显示值（用于回马枪验证） ──
+async function getOptimizationTargetValue(adGroupDialog, row) {
+  try {
+    const cells = row.locator('td');
+    let colIndex = await getColumnIndexByHeader(adGroupDialog, '优化目标');
+    if (colIndex < 0) colIndex = 6;
+    const targetCell = cells.nth(colIndex);
+    const input = targetCell.locator('input').first();
+    if (await input.isVisible()) {
+      return await input.inputValue();
+    }
+    return await targetCell.innerText();
+  } catch {
+    return null;
+  }
+}
+
 // ── Step 16: 选择优化目标 ──
 
 async function selectOptimizationTarget(page, adGroupDialog, row, target) {
@@ -1686,15 +1767,25 @@ async function selectOptimizationTarget(page, adGroupDialog, row, target) {
     const option = dropdown.locator('.el-select-dropdown__item').filter({
       hasText: new RegExp(`^\\s*${normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`)
     }).or(dropdown.getByText(normalized, { exact: true })).first();
+    
     await option.waitFor({ state: 'visible', timeout: 8000 });
     await option.scrollIntoViewIfNeeded().catch(() => {});
     await page.waitForTimeout(200);
+    
+    // 强力点击：不仅触发 click，同时派发原生事件，确保 Vue 监听到变化
     try {
       await option.click({ timeout: 3000 });
     } catch {
-      await option.evaluate(el => { if (el) el.click(); });
+      await option.evaluate(el => { 
+        if (el) {
+          el.click();
+          // 强制触发更新，防止被吞
+          el.dispatchEvent(new Event('mousedown', { bubbles: true }));
+          el.dispatchEvent(new Event('mouseup', { bubbles: true }));
+        }
+      });
     }
-    await shortDelay();
+    await page.waitForTimeout(500); // 多等一会，让系统联动反应完
 
     log(`    优化目标: ${normalized}`, 'OK');
   } catch (err) {
@@ -1769,13 +1860,19 @@ async function selectBiddingStrategy(page, adGroupDialog, row, optimizationTarge
 }
 
 // ── Step 17: 输入出价和预算 ──
-// 界面列名为「出价值」即出价（同一字段）。价值时出价≥1.1，转化时≤1.3，预算≤5000；优化事件保持默认「付费(推荐)」
+// 界面列名为「出价值」即出价。「转化+最大化投放」「价值+最高价值」可不出价（跳过填格子）；否则价值≥1.1 / 转化已填≤1.3。预算≤5000
 
-async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimizationTarget) {
-  log(`    输入出价: ${bid}, 预算: ${budget}`);
+async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimizationTarget, biddingStrategy) {
+  const opt = String(optimizationTarget || '').trim();
+  const bidStr = String(bid ?? '').trim();
+  const bidIsEmpty = bidStr === '';
+  const skipBidInput = allowsEmptyBid(opt, biddingStrategy) && bidIsEmpty;
+  const skipDesc = emptyBidSkipDescription(opt, biddingStrategy);
+
+  log(`    输入出价: ${skipBidInput ? `(${skipDesc}，跳过)` : bidStr}, 预算: ${budget}`);
 
   // ===== 风险控制：验证出价和预算是否在安全范围内 =====
-  const bidNum = parseFloat(bid);
+  const bidNum = bidIsEmpty ? NaN : parseFloat(bidStr);
   const budgetNum = parseFloat(budget);
   
   // 预算最高不得高于 5000
@@ -1788,21 +1885,34 @@ async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimiza
   }
   
   // 验证出价范围（根据优化目标）
-  if (optimizationTarget === '价值') {
-    if (bidNum < 1.1) {
+  if (opt === '价值') {
+    if (skipBidInput) {
+      // 价值+最高价值且未填出价：不校验、不填出价
+    } else if (bidIsEmpty || Number.isNaN(bidNum)) {
+      log(`    ❌ 优化目标为「价值」且非「最高价值」策略时必须填写出价`, 'ERROR');
+      await pauseForUser(`优化目标为「价值」且出价策略不是「最高价值」时，必须填写出价。请在 Excel 中填写后重新运行，或手动填写后按 Enter`);
+      throw new Error('价值目标（非最高价值策略）必须填写出价');
+    } else if (bidNum < 1.1) {
       log(`    ⚠️  优化目标为"价值"时，出价 ${bid} 低于最低限制 1.1，已调整为 1.1`, 'WARN');
       bid = 1.1;
     }
     // 价值目标无上限
-  } else if (optimizationTarget === '转化') {
-    if (bidNum > 1.3) {
+  } else if (opt === '转化') {
+    if (skipBidInput) {
+      // 转化+最大化投放且未填出价：不校验、不填出价
+    } else if (bidIsEmpty) {
+      log(`    ❌ 「转化」且非「最大化投放」时必须填写出价`, 'ERROR');
+      await pauseForUser(`当前为「转化」且出价策略不是「最大化投放」，必须填写出价。请在 Excel 中填写后重试，或手动填写后按 Enter`);
+      throw new Error('转化且非最大化投放时必须填写出价');
+    } else if (!Number.isNaN(bidNum) && bidNum > 1.3) {
+      // 「转化时 bid > 1.3」：指已填写出价时，转化目标下出价不得超过 1.3（脚本安全上限）
       log(`    ❌ 优化目标为"转化"时，出价 ${bid} 超过最高限制 1.3！`, 'ERROR');
       await pauseForUser(`出价 ${bid} 超过安全上限 1.3（转化目标），请在Excel中修改后重新运行，或手动输入后按Enter继续`);
     }
-    // 转化目标无下限
+    // 转化目标无下限（已填出价时）
   }
   
-  log(`    ✓ 风险控制检查通过: 出价=${bid}, 预算=${budget}, 目标=${optimizationTarget}`);
+  log(`    ✓ 风险控制检查通过: 出价=${skipBidInput ? '(未填)' : bid}, 预算=${budget}, 目标=${opt}`);
 
   try {
     const cells = row.locator('td');
@@ -1816,20 +1926,26 @@ async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimiza
     const bidInput = cells.nth(bidCol).locator('.el-input__inner, input').first();
     const budgetInput = cells.nth(budgetCol).locator('.el-input__inner, input').first();
 
-    await cells.nth(bidCol).scrollIntoViewIfNeeded().catch(() => {});
-    await page.waitForTimeout(200);
+    if (skipBidInput) {
+      log(`    跳过填写出价（页面可留空）`, 'OK');
+    } else {
+      await cells.nth(bidCol).scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(200);
 
-    // 先填出价
-    await bidInput.click();
-    await page.waitForTimeout(150);
-    await bidInput.fill('');
-    await page.waitForTimeout(100);
-    await bidInput.fill(String(bid));
-    await page.waitForTimeout(250);
+      // 先填出价
+      await bidInput.click();
+      await page.waitForTimeout(150);
+      await bidInput.fill('');
+      await page.waitForTimeout(100);
+      await bidInput.fill(String(bid));
+      await page.waitForTimeout(250);
 
-    await validateInputValue(bidInput, '出价', bid);
+      await validateInputValue(bidInput, '出价', bid);
+    }
 
     // 再填预算（稍作间隔，避免焦点/值串列）
+    await cells.nth(budgetCol).scrollIntoViewIfNeeded().catch(() => {});
+    await page.waitForTimeout(skipBidInput ? 0 : 100);
     await budgetInput.click();
     await page.waitForTimeout(150);
     await budgetInput.fill('');
@@ -1841,9 +1957,10 @@ async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimiza
 
     // 填完预算后立即 blur，避免焦点落到下一列「优化事件」
     await page.evaluate(() => { document.activeElement?.blur?.(); });
-    await page.waitForTimeout(100);
+    // 多等一会，给系统时间执行联动逻辑（比如我们填了出价1.1，系统如果校验不通过，这时候就会把转化强行变回价值）
+    await page.waitForTimeout(600);
 
-    log(`    出价: ${bid}, 预算: ${budget}`, 'OK');
+    log(`    出价: ${skipBidInput ? '(未填)' : bid}, 预算: ${budget}`, 'OK');
   } catch (err) {
     // 重新抛出错误，让外层的 withRetry 能够捕获并自动重试
     throw err;
@@ -2131,16 +2248,52 @@ async function submitTask(page) {
     }
   } catch {}
 
-  // 等待提交完成（优化）
+  // ⚠️ 修复：有些系统在提交后会跳转页面或刷新状态，导致后续点击失效
+  // 这里不再强行等待网络闲置（因为提交可能只是发起异步请求且不刷新页面）
+  // 而是等待后端返回（比如出现“提交成功”的通知，或者网络闲置）
   if (config.advanced.skipNetworkIdle) {
     await page.waitForLoadState('domcontentloaded').catch(() => {});
     await mediumDelay();
   } else {
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    // 监听一下网络请求结束，但不强制 15 秒，只要没有新的网络请求就过
+    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(1000);
   }
 
   log('任务已提交', 'OK');
+}
+
+/**
+ * 多次提交时，在最后一次 submitTask 返回之后、本任务收尾（并行下即将关标签页）之前再缓冲。
+ * 可配置：先可选等成功 Toast，再执行固定 finalSettleMs（config.submit）。
+ */
+async function settleAfterFinalSubmit(page, submitCount) {
+  if (submitCount < 2) return;
+
+  const cfg = config.submit || {};
+  const finalSettleMs = Number(cfg.finalSettleMs);
+  const waitToast = cfg.waitForSuccessToast !== false;
+  const toastTimeout = Number(cfg.successToastTimeoutMs) || 8000;
+
+  log('末次提交后：等待界面稳定后再结束本任务（避免关标签页过早）', 'STEP');
+
+  if (waitToast) {
+    try {
+      const toast = page
+        .locator('.el-message--success, .el-message.el-message--success')
+        .first();
+      await toast.waitFor({ state: 'visible', timeout: toastTimeout });
+      log('已检测到成功提示（Toast）', 'OK');
+    } catch {
+      log('未在时限内检测到成功 Toast，将按 finalSettleMs 继续等待', 'WARN');
+    }
+  }
+
+  const ms = Number.isFinite(finalSettleMs) && finalSettleMs >= 0 ? finalSettleMs : 3000;
+  if (ms > 0) {
+    log(`末次提交后额外等待 ${ms}ms（config.submit.finalSettleMs）`);
+    await page.waitForTimeout(ms);
+  }
 }
 
 // ============================================================
@@ -2230,12 +2383,17 @@ async function executeTaskGroup(page, taskGroup, index, total, isFirst = false) 
       await takeScreenshot(page, taskGroup.taskId, '05-提交成功');
     }
     
-    // 如果还有下一次提交，等待2秒
+    // 如果还有下一次提交，等待并在原页面继续点击
     if (i < submitCount - 1) {
       log('等待2秒后点击下一次提交...');
       await page.waitForTimeout(2000);
+      
+      // ⚠️ 修复：有些系统提交后必须关闭出现的确认/成功弹窗，或者重置表单才能再次提交
+      await dismissPopups(page);
     }
   }
+
+  await settleAfterFinalSubmit(page, submitCount);
 
   console.log('═'.repeat(60));
   log(`${header} - 完成！`, 'OK');

@@ -35,6 +35,7 @@ function testExcelData() {
     // 遍历每个任务组，显示详细信息
     for (let i = 0; i < taskGroups.length; i++) {
       const task = taskGroups[i];
+      const firstAcc = task.accounts[0];
       
       console.log(`\n【任务 ${i + 1}】任务ID: ${task.taskId}`);
       console.log('─'.repeat(70));
@@ -42,56 +43,55 @@ function testExcelData() {
       // 基本信息
       console.log(`\n📋 基本信息:`);
       console.log(`  主体:           ${task.entity}`);
-      console.log(`  项目名称:       ${task.projectName}`);
+      console.log(`  项目名称:       ${firstAcc?.projectName || '-'}`);
       console.log(`  账户数量:       ${task.accounts.length}`);
       
-      // 时间信息（重点）
+      // 时间信息（重点，以首账户为准）
       console.log(`\n⏰ 时间设置:`);
-      console.log(`  开始日期:       ${task.startDate}`);
-      console.log(`  开始时间:       ${task.startTime}`);
-      console.log(`  完整时间:       ${task.startDate} ${task.startTime}`);
+      console.log(`  开始日期:       ${firstAcc?.startDate || '-'}`);
+      console.log(`  开始时间:       ${firstAcc?.startTime || '-'}`);
+      console.log(`  完整时间:       ${firstAcc?.startDate || ''} ${firstAcc?.startTime || ''}`);
       
       // 验证时间格式
-      const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(task.startDate);
-      const timeValid = /^\d{2}:\d{2}:\d{2}$/.test(task.startTime);
+      const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(firstAcc?.startDate || '');
+      const timeValid = /^\d{2}:\d{2}:\d{2}$/.test(firstAcc?.startTime || '');
       
       if (dateValid) {
         console.log(`  ✅ 日期格式正确 (YYYY-MM-DD)`);
       } else {
-        console.log(`  ❌ 日期格式错误: ${task.startDate}`);
+        console.log(`  ❌ 日期格式错误: ${firstAcc?.startDate || ''}`);
         console.log(`     期望格式: YYYY-MM-DD (如 2026-02-10)`);
       }
       
       if (timeValid) {
         console.log(`  ✅ 时间格式正确 (HH:MM:SS)`);
       } else {
-        console.log(`  ❌ 时间格式错误: ${task.startTime}`);
+        console.log(`  ❌ 时间格式错误: ${firstAcc?.startTime || ''}`);
         console.log(`     期望格式: HH:MM:SS (如 02:00:00)`);
         console.log(`     或简化格式: HH:MM (如 02:00)`);
       }
       
-      // 广告组设置
+      // 广告组设置（以首账户为准展示）
       console.log(`\n🎯 广告组设置:`);
-      // 显示素材检索方式
-      if (task.materialKeyword) {
-        console.log(`  素材检索方式:   关键词 "${task.materialKeyword}"`);
-      } else if (task.materialIds && task.materialIds.length > 0) {
-        console.log(`  素材检索方式:   ID (${task.materialIds.length}个)`);
-        console.log(`                  ${task.materialIds.slice(0, 3).join(', ')}${task.materialIds.length > 3 ? '...' : ''}`);
+      if (firstAcc?.materialKeyword) {
+        console.log(`  素材检索方式:   关键词 "${firstAcc.materialKeyword}"`);
+      } else if (firstAcc?.materialIds?.length > 0) {
+        console.log(`  素材检索方式:   ID (${firstAcc.materialIds.length}个)`);
+        console.log(`                  ${firstAcc.materialIds.slice(0, 3).join(', ')}${firstAcc.materialIds.length > 3 ? '...' : ''}`);
       } else {
         console.log(`  素材检索方式:   ⚠️  未设置`);
       }
-      console.log(`  优化目标:       ${task.optimizationTarget}`);
-      console.log(`  出价:           ${task.bid}`);
-      console.log(`  预算:           ${task.budget}`);
+      console.log(`  优化目标:       ${firstAcc?.optimizationTarget || '-'}`);
+      console.log(`  出价:           ${firstAcc?.bid || '-'}`);
+      console.log(`  预算:           ${firstAcc?.budget || '-'}`);
       console.log(`  提交次数:       ${task.submitCount}`);
       
       // 可选设置
       console.log(`\n⚙️  可选设置:`);
-      console.log(`  年龄:           ${task.age || '(默认 18+)'}`);
-      console.log(`  认证身份:       ${task.identity || '(不选)'}`);
-      console.log(`  商品库:         ${task.productStore || '(不选)'}`);
-      console.log(`  商品:           ${task.product || '(不选)'}`);
+      console.log(`  年龄:           ${firstAcc?.age || '(默认 18+)'}`);
+      console.log(`  认证身份:       ${firstAcc?.identity || '(不选)'}`);
+      console.log(`  商品库:         ${firstAcc?.productStore || '(不选)'}`);
+      console.log(`  商品:           ${firstAcc?.product || '(不选)'}`);
       
       // 账户列表（每个账户有自己的标题）
       console.log(`\n👥 账户列表 (${task.accounts.length} 个):`);
@@ -108,20 +108,20 @@ function testExcelData() {
       // 检查所有账户是否都有标题
       const allAccountsHaveTitles = task.accounts.every(acc => acc.titles && acc.titles.length > 0);
       
-      // 检查素材检索方式（关键词或ID至少有一个）
-      const hasMaterialSearch = !!task.materialKeyword || (task.materialIds && task.materialIds.length > 0);
-      const materialSearchValue = task.materialKeyword ? `关键词"${task.materialKeyword}"` : 
-                                   (task.materialIds && task.materialIds.length > 0 ? `${task.materialIds.length}个ID` : '未设置');
+      // 检查素材检索方式（以首账户为准）
+      const hasMaterialSearch = !!firstAcc?.materialKeyword || (firstAcc?.materialIds?.length > 0);
+      const materialSearchValue = firstAcc?.materialKeyword ? `关键词"${firstAcc.materialKeyword}"` : 
+                                   (firstAcc?.materialIds?.length > 0 ? `${firstAcc.materialIds.length}个ID` : '未设置');
       
       const checks = [
         { name: '主体', value: task.entity, valid: !!task.entity },
-        { name: '项目名称', value: task.projectName, valid: !!task.projectName },
+        { name: '项目名称', value: firstAcc?.projectName, valid: !!firstAcc?.projectName },
         { name: '素材检索', value: materialSearchValue, valid: hasMaterialSearch },
         { name: '标题（所有账户）', value: allAccountsHaveTitles ? '有' : '部分缺失', valid: allAccountsHaveTitles },
-        { name: '出价', value: task.bid, valid: !!task.bid },
-        { name: '预算', value: task.budget, valid: !!task.budget },
-        { name: '开始日期', value: task.startDate, valid: !!task.startDate && dateValid },
-        { name: '开始时间', value: task.startTime, valid: !!task.startTime && timeValid },
+        { name: '出价', value: firstAcc?.bid, valid: !!firstAcc?.bid },
+        { name: '预算', value: firstAcc?.budget, valid: !!firstAcc?.budget },
+        { name: '开始日期', value: firstAcc?.startDate, valid: !!firstAcc?.startDate && dateValid },
+        { name: '开始时间', value: firstAcc?.startTime, valid: !!firstAcc?.startTime && timeValid },
       ];
       
       let allValid = true;

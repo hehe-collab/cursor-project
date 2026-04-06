@@ -53,3 +53,6 @@ config.yaml
 # 截图、视频（体积大，不提交）
 **/screenshots/
 **/*.mp4
+
+# 本机绝对路径（爆款复制）
+素材制作工具/viral_clone/paths.local.txt

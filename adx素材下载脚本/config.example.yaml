@@ -1,0 +1,14 @@
+# 复制为 config.yaml 后按需修改（config.yaml 可加入 .gitignore 避免泄露）
+
+# 使用 save_session.py 登录一次后生成的会话文件路径
+storage_state: "./storage_state.json"
+
+# 登录起始页（用于校验会话是否仍有效）
+start_url: "https://adxray.dataeye.com/"
+
+# 下载任务：在实现具体页面逻辑后，在此填写链接或任务 ID 等
+downloads:
+  - name: "示例任务"
+    # page_url: "https://adxray.dataeye.com/..."  # 目标列表页或详情页
+    # output_dir: "./downloads/示例"
+    notes: "在 download.py 中根据实际 DOM/API 补充选择器与下载逻辑"

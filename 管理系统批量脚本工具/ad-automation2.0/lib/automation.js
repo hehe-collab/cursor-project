@@ -459,7 +459,7 @@ async function setupProject(page, taskGroup) {
     await selectPixelInRow(page, row, account.pixel);
 
     // --- 填写项目名称 ---
-    await fillProjectNameInRow(row, taskGroup.projectName);
+    await fillProjectNameInRow(row, account.projectName);
 
     // --- 开启/关闭 Smart+ ---
     await toggleSmartPlusInRow(row, true);
@@ -524,8 +524,8 @@ async function selectPixelInRow(page, row, pixelName) {
   try {
     // Pixel 是表格中的一个下拉选择器
     const cells = row.locator('td');
-    // Pixel 通常在第3列（索引2），根据截图：账户ID, 账户, Pixel, ...
-    const pixelCell = cells.nth(2);
+    // 新 UI「选择广告系列」表列：账户ID(0), 账户(1), 已有项目(2), Pixel(3), 推广目标(4), ...
+    const pixelCell = cells.nth(3);
     const pixelSelect = pixelCell.locator('.el-select, .el-input').first();
 
     // ✅ 等待 Loading 遮罩消失（防止接口限流导致遮罩永久存在）
@@ -556,8 +556,8 @@ async function selectPixelInRow(page, row, pixelName) {
 async function fillProjectNameInRow(row, projectName) {
   try {
     const cells = row.locator('td');
-    // 项目名称通常在第5列（索引4）：账户ID, 账户, Pixel, 已有项目, 项目名称, ...
-    const nameCell = cells.nth(4);
+    // 新 UI：..., Pixel(3), 推广目标(4), 项目名称(5), ...
+    const nameCell = cells.nth(5);
     const nameInput = nameCell.locator('.el-input__inner, input').first();
 
     await nameInput.click();
@@ -574,12 +574,11 @@ async function fillProjectNameInRow(row, projectName) {
 
 /**
  * 在行内开启/关闭 Smart+
- * 从截图看列顺序：账户ID(0), 账户(1), Pixel(2), 已有项目(3), 项目名称(4), 推广目标(5), Smart+(6), 启用(7)
- * Smart+ 是每行的第1个 .el-switch
+ * 新 UI：Smart+(6), 商品库(7), 启用(8) — 商品库也可能含开关，勿用「第 N 个 .el-switch」全行扫描
  */
 async function toggleSmartPlusInRow(row, enable) {
   try {
-    const switchEl = row.locator('.el-switch').first(); // 第1个开关 = Smart+
+    const switchEl = row.locator('td').nth(6).locator('.el-switch').first();
     const isChecked = await switchEl.evaluate(el => el.classList.contains('is-checked'));
 
     if (enable !== isChecked) {
@@ -594,12 +593,11 @@ async function toggleSmartPlusInRow(row, enable) {
 }
 
 /**
- * 在行内开启/关闭 启用
- * 启用 是每行的第2个 .el-switch
+ * 在行内开启/关闭 启用（新 UI 为第 9 列）
  */
 async function toggleEnableInRow(row, enable) {
   try {
-    const switchEl = row.locator('.el-switch').nth(1); // 第2个开关 = 启用
+    const switchEl = row.locator('td').nth(8).locator('.el-switch').first();
     const isChecked = await switchEl.evaluate(el => el.classList.contains('is-checked'));
 
     if (enable !== isChecked) {
@@ -727,19 +725,47 @@ async function setupAdGroup(page, taskGroup) {
   await dialog.waitFor({ state: 'visible', timeout: 10000 });
   log('广告组设置弹窗已打开');
 
-  // 确保在 Smart+ 标签页
-  const smartTab = dialog.locator('text=Smart+').first();
+  // 确保在「Smart+」标签页（勿匹配「Smart+2.0」；s+2.0 流程暂不支持）
+  const smartTab = dialog.locator('.el-tabs__item').filter({ hasText: /^Smart\+$/ }).first();
   try {
-    if (await smartTab.isVisible()) {
+    if (await smartTab.isVisible({ timeout: 2000 }).catch(() => false)) {
       await smartTab.click();
       await shortDelay();
     }
   } catch {}
 
-  // 获取所有账户行
-  const tableRows = dialog.locator('.el-table__body-wrapper .el-table__row');
-  const rowCount = await tableRows.count();
+  // 获取所有账户行（两种 DOM 结构择一有行即可；循环必须用与 rowCount 一致的那个 locator）
+  const rowLocPrimary = dialog.locator('.el-table__body-wrapper .el-table__row');
+  const rowLocFallback = dialog.locator('.el-table__body-wrapper tbody tr');
+  const expectedRows = taskGroup.accounts.length;
+
+  // 表格数据常晚于弹窗出现（接口/渲染）；并行多开时更容易读到 0 行却继续点「确定」→ 后台无有效广告
+  if (expectedRows > 0) {
+    const deadline = Date.now() + 25000;
+    while (Date.now() < deadline) {
+      const n1 = await rowLocPrimary.count();
+      const n2 = await rowLocFallback.count();
+      if (n1 > 0 || n2 > 0) break;
+      await page.waitForTimeout(400);
+    }
+  }
+
+  let tableRows = rowLocPrimary;
+  let rowCount = await tableRows.count();
+  if (rowCount === 0) {
+    tableRows = rowLocFallback;
+    rowCount = await tableRows.count();
+  }
   log(`  发现 ${rowCount} 个账户行`);
+
+  if (expectedRows > 0 && rowCount === 0) {
+    throw new Error(
+      `广告组弹窗内未加载出账户表格行（0/${expectedRows}），未填写广告组。请检查网络/页面或降低并发后重试。`
+    );
+  }
+  if (expectedRows > 0 && rowCount !== expectedRows) {
+    log(`  ⚠️  表格行数(${rowCount})与 Excel 账户数(${expectedRows})不一致，将按较少行数处理`, 'WARN');
+  }
 
   // 逐行设置广告组
   for (let i = 0; i < rowCount; i++) {
@@ -759,8 +785,8 @@ async function setupAdGroup(page, taskGroup) {
     // 第1个账户需要更长等待时间来"预热"状态，其他账户可以极速执行
     const isFirstAccount = (i === 0);
     await withRetry(
-      () => selectMaterials(page, dialog, row, taskGroup.materialKeyword, taskGroup.materialIds, isFirstAccount),
-      `选择素材 [${taskGroup.materialKeyword || `${taskGroup.materialIds?.length}个ID`}]`
+      () => selectMaterials(page, dialog, row, account.materialKeyword, account.materialIds || [], isFirstAccount),
+      `选择素材 [${account.materialKeyword || `${(account.materialIds || []).length}个ID`}]`
     );
 
     // Step 15: 选择标题（带重试）
@@ -771,30 +797,30 @@ async function setupAdGroup(page, taskGroup) {
 
     // Step 16: 选择优化目标（带重试）
     await withRetry(
-      () => selectOptimizationTarget(page, dialog, row, taskGroup.optimizationTarget),
-      `选择优化目标 [${taskGroup.optimizationTarget}]`
+      () => selectOptimizationTarget(page, dialog, row, account.optimizationTarget),
+      `选择优化目标 [${account.optimizationTarget}]`
     );
 
     // Step 17: 输入出价和预算（带重试）
     await withRetry(
-      () => inputBidAndBudget(page, dialog, row, taskGroup.bid, taskGroup.budget, taskGroup.optimizationTarget),
-      `输入出价和预算 [${taskGroup.bid}/${taskGroup.budget}]`
+      () => inputBidAndBudget(page, dialog, row, account.bid, account.budget, account.optimizationTarget),
+      `输入出价和预算 [${account.bid}/${account.budget}]`
     );
 
     // Step 18: 选择开始时间（带重试）
     await withRetry(
-      () => selectStartTime(page, dialog, row, taskGroup.startDate, taskGroup.startTime),
-      `选择开始时间 [${taskGroup.startDate} ${taskGroup.startTime}]`
+      () => selectStartTime(page, dialog, row, account.startDate, account.startTime),
+      `选择开始时间 [${account.startDate} ${account.startTime}]`
     );
 
     // 可选：设置年龄
-    if (taskGroup.age && taskGroup.age !== '18+') {
-      await selectAge(page, dialog, row, taskGroup.age);
+    if (account.age && account.age !== '18+') {
+      await selectAge(page, dialog, row, account.age);
     }
 
     // 可选：设置认证身份
-    if (taskGroup.identity) {
-      await selectIdentity(page, dialog, row, taskGroup.identity);
+    if (account.identity) {
+      await selectIdentity(page, dialog, row, account.identity);
     }
   }
 
@@ -1665,7 +1691,7 @@ async function submitTask(page) {
   let submitBtn = null;
   let clickSuccess = false;
 
-  // 策略1：通过JavaScript查找并点击
+  // 策略1：通过JavaScript查找并点击（新 UI：提交在顶部工具栏右侧，若页面有多个「提交」则优先更靠上、更靠右）
   try {
     clickSuccess = await page.evaluate(() => {
       const allButtons = Array.from(document.querySelectorAll('button'));
@@ -1677,13 +1703,21 @@ async function submitTask(page) {
       
       console.log(`找到 ${submitButtons.length} 个"提交"按钮`);
       
-      if (submitButtons.length > 0) {
-        // 通常提交按钮在右上角
-        submitButtons[0].scrollIntoView({ behavior: 'auto', block: 'center' });
-        submitButtons[0].click();
-        return true;
+      if (submitButtons.length === 0) return false;
+      let target = submitButtons[0];
+      if (submitButtons.length > 1) {
+        submitButtons.sort((a, b) => {
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          const dy = ra.top - rb.top;
+          if (Math.abs(dy) > 8) return dy;
+          return rb.right - ra.right;
+        });
+        target = submitButtons[0];
       }
-      return false;
+      target.scrollIntoView({ behavior: 'auto', block: 'center' });
+      target.click();
+      return true;
     });
     
     if (clickSuccess) {
@@ -1694,10 +1728,29 @@ async function submitTask(page) {
     log(`JavaScript点击失败: ${err.message}`);
   }
 
-  // 策略2：Playwright定位
+  // 策略2：Playwright定位（多个时取最靠上、靠右的一个）
   if (!clickSuccess) {
     try {
-      submitBtn = page.locator('button').filter({ hasText: '提交' }).first();
+      const candidates = page.locator('button').filter({ hasText: /^提交$/ });
+      const n = await candidates.count();
+      if (n === 0) {
+        submitBtn = page.locator('button').filter({ hasText: '提交' }).first();
+      } else if (n === 1) {
+        submitBtn = candidates.first();
+      } else {
+        let best = 0;
+        let bestScore = -Infinity;
+        for (let i = 0; i < n; i++) {
+          const box = await candidates.nth(i).boundingBox();
+          if (!box) continue;
+          const score = -box.y + box.x * 0.001;
+          if (score > bestScore) {
+            bestScore = score;
+            best = i;
+          }
+        }
+        submitBtn = candidates.nth(best);
+      }
       await submitBtn.waitFor({ state: 'visible', timeout: 5000 });
       await submitBtn.scrollIntoViewIfNeeded();
       await submitBtn.click({ force: true });
@@ -1749,7 +1802,7 @@ async function submitTask(page) {
  * @param {boolean} isFirst 是否是第一个任务（第一个不需要刷新页面）
  */
 async function executeTaskGroup(page, taskGroup, index, total, isFirst = false) {
-  const header = `任务 ${index + 1}/${total} [${taskGroup.taskId}] ${taskGroup.entity}/${taskGroup.projectName}`;
+  const header = `任务 ${index + 1}/${total} [${taskGroup.taskId}] ${taskGroup.entity}/${taskGroup.accounts[0]?.projectName || '-'}`;
   console.log('\n' + '═'.repeat(60));
   log(header, 'STEP');
   console.log('═'.repeat(60));

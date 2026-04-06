@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.DramaMapper">
+  <sql id="DramaWhere">
+    <where>
+      <if test="id != null">
+        AND d.id = #{id}
+      </if>
+      <if test="publicId != null and publicId != ''">
+        AND d.public_id = #{publicId}
+      </if>
+      <if test="title != null and title != ''">
+        AND d.title LIKE CONCAT('%', #{title}, '%')
+      </if>
+      <if test="categoryId != null">
+        AND d.category_id = #{categoryId}
+      </if>
+      <if test="status != null and status != ''">
+        <choose>
+          <when test="status == 'archived'">
+            AND d.status = 'offline'
+          </when>
+          <otherwise>
+            AND d.status = #{status}
+          </otherwise>
+        </choose>
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectById" resultType="com.drama.entity.Drama">
+    SELECT * FROM dramas WHERE id = #{id}
+  </select>
+
+  <select id="selectPublicIdPairsByIds" resultType="com.drama.entity.Drama">
+    SELECT id, public_id FROM dramas
+    WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">
+      #{i}
+    </foreach>
+  </select>
+
+  <select id="countByPublicId" resultType="long">
+    SELECT COUNT(*) FROM dramas WHERE public_id = #{publicId}
+  </select>
+
+  <select id="countByParam" resultType="long">
+    SELECT COUNT(*) FROM dramas d
+    <include refid="DramaWhere"/>
+  </select>
+
+  <select id="selectByParam" resultType="com.drama.entity.Drama">
+    SELECT d.*, c.name AS category_name
+    FROM dramas d
+    LEFT JOIN categories c ON d.category_id = c.id
+    <include refid="DramaWhere"/>
+    ORDER BY d.sort ASC, d.id DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countAll" resultType="long">
+    SELECT COUNT(*) FROM dramas
+  </select>
+
+  <select id="selectStatsAggregate" resultType="com.drama.dto.DramaStatsRow">
+    SELECT
+      COUNT(*) AS total_count,
+      SUM(CASE WHEN d.status = 'published' THEN 1 ELSE 0 END) AS published_count,
+      SUM(CASE WHEN d.status = 'draft' THEN 1 ELSE 0 END) AS draft_count,
+      SUM(CASE WHEN d.status = 'offline' THEN 1 ELSE 0 END) AS offline_count,
+      COALESCE(SUM(d.view_count), 0) AS total_views,
+      COALESCE(SUM(d.total_episodes), 0) AS total_episodes_sum
+    FROM dramas d
+    <include refid="DramaWhere"/>
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO dramas (
+      public_id,
+      title, cover, description, category_id, status, view_count, sort,
+      display_name, display_text, total_episodes, free_episodes, beans_per_episode,
+      oss_path, category, task_status, is_online
+    )
+    VALUES (
+      #{publicId},
+      #{title}, #{cover}, #{description}, #{categoryId}, #{status},
+      #{viewCount}, #{sort},
+      #{displayName}, #{displayText}, #{totalEpisodes}, #{freeEpisodes}, #{beansPerEpisode},
+      #{ossPath}, #{category}, #{taskStatus}, #{isOnline}
+    )
+  </insert>
+  <update id="update">
+    UPDATE dramas SET
+      public_id = #{publicId},
+      title = #{title},
+      cover = #{cover},
+      description = #{description},
+      category_id = #{categoryId},
+      status = #{status},
+      sort = #{sort},
+      view_count = #{viewCount},
+      total_episodes = #{totalEpisodes},
+      free_episodes = #{freeEpisodes},
+      beans_per_episode = #{beansPerEpisode},
+      display_name = #{displayName},
+      display_text = #{displayText},
+      oss_path = #{ossPath},
+      category = #{category},
+      task_status = #{taskStatus},
+      is_online = #{isOnline},
+      updated_at = NOW()
+    WHERE id = #{id}
+  </update>
+  <delete id="deleteById">
+    DELETE FROM dramas WHERE id = #{id}
+  </delete>
+</mapper>

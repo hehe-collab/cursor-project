@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.AdAccountMapper">
+
+  <resultMap id="RowMap" type="com.drama.entity.AdAccount">
+    <id column="id" property="id"/>
+    <result column="media" property="media"/>
+    <result column="country" property="country"/>
+    <result column="subject_name" property="subjectName"/>
+    <result column="account_id" property="accountId"/>
+    <result column="account_name" property="accountName"/>
+    <result column="media_alias" property="mediaAlias"/>
+    <result column="account_agent" property="accountAgent"/>
+    <result column="created_by" property="createdBy"/>
+    <result column="created_by_name" property="createdByName"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="updated_at" property="updatedAt"/>
+  </resultMap>
+
+  <select id="selectAllOrderByIdDesc" resultMap="RowMap">
+    SELECT * FROM ad_accounts ORDER BY id DESC
+  </select>
+
+  <select id="selectDistinctCountries" resultType="string">
+    SELECT DISTINCT country FROM ad_accounts
+    WHERE country IS NOT NULL AND TRIM(country) != ''
+    ORDER BY country
+  </select>
+
+  <select id="selectDistinctSubjectNames" resultType="string">
+    SELECT DISTINCT subject_name FROM ad_accounts
+    WHERE subject_name IS NOT NULL AND TRIM(subject_name) != ''
+    ORDER BY subject_name
+  </select>
+
+  <select id="selectById" resultMap="RowMap">
+    SELECT * FROM ad_accounts WHERE id = #{id}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ad_accounts (
+      media, country, subject_name, account_id, account_name, media_alias, account_agent,
+      created_by, created_by_name, created_at, updated_at
+    ) VALUES (
+      #{media}, #{country}, #{subjectName}, #{accountId}, #{accountName}, #{mediaAlias}, #{accountAgent},
+      #{createdBy}, #{createdByName}, NOW(), NOW()
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE ad_accounts SET
+      media = #{media},
+      country = #{country},
+      subject_name = #{subjectName},
+      account_id = #{accountId},
+      account_name = #{accountName},
+      media_alias = #{mediaAlias},
+      account_agent = #{accountAgent},
+      updated_at = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM ad_accounts WHERE id = #{id}
+  </delete>
+
+  <delete id="deleteByIds">
+    DELETE FROM ad_accounts WHERE id IN
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </delete>
+</mapper>

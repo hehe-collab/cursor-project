@@ -6,8 +6,10 @@
 # API 中转：填 api_key + base_url（从中转平台文档获取）
 openai:
   api_key: "sk-xxx"  # 从环境变量 OPENAI_API_KEY 读取也可
-  base_url: ""      # 中转时填，如 https://api.xxx.com/v1
+  base_url: ""      # 中转时必填，且须以 /v1 结尾，如 https://api.laozhang.ai/v1
   model: "gpt-4o"  # gpt-4o 分析更准，gpt-4o-mini 更省成本
+  timeout: 180      # 请求超时（秒），网络差可适当增大
+  max_retries: 2    # SDK 重试次数
 
 # 分析参数
 analyze:
@@ -25,3 +27,18 @@ output:
   duration_short_max: 20      # 短时长上限（分钟）
   duration_long_min: 20       # 长时长下限（分钟）
   duration_long_max: 30       # 长时长上限（分钟）
+  # 主体目标时长：random=在每条对应的 [短/长] 区间内随机取目标，避免条条顶格；max=旧行为（顶到区间上限）
+  duration_target_mode: random
+  # random 模式下区间抽样：upper=上半段 [中点,max]，尽量不偏短（默认）；uniform=全区间均匀；lower=下半段
+  duration_target_bias: upper
+  # duration_random_seed: 42   # 可选，填整数则每次生成 plan 可复现（仅 random 模式）
+  # subtitle_first=字幕块定边界（需下方字幕目录）；scene_only=仅场景切分
+  plan_mode: subtitle_first
+
+# 字幕（印尼语 SRT，与视频 stem 一致：1.mp4 → 1.srt）
+# 相对路径相对于 analysis.json 所在目录；准备好后 enabled: true
+subtitles:
+  enabled: false
+  language: id
+  dir: ./subs
+  merge_gap_sec: 2.0   # 相邻 cue 间隙超过此秒数则合并为不同「块」

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.StatsMapper">
+
+  <select id="selectRechargeDailyAgg" resultType="com.drama.dto.StatsDailyAggRow">
+    SELECT
+      DATE(created_at) AS statDate,
+      COUNT(*) AS orderCount,
+      COALESCE(SUM(amount), 0) AS rechargeAmount
+    FROM recharge_records
+    <where>
+      <if test="dramaId != null">
+        AND drama_id = #{dramaId}
+      </if>
+      <if test="media != null and media != ''">
+        AND LOWER(IFNULL(platform,'')) = LOWER(#{media})
+      </if>
+    </where>
+    GROUP BY DATE(created_at)
+    ORDER BY statDate DESC
+  </select>
+</mapper>

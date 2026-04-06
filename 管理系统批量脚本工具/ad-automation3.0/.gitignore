@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Playwright 浏览器文件（每个设备自动下载）
+pw-browsers/
+
+# 浏览器用户数据（包含登录状态，不应跨设备复制）
+browser-data/
+
+# 调试截图
+debug-*.png
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+
+
+
+
+

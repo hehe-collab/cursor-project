@@ -32,6 +32,19 @@ def load_config() -> dict:
     return {}
 
 
+def normalize_openai_base_url(url: Optional[str]) -> Optional[str]:
+    """
+    OpenAI 官方 SDK 要求 base_url 指向带 /v1 的根路径。
+    常见误写：https://api.xxx.com/ → 应改为 https://api.xxx.com/v1
+    """
+    if not url or not str(url).strip():
+        return None
+    u = str(url).strip().rstrip("/")
+    if u.endswith("/v1"):
+        return u
+    return f"{u}/v1"
+
+
 def list_episodes(drama_dir: Union[str, Path]) -> list:
     """列出剧集文件，按集数排序"""
     drama_dir = Path(drama_dir)
@@ -64,6 +77,8 @@ def analyze_episode_with_ai(
     max_scenes_to_analyze: int = 24,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
+    timeout: float = 180.0,
+    max_retries: int = 2,
 ) -> dict:
     """
     对单集进行 AI 分析
@@ -73,9 +88,14 @@ def analyze_episode_with_ai(
         raise ImportError("请安装 openai: pip install openai")
 
     key = api_key or os.environ.get("OPENAI_API_KEY", "")
-    client_kw = {"api_key": key}
-    if base_url:
-        client_kw["base_url"] = base_url.rstrip("/")
+    client_kw = {
+        "api_key": key,
+        "timeout": timeout,
+        "max_retries": max_retries,
+    }
+    bu = normalize_openai_base_url(base_url)
+    if bu:
+        client_kw["base_url"] = bu
     client = OpenAI(**client_kw)
 
     # 限制分析场景数，避免成本过高
@@ -134,12 +154,40 @@ type 说明：hook=适合做钩子, highlight=高能片段, normal=普通
     ])
     content.insert(0, {"type": "text", "text": f"{prompt}\n\n场景时间轴：\n{scene_info}\n\n截图如下："})
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": content}],
-        max_tokens=2000,
-    )
-    text = response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": content}],
+            max_tokens=2000,
+        )
+    except Exception as e:
+        err_name = type(e).__name__
+        if "Timeout" in err_name or "timeout" in str(e).lower():
+            raise RuntimeError(
+                "API 连接/请求超时。国内直连 api.openai.com 常失败，请："
+                "① 使用稳定代理/VPN；② 或在 config.yaml 配置 openai.base_url 为 API 中转地址（见 API中转配置指南.md）；"
+                "③ 或增大 openai.timeout（秒）。"
+            ) from e
+        raise
+
+    if isinstance(response, str):
+        raise RuntimeError(
+            "API 返回了字符串而非标准对象，多为 base_url 错误。"
+            "请把 config 里 openai.base_url 设为中转文档中的地址，且以 /v1 结尾，"
+            "例如：https://api.laozhang.ai/v1\n"
+            f"返回片段: {response[:400]}"
+        )
+    if not getattr(response, "choices", None):
+        raise RuntimeError(
+            "API 响应无 choices 字段，请检查 base_url（须 …/v1）、模型名与 Key 是否匹配中转平台。"
+        )
+
+    msg = response.choices[0].message
+    text = getattr(msg, "content", None) if msg is not None else None
+    if text is None:
+        raise RuntimeError(
+            "模型未返回文本内容（可能被拒绝或空响应），请查看中转站日志或换模型。"
+        )
 
     # 解析 JSON
     try:
@@ -203,6 +251,11 @@ def run_analysis(
     model = openai_cfg.get("model", "gpt-4o")
     api_key = openai_cfg.get("api_key") or os.environ.get("OPENAI_API_KEY")
     base_url = openai_cfg.get("base_url") or ""
+    _bu_show = normalize_openai_base_url(base_url if base_url else None)
+    if _bu_show:
+        print(f"OpenAI 兼容接口: {_bu_show}")
+    api_timeout = float(openai_cfg.get("timeout", 180))
+    api_retries = int(openai_cfg.get("max_retries", 2))
     frame_size = analyze_cfg.get("frame_size", 384)
     max_scenes = analyze_cfg.get("scenes_per_episode", 24)
 
@@ -229,6 +282,8 @@ def run_analysis(
             max_scenes_to_analyze=max_scenes,
             api_key=api_key,
             base_url=base_url if base_url else None,
+            timeout=api_timeout,
+            max_retries=api_retries,
         )
 
         ep_data = {
@@ -275,6 +330,8 @@ def run_analysis(
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
+        n_ep = len(result.get("episodes", []))
+        print(f"\n✅ 分析完成：已写入 {output_path.resolve()}（共 {n_ep} 集）")
 
     return result
 

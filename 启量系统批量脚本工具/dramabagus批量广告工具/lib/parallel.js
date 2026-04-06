@@ -205,39 +205,13 @@ async function runParallelMode(browser, taskGroups) {
   }
   
   const totalDuration = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
-  
-  // 统计结果
+
   const successCount = allResults.filter(r => r.success).length;
   const failedCount = allResults.filter(r => !r.success).length;
   const failedTasks = allResults.filter(r => !r.success);
-  
-  console.log('\n' + '╔'.repeat(60));
-  log('执行完毕（并行模式）', 'STEP');
-  console.log('╚'.repeat(60));
-  log(`✅  成功: ${successCount} 个`);
-  if (failedCount > 0) {
-    // 🔔 有失败任务：发出铃声提醒
-    process.stdout.write('\x07');
-    
-    log(`❌  失败: ${failedCount} 个`, 'ERROR');
-    
-    // 显示失败任务详情
-    if (failedTasks.length > 0) {
-      console.log('');
-      log('╔═══════════════════════════════════════════════════════════╗', 'ERROR');
-      log('║                  ⚠️  失败任务详情                          ║', 'ERROR');
-      log('╚═══════════════════════════════════════════════════════════╝', 'ERROR');
-      console.log('');
-      failedTasks.forEach((task, idx) => {
-        log(`  ${idx + 1}. ${task.taskLabel || task.taskId}`, 'ERROR');
-        log(`     失败原因：${task.error}`, 'ERROR');
-        console.log('');
-      });
-    }
-  }
-  log(`📋  总计: ${taskGroups.length} 个`);
-  log(`⏱️  总耗时: ${totalDuration} 分钟\n`);
-  
+
+  // 汇总由 index.js 的 printRoundSummary 统一打印，避免与主流程重复
+
   return {
     total: taskGroups.length,
     success: successCount,

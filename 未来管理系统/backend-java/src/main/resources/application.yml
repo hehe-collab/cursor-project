@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: drama-admin
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+server:
+  port: ${SERVER_PORT:3001}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.drama.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: 短剧管理系统后端（Java）
+    version: 1.0.0
+
+# 业务自定义（密钥请用环境变量覆盖，勿提交真实 Token）
+drama:
+  pixel:
+    meta-graph-version: ${META_GRAPH_VERSION:v21.0}
+    http-timeout-ms: ${PIXEL_HTTP_TIMEOUT_MS:10000}

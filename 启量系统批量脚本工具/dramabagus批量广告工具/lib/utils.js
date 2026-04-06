@@ -1,6 +1,6 @@
 /**
  * 工具函数 - 延时、日志、暂停、重试等
- * 支持 Electron 模式：通过 setPauseHandler / setLogHandler 注入
+ * 可选：setPauseHandler / setLogHandler 供外部注入（预留，当前 CLI 未使用）
  */
 const readline = require('readline');
 const config = require('../config');
@@ -83,6 +83,45 @@ function pauseForUser(message) {
       }
       resolve();
     });
+  });
+}
+
+/**
+ * 本轮结束后询问：关闭浏览器 或 继续下一轮（重新读 Excel）
+ * 关闭须显式输入 q/exit，空 Enter 无效（避免误触、stdin 残留换行）
+ * @returns {Promise<'continue'|'close'>}
+ */
+function promptNextRoundOrClose(message) {
+  return new Promise((resolve) => {
+    let headerShown = false;
+    const loop = () => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      console.log('');
+      if (!headerShown) {
+        log(message, 'WARN');
+        headerShown = true;
+      }
+      console.log('   [r]     继续下一轮：重新读取 Excel（请先保存文件），在当前浏览器中再执行');
+      console.log('   [q]     关闭浏览器并结束（须显式输入 q，仅按 Enter 不会关闭）');
+      rl.question('👆 请输入 r 或 q: ', (answer) => {
+        rl.close();
+        const a = String(answer).trim().toLowerCase();
+        if (a === 'r') {
+          resolve('continue');
+          return;
+        }
+        if (a === 'q' || a === 'exit') {
+          resolve('close');
+          return;
+        }
+        log('请输入 r（继续）或 q（关闭）。空输入或其它字符不会关闭浏览器。', 'WARN');
+        setImmediate(loop);
+      });
+    };
+    loop();
   });
 }
 
@@ -200,6 +239,7 @@ module.exports = {
   longDelay,
   log,
   pauseForUser,
+  promptNextRoundOrClose,
   setPauseHandler,
   setLogHandler,
   safeClick,

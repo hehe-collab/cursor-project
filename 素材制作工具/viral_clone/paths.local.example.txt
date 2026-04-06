@@ -1,0 +1,4 @@
+# 复制为 paths.local.txt 并填写绝对路径（paths.local.txt 建议加入 .gitignore）
+CHINESE_DIR=/path/to/chinese_drama
+INDONESIAN_DIR=/path/to/indonesian_drama
+VIRAL_CLIP=/path/to/viral_clip.mp4

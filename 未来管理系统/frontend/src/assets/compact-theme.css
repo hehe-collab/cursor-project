@@ -1,0 +1,671 @@
+/* 紧凑主题 - 全局 UI 优化（指令 #021） */
+
+:root {
+  /* ========== 字体大小 ========== */
+  --base-font-size: 12px;
+  --small-font-size: 11px;
+  --h1-font-size: 18px;
+  --h2-font-size: 16px;
+  --h3-font-size: 14px;
+
+  /* ========== 组件高度 ========== */
+  --button-height-default: 28px;
+  --button-height-large: 32px;
+  --button-height-small: 22px;
+  --input-height: 28px;
+  --table-row-height: 40px;
+  --table-header-height: 36px;
+
+  /* ========== 间距 ========== */
+  --card-padding: 12px;
+  --form-item-margin: 16px;
+  --button-gap: 8px;
+  --cell-padding: 8px;
+  --page-padding: 12px;
+  --section-gap: 12px;
+
+  /* ========== 图标大小 ========== */
+  --icon-size: 14px;
+  --menu-icon-size: 16px;
+  --large-icon-size: 18px;
+}
+
+/* ========== 全局基础样式 ========== */
+body {
+  font-size: var(--base-font-size) !important;
+  line-height: 1.5;
+}
+
+h1 {
+  font-size: var(--h1-font-size) !important;
+}
+
+h2 {
+  font-size: var(--h2-font-size) !important;
+}
+
+h3 {
+  font-size: var(--h3-font-size) !important;
+}
+
+/* ========== Element Plus 组件覆盖 ========== */
+.el-button {
+  height: var(--button-height-default);
+  padding: 0 12px;
+  font-size: var(--base-font-size);
+}
+
+.el-button--large {
+  height: var(--button-height-large);
+  padding: 0 16px;
+}
+
+.el-button--small {
+  height: var(--button-height-small);
+  padding: 0 8px;
+  font-size: var(--small-font-size);
+}
+
+.el-button + .el-button {
+  margin-left: var(--button-gap);
+}
+
+.el-input__wrapper {
+  min-height: var(--input-height);
+  padding: 0 10px;
+  font-size: var(--base-font-size);
+}
+
+.el-input__inner {
+  height: var(--input-height);
+  line-height: var(--input-height);
+  font-size: var(--base-font-size);
+}
+
+.el-textarea__inner {
+  font-size: var(--base-font-size);
+  padding: 6px 10px;
+}
+
+.el-select {
+  font-size: var(--base-font-size);
+}
+
+.el-select .el-input__wrapper {
+  min-height: var(--input-height);
+}
+
+.el-select-dropdown__item {
+  height: 32px;
+  line-height: 32px;
+  font-size: var(--base-font-size);
+  padding: 0 12px;
+}
+
+.el-date-editor {
+  font-size: var(--base-font-size);
+}
+
+.el-date-editor .el-input__wrapper {
+  min-height: var(--input-height);
+}
+
+.el-input-number {
+  font-size: var(--base-font-size);
+}
+
+.el-input-number .el-input__wrapper {
+  min-height: var(--input-height);
+}
+
+.el-form-item {
+  margin-bottom: var(--form-item-margin);
+}
+
+.el-form-item__label {
+  font-size: var(--base-font-size);
+  line-height: var(--input-height);
+  height: var(--input-height);
+}
+
+.el-form-item__content {
+  line-height: var(--input-height);
+  font-size: var(--base-font-size);
+}
+
+.el-table {
+  font-size: var(--base-font-size);
+}
+
+.el-table th.el-table__cell {
+  height: var(--table-header-height);
+  padding: var(--cell-padding);
+  font-size: var(--base-font-size);
+  background-color: #f5f7fa;
+}
+
+.el-table td.el-table__cell {
+  height: var(--table-row-height);
+  padding: var(--cell-padding);
+  font-size: var(--base-font-size);
+}
+
+.el-table--small th.el-table__cell {
+  height: 32px;
+  padding: 4px 8px;
+}
+
+.el-table--small td.el-table__cell {
+  height: 36px;
+  padding: 4px 8px;
+}
+
+.el-card {
+  margin-bottom: var(--section-gap);
+  font-size: var(--base-font-size);
+}
+
+.el-card__header {
+  padding: var(--card-padding);
+  font-size: var(--h3-font-size);
+  font-weight: 600;
+}
+
+.el-card__body {
+  padding: var(--card-padding);
+}
+
+.el-pagination {
+  padding: 8px 0;
+  font-size: var(--base-font-size);
+}
+
+.el-pagination button,
+.el-pagination .el-pager li {
+  min-width: 28px;
+  height: 28px;
+  line-height: 28px;
+  font-size: var(--base-font-size);
+}
+
+.el-pagination .el-select .el-input__wrapper {
+  min-height: 28px;
+}
+
+.el-tag {
+  height: 24px;
+  line-height: 22px;
+  padding: 0 8px;
+  font-size: var(--small-font-size);
+}
+
+.el-tag--small {
+  height: 20px;
+  line-height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.el-dialog__header {
+  padding: 12px 16px;
+  font-size: var(--h2-font-size);
+}
+
+.el-dialog__body {
+  padding: 12px 16px;
+  font-size: var(--base-font-size);
+}
+
+.el-dialog__footer {
+  padding: 10px 16px;
+}
+
+.el-drawer__header {
+  padding: 12px 16px;
+  font-size: var(--h2-font-size);
+  margin-bottom: 12px;
+}
+
+.el-drawer__body {
+  padding: 0 16px 16px;
+  font-size: var(--base-font-size);
+}
+
+.el-message {
+  min-width: 300px;
+  padding: 12px 16px;
+  font-size: var(--base-font-size);
+}
+
+.el-notification {
+  padding: 12px 16px;
+  font-size: var(--base-font-size);
+}
+
+.el-menu-item {
+  height: 44px;
+  line-height: 44px;
+  font-size: var(--base-font-size);
+  padding: 0 16px;
+}
+
+.el-sub-menu__title {
+  height: 44px;
+  line-height: 44px;
+  font-size: var(--base-font-size);
+  padding: 0 16px;
+}
+
+.el-icon {
+  font-size: var(--icon-size);
+}
+
+.el-switch {
+  height: 20px;
+  line-height: 20px;
+}
+
+.el-switch__core {
+  height: 20px;
+  min-width: 36px;
+}
+
+.el-radio {
+  font-size: var(--base-font-size);
+  margin-right: 16px;
+}
+
+.el-checkbox {
+  font-size: var(--base-font-size);
+  margin-right: 16px;
+}
+
+/* ========== 与 button-group.css 协作：左主右次、紧凑间距 ========== */
+.el-card__body > .button-group:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--button-gap);
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px solid var(--el-border-color-lighter, #ebeef5);
+}
+
+.button-group + .button-group {
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.button-group-left,
+.button-group-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--button-gap);
+}
+
+.page-container {
+  padding: var(--page-padding);
+}
+
+.table-card {
+  margin-bottom: var(--section-gap);
+}
+
+.pagination-container {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.stat-card {
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.stat-card .stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 8px 0;
+}
+
+.stat-card .stat-label {
+  font-size: var(--base-font-size);
+  color: #909399;
+}
+
+.el-empty {
+  padding: 30px 0;
+}
+
+.el-empty__description {
+  font-size: var(--base-font-size);
+}
+
+.dashboard-container .stat-cards {
+  gap: var(--section-gap);
+}
+
+.drama-list-container .drama-cover {
+  width: 60px;
+  height: 80px;
+}
+
+.recharge-list-container .amount-cell {
+  font-size: var(--base-font-size);
+  font-weight: 600;
+}
+
+/* ========== 筛选区域专用优化（指令 #025 底部对齐 + 减留白） ========== */
+
+.filter-card {
+  margin-bottom: 8px !important;
+}
+
+.filter-card .el-card__body {
+  padding: 4px 12px !important;
+}
+
+.filter-form {
+  width: 100%;
+  line-height: 1;
+}
+
+.filter-form.el-form--default .el-form-item,
+.filter-form .el-form-item {
+  display: inline-block;
+  margin-right: 6px !important;
+  margin-bottom: 0 !important;
+  vertical-align: bottom !important;
+}
+
+.filter-form .el-form-item__label {
+  padding-right: 6px !important;
+  font-size: 11px !important;
+  line-height: 26px !important;
+  height: 26px !important;
+  white-space: nowrap;
+  vertical-align: bottom !important;
+}
+
+.filter-form .el-form-item__content {
+  line-height: 26px !important;
+  font-size: 11px !important;
+  vertical-align: bottom !important;
+}
+
+/* 统一筛选区内控件高度 26px */
+.filter-form .el-input__wrapper,
+.filter-form .el-select .el-input__wrapper,
+.filter-form .el-date-editor .el-input__wrapper {
+  min-height: 26px !important;
+  height: 26px !important;
+  padding: 0 8px !important;
+  box-shadow: 0 0 0 1px var(--el-input-border-color, var(--el-border-color)) inset !important;
+}
+
+.filter-form .el-input__inner {
+  height: 26px !important;
+  line-height: 26px !important;
+  font-size: 11px !important;
+}
+
+.filter-form .el-input__icon {
+  line-height: 26px !important;
+  height: 26px !important;
+}
+
+.filter-form .el-select {
+  line-height: 26px !important;
+  vertical-align: bottom !important;
+}
+
+.filter-form .el-select .el-input__inner {
+  height: 26px !important;
+  line-height: 26px !important;
+}
+
+.filter-form .el-select .el-input__suffix {
+  line-height: 26px !important;
+}
+
+.filter-form .el-select .el-input__suffix-inner {
+  line-height: 26px !important;
+}
+
+.filter-form .el-date-editor {
+  line-height: 26px !important;
+  vertical-align: bottom !important;
+}
+
+.filter-form .el-date-editor .el-input__inner {
+  height: 26px !important;
+  line-height: 26px !important;
+  padding: 0 8px !important;
+}
+
+.filter-form .el-date-editor .el-input__prefix,
+.filter-form .el-date-editor .el-input__suffix {
+  line-height: 26px !important;
+}
+
+.filter-form .el-button {
+  vertical-align: bottom !important;
+}
+
+.filter-form .el-button .el-icon {
+  vertical-align: middle !important;
+}
+
+/* 筛选卡内：表单/工具条实心按钮统一高度（不含表格 link） */
+.filter-card .filter-form .el-button,
+.filter-card .filter-buttons .el-button,
+.filter-card .button-group .el-button {
+  height: 26px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  line-height: 24px !important;
+  vertical-align: bottom !important;
+}
+
+.filter-card .filter-form .el-button .el-icon,
+.filter-card .filter-buttons .el-button .el-icon,
+.filter-card .button-group .el-button .el-icon {
+  font-size: 12px !important;
+  vertical-align: middle !important;
+}
+
+.friend-style .filter-form .filter-actions .el-button,
+.friend-style .filter-form .toolbar-row .el-button {
+  height: 26px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+  line-height: 24px !important;
+  vertical-align: bottom !important;
+}
+
+.friend-style .filter-form .filter-actions {
+  align-items: flex-end;
+}
+
+/* 固定宽度容器 */
+.filter-form .filter-item-xs,
+.filter-form .filter-item-s,
+.filter-form .filter-item-m,
+.filter-form .filter-item-select,
+.filter-form .filter-item-date,
+.filter-form .filter-item-daterange,
+.filter-form .filter-item-wide {
+  display: inline-block;
+  vertical-align: bottom !important;
+  box-sizing: border-box;
+}
+
+.filter-form .filter-item-xs {
+  width: 100px;
+}
+
+.filter-form .filter-item-s {
+  width: 140px;
+}
+
+.filter-form .filter-item-m {
+  width: 180px;
+}
+
+.filter-form .filter-item-select {
+  width: 110px;
+}
+
+.filter-form .filter-item-date {
+  width: 150px;
+}
+
+.filter-form .filter-item-daterange {
+  width: 240px;
+}
+
+.filter-form .filter-item-wide {
+  width: 260px;
+}
+
+.filter-form .filter-item-xs .el-input,
+.filter-form .filter-item-xs .el-select,
+.filter-form .filter-item-xs .el-date-editor,
+.filter-form .filter-item-s .el-input,
+.filter-form .filter-item-s .el-select,
+.filter-form .filter-item-s .el-date-editor,
+.filter-form .filter-item-m .el-input,
+.filter-form .filter-item-m .el-select,
+.filter-form .filter-item-m .el-date-editor,
+.filter-form .filter-item-select .el-input,
+.filter-form .filter-item-select .el-select,
+.filter-form .filter-item-select .el-date-editor,
+.filter-form .filter-item-date .el-input,
+.filter-form .filter-item-date .el-select,
+.filter-form .filter-item-date .el-date-editor,
+.filter-form .filter-item-daterange .el-input,
+.filter-form .filter-item-daterange .el-select,
+.filter-form .filter-item-daterange .el-date-editor,
+.filter-form .filter-item-wide .el-input,
+.filter-form .filter-item-wide .el-select,
+.filter-form .filter-item-wide .el-date-editor {
+  width: 100%;
+}
+
+.filter-form .label-w40 {
+  width: 40px;
+}
+
+.filter-form .label-w50 {
+  width: 50px;
+}
+
+.filter-form .label-w60 {
+  width: 60px;
+}
+
+.filter-form .label-w70 {
+  width: 70px;
+}
+
+.filter-form .label-w80 {
+  width: 80px;
+}
+
+.filter-form .label-w90 {
+  width: 90px;
+}
+
+.filter-buttons {
+  display: inline-block;
+  vertical-align: bottom !important;
+}
+
+.filter-buttons .el-button {
+  margin-left: 0 !important;
+  margin-right: 6px !important;
+  vertical-align: bottom !important;
+}
+
+.filter-buttons .el-button:last-child {
+  margin-right: 0 !important;
+}
+
+.filter-form br {
+  display: none;
+}
+
+.filter-form .el-form-item--small .el-form-item__label {
+  min-width: auto;
+}
+
+.batch-filter-form.el-form--default .el-form-item,
+.batch-filter-form .el-form-item {
+  margin-right: 8px !important;
+  vertical-align: bottom !important;
+}
+
+/* 表格卡：略减内边距与段间距（指令 #025） */
+.table-card {
+  margin-bottom: 8px !important;
+}
+
+.el-card.table-card .el-card__body {
+  padding: 8px 12px !important;
+}
+
+/* 列表页：筛选固定高度 + 表格区吃满剩余视口（指令 #022） */
+.page-list-layout {
+  height: calc(100vh - 48px - 36px - 24px);
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.page-list-layout .table-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-list-layout .table-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 友商风格充值方案/方案组：单行筛选压扁 */
+.friend-style .filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.friend-style .filter-row .el-form-item {
+  margin-bottom: 0 !important;
+}
+
+.friend-style .filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.friend-style .filter-id-input {
+  max-width: 220px;
+}

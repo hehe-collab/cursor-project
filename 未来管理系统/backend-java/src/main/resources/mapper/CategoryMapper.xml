@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.CategoryMapper">
+
+  <sql id="WhereName">
+    <where>
+      <if test="name != null and name != ''">
+        AND name LIKE CONCAT('%', #{name}, '%')
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectById" resultType="com.drama.entity.Category">
+    SELECT * FROM categories WHERE id = #{id}
+  </select>
+
+  <select id="selectAll" resultType="com.drama.entity.Category">
+    SELECT * FROM categories ORDER BY sort ASC, id ASC
+  </select>
+
+  <select id="countByParam" resultType="long">
+    SELECT COUNT(*) FROM categories
+    <include refid="WhereName"/>
+  </select>
+
+  <select id="selectByParam" resultType="com.drama.entity.Category">
+    SELECT * FROM categories
+    <include refid="WhereName"/>
+    ORDER BY sort ASC, id ASC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectStats" resultType="com.drama.dto.CategoryStatsRow">
+    SELECT
+      (SELECT COUNT(*) FROM categories) AS total_count,
+      (SELECT COUNT(*) FROM dramas WHERE category_id IS NOT NULL) AS dramas_linked_count,
+      (SELECT COUNT(*) FROM dramas) AS total_dramas
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO categories (name, sort) VALUES (#{name}, #{sort})
+  </insert>
+
+  <update id="update">
+    UPDATE categories SET name = #{name}, sort = #{sort}, updated_at = NOW() WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM categories WHERE id = #{id}
+  </delete>
+</mapper>

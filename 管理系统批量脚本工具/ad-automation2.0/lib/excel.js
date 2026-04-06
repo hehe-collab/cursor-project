@@ -68,7 +68,51 @@ function readTasks(filePath) {
     groups[taskId].push(row);
   }
 
-  // 处理继承逻辑：每组内，后续行从首行继承空值字段
+  // 辅助：格式化日期（支持 Excel 序列号）
+  function formatStartDate(val) {
+    let s = String(val || '').trim();
+    if (!s) return '';
+    if (val instanceof Date) return val.toISOString().split('T')[0];
+    if (/^\d{5}$/.test(s)) {
+      const date = XLSX.SSF.parse_date_code(Number(s));
+      return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+    }
+    return s;
+  }
+
+  // 辅助：格式化时间（支持 Excel 小数）
+  // 注意：Excel 将「0:00:00」存为数字 0；若写 val||'' 会把 0 当成空（falsy），必须用 ?? 或显式判断
+  function formatStartTime(val) {
+    let s = String(val ?? '').trim();
+    if (!s) return '';
+    if (s.includes(':')) {
+      if (/^\d{1,2}:\d{2}$/.test(s)) s = s + ':00';
+      return s;
+    }
+    const timeValue = Number(s);
+    if (!isNaN(timeValue) && timeValue >= 0 && timeValue < 1) {
+      const totalSeconds = Math.round(timeValue * 86400);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    return s;
+  }
+
+  // 辅助：解析素材ID列表
+  function parseMaterialIds(val) {
+    const str = String(val || '').trim();
+    if (!str) return [];
+    return str
+      .replace(/[\r\n]+/g, '\n')
+      .replace(/^[;；\s]+|[;；\s]+$/g, '')
+      .split(/[\n;；,，]+/)
+      .map(id => id.trim())
+      .filter(id => id.length > 0);
+  }
+
+  // 处理继承逻辑：每组内，后续行从首行继承空值字段；所有列支持逐行独立配置
   const taskGroups = [];
   for (const [taskId, rows] of Object.entries(groups)) {
     const firstRow = rows[0];
@@ -86,14 +130,23 @@ function readTasks(filePath) {
 
       const account = {
         accountId: String(row.accountId).trim(),
-        // Pixel: 如果当前行有值则用当前行的，否则继承首行
-        pixel: String(row.pixel || firstRow.pixel).trim(),
-        // 推广链接关键词：每行必填（不继承）
-        linkKeyword: String(row.linkKeyword).trim(),
-        // 标题：每个账户可以有自己的标题，或继承首行
+        pixel: String(row.pixel || firstRow.pixel || '').trim(),
+        linkKeyword: String(row.linkKeyword || '').trim(),
         titles,
-        // 启用：可逐行覆盖，默认 true
         enable,
+        // 以下字段全部支持逐行独立配置，空则继承首行
+        projectName: String(row.projectName || firstRow.projectName || '').trim(),
+        materialKeyword: String(row.materialKeyword || firstRow.materialKeyword || '').trim(),
+        materialIds: parseMaterialIds(row.materialIds || firstRow.materialIds),
+        optimizationTarget: String(row.optimizationTarget || firstRow.optimizationTarget || '价值').trim(),
+        bid: String(row.bid || firstRow.bid || '').trim(),
+        budget: String(row.budget || firstRow.budget || '').trim(),
+        startDate: formatStartDate(row.startDate || firstRow.startDate),
+        startTime: formatStartTime(row.startTime || firstRow.startTime),
+        age: String(row.age || firstRow.age || '18+').trim(),
+        identity: String(row.identity || firstRow.identity || '').trim(),
+        productStore: String(row.productStore || firstRow.productStore || '').trim(),
+        product: String(row.product || firstRow.product || '').trim(),
       };
 
       if (!account.accountId) {
@@ -117,92 +170,28 @@ function readTasks(filePath) {
       continue;
     }
 
-    // 格式化日期
-    let startDate = String(firstRow.startDate || '').trim();
-    if (startDate instanceof Date) {
-      startDate = startDate.toISOString().split('T')[0];
-    }
-    // 处理 Excel 日期序列号
-    if (/^\d{5}$/.test(startDate)) {
-      const date = XLSX.SSF.parse_date_code(Number(startDate));
-      startDate = `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
-    }
-
-    // 格式化时间（处理 Excel 时间序列号）
-    let startTime = String(firstRow.startTime || '').trim();
-    
-    // Excel 时间值是 0-1 之间的小数（0.5 = 12:00:00）
-    if (startTime && !startTime.includes(':')) {
-      const timeValue = Number(startTime);
-      if (!isNaN(timeValue) && timeValue >= 0 && timeValue < 1) {
-        // 转换小数为 HH:MM:SS
-        const totalSeconds = Math.round(timeValue * 86400); // 一天86400秒
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        startTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      }
-    }
-    
-    // 如果已经是时间格式（HH:MM:SS 或 HH:MM），保持不变
-    // 如果只有 HH:MM，补充 :00
-    if (startTime && /^\d{1,2}:\d{2}$/.test(startTime)) {
-      startTime = startTime + ':00';
-    }
-
-    // 解析提交次数（默认1次）
+    // 解析提交次数（任务级，默认1次）
     let submitCount = parseInt(firstRow.submitCount) || 1;
     if (submitCount < 1) submitCount = 1;
-    if (submitCount > 10) submitCount = 10; // 限制最大10次
-
-    // 解析素材ID列表（支持多种分隔符：换行、分号、逗号）
-    let materialIds = [];
-    const materialIdsStr = String(firstRow.materialIds || '').trim();
-    if (materialIdsStr) {
-      // 1. 替换 Excel 换行符（\r\n, \n, \r）为统一的换行符
-      // 2. 去除首尾的分号和空格
-      // 3. 按换行、分号、逗号分隔
-      materialIds = materialIdsStr
-        .replace(/[\r\n]+/g, '\n')           // 统一换行符
-        .replace(/^[;；\s]+|[;；\s]+$/g, '') // 去除首尾的分号和空格
-        .split(/[\n;；,，]+/)                 // 按换行、中英文分号、中英文逗号分隔
-        .map(id => id.trim())                // 去除每个ID的前后空格
-        .filter(id => id.length > 0);        // 去除空字符串
-    }
+    if (submitCount > 10) submitCount = 10;
 
     const taskGroup = {
       taskId,
       entity: String(firstRow.entity).trim(),
-      projectName: String(firstRow.projectName).trim(),
-      optimizationTarget: String(firstRow.optimizationTarget || '价值').trim(),
-      bid: String(firstRow.bid).trim(),
-      budget: String(firstRow.budget).trim(),
-      startDate,
-      startTime,
-      materialKeyword: String(firstRow.materialKeyword).trim(),
-      materialIds,  // 素材ID数组
-      age: String(firstRow.age || '18+').trim(),
-      identity: String(firstRow.identity || '').trim(),
-      productStore: String(firstRow.productStore || '').trim(),
-      product: String(firstRow.product || '').trim(),
-      enable: true, // 默认启用
-      submitCount, // 提交次数
+      submitCount,
       accounts,
     };
 
-    // 验证必填字段
+    // 验证必填字段（以首行/首账户为准）
+    const firstAcc = accounts[0];
     const missing = [];
     if (!taskGroup.entity) missing.push('主体');
-    if (!taskGroup.projectName) missing.push('项目名称');
-    // 素材关键词和素材ID至少要有一个
-    if (!taskGroup.materialKeyword && taskGroup.materialIds.length === 0) {
-      missing.push('素材关键词或素材ID（至少填写一项）');
-    }
-    // 标题已移至账户级别，在上面的循环中已验证
-    if (!taskGroup.bid) missing.push('出价');
-    if (!taskGroup.budget) missing.push('预算');
-    if (!taskGroup.startDate) missing.push('开始日期');
-    if (!taskGroup.startTime) missing.push('开始时间');
+    if (!firstAcc.projectName) missing.push('项目名称');
+    if (!firstAcc.materialKeyword && firstAcc.materialIds.length === 0) missing.push('素材关键词或素材ID（至少填写一项）');
+    if (!firstAcc.bid) missing.push('出价');
+    if (!firstAcc.budget) missing.push('预算');
+    if (!firstAcc.startDate) missing.push('开始日期');
+    if (!firstAcc.startTime) missing.push('开始时间');
 
     if (missing.length > 0) {
       log(`任务 ${taskId} 缺少必填字段: ${missing.join(', ')}`, 'WARN');
@@ -224,17 +213,13 @@ function printTaskSummary(taskGroups) {
   console.log('='.repeat(70));
 
   for (const group of taskGroups) {
-    console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${group.projectName}`);
-    console.log(`   优化目标: ${group.optimizationTarget} | 出价: ${group.bid} | 预算: ${group.budget}`);
-    console.log(`   开始时间: ${group.startDate} ${group.startTime} | 年龄: ${group.age}`);
+    const first = group.accounts[0];
+    console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${first?.projectName || '-'}`);
+    console.log(`   优化目标: ${first?.optimizationTarget || '-'} | 出价: ${first?.bid || '-'} | 预算: ${first?.budget || '-'}`);
+    console.log(`   开始时间: ${first?.startDate || '-'} ${first?.startTime || '-'} | 年龄: ${first?.age || '18+'}`);
     
-    // 显示素材检索方式
-    if (group.materialKeyword) {
-      console.log(`   素材检索: 关键词 "${group.materialKeyword}"`);
-    }
-    if (group.materialIds.length > 0) {
-      console.log(`   素材检索: ID (${group.materialIds.length}个) ${group.materialIds.slice(0, 3).join(', ')}${group.materialIds.length > 3 ? '...' : ''}`);
-    }
+    if (first?.materialKeyword) console.log(`   素材检索: 关键词 "${first.materialKeyword}"`);
+    if (first?.materialIds?.length > 0) console.log(`   素材检索: ID (${first.materialIds.length}个) ${first.materialIds.slice(0, 3).join(', ')}${first.materialIds.length > 3 ? '...' : ''}`);
     
     console.log(`   账户 (${group.accounts.length} 个):`);
     for (const acc of group.accounts) {

@@ -9,7 +9,7 @@ export function useTableList(options = {}) {
   const {
     fetchApi,
     defaultQuery = {},
-    defaultPageSize = 10,
+    defaultPageSize = 20,
     onError = (e) => ElMessage.error(e?.message || '加载失败'),
   } = options
 

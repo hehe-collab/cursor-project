@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.RechargePlanGroupMapper">
+
+  <resultMap id="GroupMap" type="com.drama.entity.RechargePlanGroup">
+    <id column="id" property="id"/>
+    <result column="name" property="name"/>
+    <result column="group_name" property="groupName"/>
+    <result column="group_public_id" property="groupPublicId"/>
+    <result column="sort_order" property="sortOrder"/>
+    <result column="description" property="description"/>
+    <result column="status" property="status"/>
+    <result column="group_uuid" property="groupUuid"/>
+    <result column="item_no" property="itemNo"/>
+    <result column="item_token" property="itemToken"/>
+    <result column="media_platform" property="mediaPlatform"/>
+    <result column="pixel_id" property="pixelId"/>
+    <result column="pixel_token" property="pixelToken"/>
+    <result column="creator" property="creator"/>
+    <result column="created_by" property="createdBy"/>
+    <result column="created_by_name" property="createdByName"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="updated_at" property="updatedAt"/>
+  </resultMap>
+
+  <sql id="WhereList">
+    <where>
+      <if test="groupName != null and groupName != ''">
+        AND (name LIKE CONCAT('%', #{groupName}, '%') OR group_name LIKE CONCAT('%', #{groupName}, '%'))
+      </if>
+      <if test="groupPublicIdToken != null and groupPublicIdToken != ''">
+        AND LOWER(group_public_id) LIKE CONCAT('%', LOWER(#{groupPublicIdToken}), '%')
+      </if>
+      <if test="idToken != null and idToken != ''">
+        AND (
+          CAST(id AS CHAR) LIKE CONCAT('%', #{idToken}, '%')
+          OR LOWER(COALESCE(group_uuid,'')) LIKE CONCAT('%', LOWER(#{idToken}), '%')
+          OR LOWER(group_public_id) LIKE CONCAT('%', LOWER(#{idToken}), '%')
+        )
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectFiltered" resultMap="GroupMap">
+    SELECT * FROM recharge_plan_groups
+    <include refid="WhereList"/>
+    ORDER BY sort_order ASC, id ASC
+  </select>
+
+  <select id="selectById" resultMap="GroupMap">
+    SELECT * FROM recharge_plan_groups WHERE id = #{id}
+  </select>
+
+  <select id="selectActiveOrderBySort" resultMap="GroupMap">
+    SELECT * FROM recharge_plan_groups WHERE status = 'active' ORDER BY sort_order ASC, id ASC
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO recharge_plan_groups (
+      name, group_name, group_public_id, sort_order, description, status, group_uuid,
+      item_no, item_token, media_platform, pixel_id, pixel_token,
+      creator, created_by, created_by_name, created_at, updated_at
+    ) VALUES (
+      #{name}, #{groupName}, #{groupPublicId}, #{sortOrder}, #{description}, #{status}, #{groupUuid},
+      #{itemNo}, #{itemToken}, #{mediaPlatform}, #{pixelId}, #{pixelToken},
+      #{creator}, #{createdBy}, #{createdByName}, NOW(), NOW()
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE recharge_plan_groups SET
+      name = #{name},
+      group_name = #{groupName},
+      group_public_id = #{groupPublicId},
+      sort_order = #{sortOrder},
+      description = #{description},
+      status = #{status},
+      group_uuid = #{groupUuid},
+      item_no = #{itemNo},
+      item_token = #{itemToken},
+      media_platform = #{mediaPlatform},
+      pixel_id = #{pixelId},
+      pixel_token = #{pixelToken},
+      creator = #{creator},
+      created_by_name = #{createdByName},
+      updated_at = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM recharge_plan_groups WHERE id = #{id}
+  </delete>
+
+  <delete id="deleteByIds">
+    DELETE FROM recharge_plan_groups WHERE id IN
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+  </delete>
+</mapper>

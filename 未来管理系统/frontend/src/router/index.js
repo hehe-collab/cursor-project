@@ -9,8 +9,6 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue') },
       { path: 'dramas', name: 'DramaManage', component: () => import('../views/DramaManage.vue') },
-      { path: 'episodes', name: 'Episodes', component: () => import('../views/Episodes.vue') },
-      { path: 'stats', name: 'Stats', component: () => import('../views/Stats.vue') },
       { path: 'dramas/add', name: 'DramaAdd', component: () => import('../views/DramaForm.vue') },
       { path: 'dramas/edit/:id', name: 'DramaEdit', component: () => import('../views/DramaForm.vue') },
       { path: 'users', name: 'User', component: () => import('../views/User.vue') },
@@ -25,7 +23,7 @@ const routes = [
       { path: 'title-pack', name: 'TitlePack', component: () => import('../views/TitlePack.vue') },
       { path: 'batch-tools', name: 'BatchTools', component: () => import('../views/BatchTools.vue') },
       { path: 'ad-task', name: 'AdTask', component: () => import('../views/AdTask.vue') },
-      { path: ':pathMatch(.*)*', name: 'NotFound', component: () => import('../views/NotFound.vue') },
+      { path: ':pathMatch(.*)*', redirect: '/dashboard' },
     ],
   },
 ]

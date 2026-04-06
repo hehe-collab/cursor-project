@@ -1,0 +1,427 @@
+{
+  "viral": "/Volumes/存钱罐/素材汇总/参考素材3.29/天马/天马3.mp4",
+  "episodes_dir": "/Volumes/存钱罐/剧集汇总/流星中文",
+  "sample_rate": 4000,
+  "timeline_start_sample": 2392653,
+  "timeline_end_sample": 3399378,
+  "viral_duration_sec": 251.68125,
+  "ncc_full_at_refined_lag": 0.4263,
+  "ncc_full_at_coarse_lag": 0.4263,
+  "lag_coarse_sample": 2392653,
+  "lag_refined_sample": 2392653,
+  "lag_refined_by_full_ncc_scan": true,
+  "refine_search_sec": 6.0,
+  "refine_step_sec": 0.1,
+  "correlate_mode": "windowed",
+  "coarse_decim": 8,
+  "correlate_pad_sec": 45.0,
+  "segment_cut": "reencode_h264_aac",
+  "cut_seek_margin_sec": 0.0,
+  "cuts_chinese": [
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/04.mp4",
+      "start_sec": 141.938,
+      "end_sec": 159.266
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/05.mp4",
+      "start_sec": 0.0,
+      "end_sec": 108.019
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/06.mp4",
+      "start_sec": 0.0,
+      "end_sec": 126.334
+    }
+  ],
+  "episode_timeline": [
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/01.mp4",
+      "start_sample": 0,
+      "end_sample": 691583
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/02.mp4",
+      "start_sample": 691583,
+      "end_sample": 1275983
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/03.mp4",
+      "start_sample": 1275983,
+      "end_sample": 1824903
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/04.mp4",
+      "start_sample": 1824903,
+      "end_sample": 2461966
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/05.mp4",
+      "start_sample": 2461966,
+      "end_sample": 2894043
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/06.mp4",
+      "start_sample": 2894043,
+      "end_sample": 3405347
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/07.mp4",
+      "start_sample": 3405347,
+      "end_sample": 3947673
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/08.mp4",
+      "start_sample": 3947673,
+      "end_sample": 4535788
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/09.mp4",
+      "start_sample": 4535788,
+      "end_sample": 5022757
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/10.mp4",
+      "start_sample": 5022757,
+      "end_sample": 5593695
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/11.mp4",
+      "start_sample": 5593695,
+      "end_sample": 6158219
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/12.mp4",
+      "start_sample": 6158219,
+      "end_sample": 6695436
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/13.mp4",
+      "start_sample": 6695436,
+      "end_sample": 7212318
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/14.mp4",
+      "start_sample": 7212318,
+      "end_sample": 7945233
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/15.mp4",
+      "start_sample": 7945233,
+      "end_sample": 8436753
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/16.mp4",
+      "start_sample": 8436753,
+      "end_sample": 9120070
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/17.mp4",
+      "start_sample": 9120070,
+      "end_sample": 9863579
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/18.mp4",
+      "start_sample": 9863579,
+      "end_sample": 10356312
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/19.mp4",
+      "start_sample": 10356312,
+      "end_sample": 10860092
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/20.mp4",
+      "start_sample": 10860092,
+      "end_sample": 11364058
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/21.mp4",
+      "start_sample": 11364058,
+      "end_sample": 11808581
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/22.mp4",
+      "start_sample": 11808581,
+      "end_sample": 12356015
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/23.mp4",
+      "start_sample": 12356015,
+      "end_sample": 12859151
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/24.mp4",
+      "start_sample": 12859151,
+      "end_sample": 13402777
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/25.mp4",
+      "start_sample": 13402777,
+      "end_sample": 13947982
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/26.mp4",
+      "start_sample": 13947982,
+      "end_sample": 14373470
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/27.mp4",
+      "start_sample": 14373470,
+      "end_sample": 14979517
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/28.mp4",
+      "start_sample": 14979517,
+      "end_sample": 15500202
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/29.mp4",
+      "start_sample": 15500202,
+      "end_sample": 15919560
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/30.mp4",
+      "start_sample": 15919560,
+      "end_sample": 16493285
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/31.mp4",
+      "start_sample": 16493285,
+      "end_sample": 17018898
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/32.mp4",
+      "start_sample": 17018898,
+      "end_sample": 17609527
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/33.mp4",
+      "start_sample": 17609527,
+      "end_sample": 18153530
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/34.mp4",
+      "start_sample": 18153530,
+      "end_sample": 18666134
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/35.mp4",
+      "start_sample": 18666134,
+      "end_sample": 19191933
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/36.mp4",
+      "start_sample": 19191933,
+      "end_sample": 19801132
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/37.mp4",
+      "start_sample": 19801132,
+      "end_sample": 20331760
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/38.mp4",
+      "start_sample": 20331760,
+      "end_sample": 20893410
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/39.mp4",
+      "start_sample": 20893410,
+      "end_sample": 21418924
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/40.mp4",
+      "start_sample": 21418924,
+      "end_sample": 21998964
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/41.mp4",
+      "start_sample": 21998964,
+      "end_sample": 22544639
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/42.mp4",
+      "start_sample": 22544639,
+      "end_sample": 23057986
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/43.mp4",
+      "start_sample": 23057986,
+      "end_sample": 23619265
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/44.mp4",
+      "start_sample": 23619265,
+      "end_sample": 24144321
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/45.mp4",
+      "start_sample": 24144321,
+      "end_sample": 24711788
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/46.mp4",
+      "start_sample": 24711788,
+      "end_sample": 25242818
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/47.mp4",
+      "start_sample": 25242818,
+      "end_sample": 25776237
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/48.mp4",
+      "start_sample": 25776237,
+      "end_sample": 26326723
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/49.mp4",
+      "start_sample": 26326723,
+      "end_sample": 26913817
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/50.mp4",
+      "start_sample": 26913817,
+      "end_sample": 27401327
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/51.mp4",
+      "start_sample": 27401327,
+      "end_sample": 27975535
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/52.mp4",
+      "start_sample": 27975535,
+      "end_sample": 28459461
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/53.mp4",
+      "start_sample": 28459461,
+      "end_sample": 28994928
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/54.mp4",
+      "start_sample": 28994928,
+      "end_sample": 29502576
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/55.mp4",
+      "start_sample": 29502576,
+      "end_sample": 29995803
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/56.mp4",
+      "start_sample": 29995803,
+      "end_sample": 30530673
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/57.mp4",
+      "start_sample": 30530673,
+      "end_sample": 31024583
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/58.mp4",
+      "start_sample": 31024583,
+      "end_sample": 31544093
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/59.mp4",
+      "start_sample": 31544093,
+      "end_sample": 32054899
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/60.mp4",
+      "start_sample": 32054899,
+      "end_sample": 32559646
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/61.mp4",
+      "start_sample": 32559646,
+      "end_sample": 33100745
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/62.mp4",
+      "start_sample": 33100745,
+      "end_sample": 33590303
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/63.mp4",
+      "start_sample": 33590303,
+      "end_sample": 34046410
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/64.mp4",
+      "start_sample": 34046410,
+      "end_sample": 34523168
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/65.mp4",
+      "start_sample": 34523168,
+      "end_sample": 35024928
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/66.mp4",
+      "start_sample": 35024928,
+      "end_sample": 35593675
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/67.mp4",
+      "start_sample": 35593675,
+      "end_sample": 36097483
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/68.mp4",
+      "start_sample": 36097483,
+      "end_sample": 36605131
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/69.mp4",
+      "start_sample": 36605131,
+      "end_sample": 37135478
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/70.mp4",
+      "start_sample": 37135478,
+      "end_sample": 37639884
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/71.mp4",
+      "start_sample": 37639884,
+      "end_sample": 38216140
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/72.mp4",
+      "start_sample": 38216140,
+      "end_sample": 38626508
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/73.mp4",
+      "start_sample": 38626508,
+      "end_sample": 39175116
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/74.mp4",
+      "start_sample": 39175116,
+      "end_sample": 39681655
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/75.mp4",
+      "start_sample": 39681655,
+      "end_sample": 40184951
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/76.mp4",
+      "start_sample": 40184951,
+      "end_sample": 40702669
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/77.mp4",
+      "start_sample": 40702669,
+      "end_sample": 41258360
+    }
+  ],
+  "min_ncc_threshold": 0.3,
+  "indo_export_forced_low_ncc": true,
+  "indo_export_blocked_low_ncc": false
+}

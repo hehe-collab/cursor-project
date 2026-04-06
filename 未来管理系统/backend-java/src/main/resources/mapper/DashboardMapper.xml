@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.DashboardMapper">
+
+  <sql id="PaidFilter">
+    (
+      IFNULL(payment_status,'') IN ('paid','completed')
+      OR LOWER(IFNULL(pay_status,'')) IN ('paid','success')
+    )
+  </sql>
+
+  <select id="countUsers" resultType="long">
+    SELECT COUNT(*) FROM users
+  </select>
+
+  <select id="countDramas" resultType="long">
+    SELECT COUNT(*) FROM dramas
+  </select>
+
+  <select id="countRecharges" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+  </select>
+
+  <select id="sumRechargeAmountPaid" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM recharge_records
+    WHERE <include refid="PaidFilter"/>
+  </select>
+
+  <select id="countUsersOnDate" resultType="long">
+    SELECT COUNT(*) FROM users
+    WHERE DATE(created_at) = #{d}
+  </select>
+
+  <select id="countRechargesOnDate" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) = #{d}
+  </select>
+
+  <select id="sumRechargeAmountPaidOnDate" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) = #{d}
+      AND <include refid="PaidFilter"/>
+  </select>
+
+  <select id="usersByDateRange" resultType="java.util.HashMap">
+    SELECT DATE(created_at) AS stat_date, COUNT(*) AS n
+    FROM users
+    WHERE DATE(created_at) BETWEEN #{start} AND #{end}
+    GROUP BY DATE(created_at)
+    ORDER BY stat_date ASC
+  </select>
+
+  <select id="rechargesByDateRange" resultType="java.util.HashMap">
+    SELECT DATE(COALESCE(local_order_time, created_at)) AS stat_date, COUNT(*) AS n
+    FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+    GROUP BY DATE(COALESCE(local_order_time, created_at))
+    ORDER BY stat_date ASC
+  </select>
+
+  <select id="amountPaidByDateRange" resultType="java.util.HashMap">
+    SELECT DATE(COALESCE(local_order_time, created_at)) AS stat_date, COALESCE(SUM(amount), 0) AS amt
+    FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+    GROUP BY DATE(COALESCE(local_order_time, created_at))
+    ORDER BY stat_date ASC
+  </select>
+
+  <select id="viewsByDateRange" resultType="java.util.HashMap">
+    SELECT stat_date AS stat_date, COALESCE(SUM(metric_value), 0) AS n
+    FROM daily_stats
+    WHERE stat_date BETWEEN #{start} AND #{end}
+      AND LOWER(metric) IN ('views', 'view', 'total_views', 'plays', 'view_count')
+    GROUP BY stat_date
+    ORDER BY stat_date ASC
+  </select>
+
+  <sql id="PendingFilter">
+    (
+      IFNULL(payment_status,'') = 'pending'
+      OR LOWER(IFNULL(pay_status,'')) IN ('pending','unpaid')
+    )
+  </sql>
+
+  <select id="countRechargePaidInRange" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+  </select>
+
+  <select id="countRechargePendingInRange" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PendingFilter"/>
+  </select>
+
+  <select id="countRechargeOtherInRange" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND NOT <include refid="PaidFilter"/>
+      AND NOT <include refid="PendingFilter"/>
+  </select>
+</mapper>

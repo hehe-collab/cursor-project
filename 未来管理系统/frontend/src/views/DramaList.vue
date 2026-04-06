@@ -2,25 +2,35 @@
   <div class="drama-list">
     <el-card>
       <template #header>
-        <div class="card-header">
-          <span>剧集信息</span>
-          <el-button type="primary" @click="$router.push('/dramas/add')">新增</el-button>
-        </div>
+        <span>剧集信息</span>
       </template>
-      <el-form :inline="true" class="filter-form" @submit.prevent="loadList">
-        <el-form-item label="剧ID">
-          <el-input v-model="query.dramaId" placeholder="请输入剧ID" clearable style="width:160px" @keyup.enter="loadList" />
-        </el-form-item>
-        <el-form-item label="集数">
-          <el-input v-model="query.episodeNum" placeholder="请输入集数" clearable style="width:120px" />
-        </el-form-item>
-        <el-form-item label="外部ID">
-          <el-input v-model="query.externalId" placeholder="请输入外部ID" clearable style="width:180px" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="loadList">查询</el-button>
-          <el-button @click="onReset">重置</el-button>
-        </el-form-item>
+      <el-form :model="query" label-position="top" class="drama-list-filter-form" @submit.prevent="loadList">
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="剧ID">
+              <el-input v-model="query.dramaId" placeholder="请输入剧ID" clearable @keyup.enter="loadList" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="集数">
+              <el-input v-model="query.episodeNum" placeholder="请输入集数" clearable />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="外部ID">
+              <el-input v-model="query.externalId" placeholder="请输入外部ID" clearable />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <div class="button-group">
+          <div class="button-group-left">
+            <el-button type="primary" @click="loadList">查询</el-button>
+            <el-button @click="onReset">重置</el-button>
+          </div>
+          <div class="button-group-right">
+            <el-button type="primary" @click="$router.push('/dramas/add')">新增</el-button>
+          </div>
+        </div>
       </el-form>
       <el-table :data="list" v-loading="loading" stripe>
         <template #empty>
@@ -42,6 +52,7 @@
         v-model:current-page="query.page"
         v-model:page-size="query.pageSize"
         :total="total"
+        :page-sizes="[20, 50, 100, 200]"
         layout="total, sizes, prev, pager, next"
         @current-change="loadList"
         @size-change="loadList"
@@ -79,7 +90,7 @@ const editRow = ref(null)
 const editForm = reactive({ external_id: '' })
 const query = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: 20,
   dramaId: '',
   episodeNum: '',
   externalId: '',
@@ -155,6 +166,10 @@ onMounted(loadList)
 </script>
 
 <style scoped>
-.card-header { display: flex; justify-content: space-between; align-items: center; }
-.filter-form { margin-bottom: 16px; }
+.drama-list-filter-form :deep(.el-input) {
+  width: 100%;
+}
+.drama-list-filter-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
 </style>

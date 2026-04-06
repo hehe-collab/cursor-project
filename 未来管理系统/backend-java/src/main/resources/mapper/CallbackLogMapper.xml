@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.CallbackLogMapper">
+
+  <resultMap id="LogMap" type="com.drama.entity.CallbackLog">
+    <id column="id" property="id"/>
+    <result column="order_no" property="orderNo"/>
+    <result column="order_id" property="orderId"/>
+    <result column="event" property="event"/>
+    <result column="event_type" property="eventType"/>
+    <result column="pixel_id" property="pixelId"/>
+    <result column="status" property="status"/>
+    <result column="error_message" property="errorMessage"/>
+    <result column="retry_count" property="retryCount"/>
+    <result column="send_time" property="sendTime"/>
+    <result column="sent_at" property="sentAt"/>
+    <result column="created_at" property="createdAt"/>
+  </resultMap>
+
+  <sql id="LogWhere">
+    <where>
+      <if test="status != null and status != '' and status != '全部'">
+        AND status = #{status}
+      </if>
+      <if test="eventType != null and eventType != '' and eventType != '全部'">
+        AND (
+          IFNULL(event_type,'') LIKE CONCAT('%', #{eventType}, '%')
+          OR IFNULL(event,'') LIKE CONCAT('%', #{eventType}, '%')
+        )
+      </if>
+      <if test="orderId != null and orderId != ''">
+        AND (
+          IFNULL(order_no,'') LIKE CONCAT('%', #{orderId}, '%')
+          OR IFNULL(order_id,'') LIKE CONCAT('%', #{orderId}, '%')
+        )
+      </if>
+      <if test="dateStart != null and dateStart != ''">
+        AND DATE(created_at) &gt;= DATE(#{dateStart})
+      </if>
+      <if test="dateEnd != null and dateEnd != ''">
+        AND DATE(created_at) &lt;= DATE(#{dateEnd})
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectStats" resultType="com.drama.dto.CallbackLogStatsRow">
+    SELECT
+      COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN status IN ('成功','success') THEN 1 ELSE 0 END), 0) AS success,
+      COALESCE(SUM(CASE WHEN status IN ('失败','failed') THEN 1 ELSE 0 END), 0) AS failed,
+      COALESCE(SUM(CASE WHEN status IN ('待处理','pending') THEN 1 ELSE 0 END), 0) AS pending
+    FROM callback_logs
+  </select>
+
+  <select id="selectFiltered" resultMap="LogMap">
+    SELECT * FROM callback_logs
+    <include refid="LogWhere"/>
+    ORDER BY created_at DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countFiltered" resultType="long">
+    SELECT COUNT(*) FROM callback_logs
+    <include refid="LogWhere"/>
+  </select>
+</mapper>

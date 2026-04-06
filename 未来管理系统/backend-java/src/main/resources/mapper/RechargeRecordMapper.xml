@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.RechargeRecordMapper">
+
+  <sql id="WhereFilter">
+    <where>
+      <if test="userId != null and userId != ''">
+        AND CAST(user_id AS CHAR) LIKE CONCAT('%', #{userId}, '%')
+      </if>
+      <if test="promotionId != null and promotionId != ''">
+        AND (promotion_id LIKE CONCAT('%', #{promotionId}, '%') OR promote_id LIKE CONCAT('%', #{promotionId}, '%'))
+      </if>
+      <if test="orderKey != null and orderKey != ''">
+        AND (
+          CAST(id AS CHAR) LIKE CONCAT('%', #{orderKey}, '%')
+          OR IFNULL(order_no,'') LIKE CONCAT('%', #{orderKey}, '%')
+        )
+      </if>
+      <if test="externalKey != null and externalKey != ''">
+        AND (IFNULL(external_order_id,'') LIKE CONCAT('%', #{externalKey}, '%')
+          OR IFNULL(external_order_no,'') LIKE CONCAT('%', #{externalKey}, '%'))
+      </if>
+      <if test="country != null and country != ''">
+        AND IFNULL(country,'') LIKE CONCAT('%', #{country}, '%')
+      </if>
+      <if test="platform != null and platform != ''">
+        AND IFNULL(platform,'') LIKE CONCAT('%', #{platform}, '%')
+      </if>
+      <if test="adAccountId != null and adAccountId != ''">
+        AND IFNULL(ad_account_id,'') LIKE CONCAT('%', #{adAccountId}, '%')
+      </if>
+      <if test="startDate != null and startDate != ''">
+        AND DATE(COALESCE(local_register_time, local_time, created_at)) &gt;= #{startDate}
+      </if>
+      <if test="endDate != null and endDate != ''">
+        AND DATE(COALESCE(local_register_time, local_time, created_at)) &lt;= #{endDate}
+      </if>
+      <if test="status != null and status != ''">
+        <choose>
+          <when test="status == 'pending'">
+            AND (
+              IFNULL(payment_status,'') = 'pending'
+              OR LOWER(IFNULL(pay_status,'')) IN ('pending','unpaid')
+            )
+          </when>
+          <when test="status == 'paid'">
+            AND (
+              IFNULL(payment_status,'') = 'paid'
+              OR LOWER(IFNULL(pay_status,'')) IN ('paid','success')
+            )
+          </when>
+          <when test="status == 'failed'">
+            AND (
+              IFNULL(payment_status,'') = 'failed'
+              OR LOWER(IFNULL(pay_status,'')) = 'failed'
+            )
+          </when>
+        </choose>
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectMaxId" resultType="long">
+    SELECT COALESCE(MAX(id), 1000000) FROM recharge_records
+  </select>
+
+  <insert id="insert">
+    INSERT INTO recharge_records (
+      id, order_no, user_id, drama_id, drama_name, amount, coins,
+      payment_status, pay_status, promotion_id, promote_id, new_user_id,
+      is_first_recharge, is_new_user, local_register_time, local_order_time, local_time,
+      country, external_order_id, external_order_no, payment_method, platform,
+      ad_account_id, ad_account_name, callback_sent,
+      created_at, updated_at
+    ) VALUES (
+      #{id}, #{orderNo}, #{userId}, #{dramaId}, #{dramaName}, #{amount}, #{coins},
+      #{paymentStatus}, #{payStatus}, #{promotionId}, #{promoteId}, #{newUserId},
+      #{isFirstRecharge}, #{isNewUser}, #{localRegisterTime}, #{localOrderTime}, #{localTime},
+      #{country}, #{externalOrderId}, #{externalOrderNo}, #{paymentMethod}, #{platform},
+      #{adAccountId}, #{adAccountName}, #{callbackSent},
+      NOW(), NOW()
+    )
+  </insert>
+
+  <update id="updateById">
+    UPDATE recharge_records SET
+      order_no = #{orderNo},
+      user_id = #{userId},
+      drama_id = #{dramaId},
+      drama_name = #{dramaName},
+      amount = #{amount},
+      coins = #{coins},
+      payment_status = #{paymentStatus},
+      pay_status = #{payStatus},
+      promotion_id = #{promotionId},
+      promote_id = #{promoteId},
+      new_user_id = #{newUserId},
+      is_first_recharge = #{isFirstRecharge},
+      is_new_user = #{isNewUser},
+      local_register_time = #{localRegisterTime},
+      local_order_time = #{localOrderTime},
+      local_time = #{localTime},
+      country = #{country},
+      external_order_id = #{externalOrderId},
+      external_order_no = #{externalOrderNo},
+      payment_method = #{paymentMethod},
+      platform = #{platform},
+      ad_account_id = #{adAccountId},
+      ad_account_name = #{adAccountName},
+      callback_sent = #{callbackSent},
+      updated_at = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM recharge_records WHERE id = #{id}
+  </delete>
+
+  <select id="selectStatsAggregate" resultType="com.drama.dto.RechargeStatsRow">
+    SELECT
+      COUNT(*) AS total_count,
+      SUM(CASE WHEN (
+        IFNULL(payment_status,'') = 'pending'
+        OR LOWER(IFNULL(pay_status,'')) IN ('pending','unpaid')
+      ) THEN 1 ELSE 0 END) AS pending_count,
+      SUM(CASE WHEN (
+        IFNULL(payment_status,'') = 'paid'
+        OR LOWER(IFNULL(pay_status,'')) IN ('paid','success')
+      ) THEN 1 ELSE 0 END) AS success_count,
+      SUM(CASE WHEN (
+        IFNULL(payment_status,'') = 'failed'
+        OR LOWER(IFNULL(pay_status,'')) = 'failed'
+      ) THEN 1 ELSE 0 END) AS failed_count,
+      COALESCE(SUM(amount), 0) AS total_amount,
+      COALESCE(SUM(CASE WHEN (
+        IFNULL(payment_status,'') = 'paid'
+        OR LOWER(IFNULL(pay_status,'')) IN ('paid','success')
+      ) THEN amount ELSE 0 END), 0) AS success_amount,
+      SUM(CASE WHEN is_first_recharge = 1 THEN 1 ELSE 0 END) AS first_recharge_count,
+      SUM(CASE WHEN is_new_user = 1 THEN 1 ELSE 0 END) AS new_user_count
+    FROM recharge_records
+    <include refid="WhereFilter"/>
+  </select>
+
+  <select id="countByParam" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+    <include refid="WhereFilter"/>
+  </select>
+
+  <select id="selectByParam" resultType="com.drama.entity.RechargeRecord">
+    SELECT * FROM recharge_records
+    <include refid="WhereFilter"/>
+    ORDER BY COALESCE(local_order_time, created_at) DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectById" resultType="com.drama.entity.RechargeRecord">
+    SELECT * FROM recharge_records WHERE id = #{id}
+  </select>
+
+  <select id="countAll" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+  </select>
+
+  <select id="countPendingApprox" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+    WHERE IFNULL(payment_status,'') = 'pending'
+       OR LOWER(IFNULL(pay_status,'')) IN ('pending','unpaid')
+  </select>
+
+  <select id="countEarlierPaid" resultType="int">
+    SELECT COUNT(*) FROM recharge_records
+    WHERE user_id = #{userId}
+      AND id != #{excludeId}
+      AND local_order_time IS NOT NULL
+      AND #{before} IS NOT NULL
+      AND local_order_time &lt; #{before}
+      AND (
+        IFNULL(payment_status,'') IN ('paid','completed')
+        OR LOWER(IFNULL(pay_status,'')) IN ('paid','success')
+      )
+  </select>
+</mapper>

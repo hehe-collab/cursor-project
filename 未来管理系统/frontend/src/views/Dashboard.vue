@@ -1,391 +1,794 @@
 <template>
-  <div class="dashboard">
-    <el-card>
-      <template #header><span>看板</span></template>
-
-      <!-- 今日概览（DramaBagus 风格） -->
-      <div class="overview-row">
-        <div class="overview-card">
-          <div class="overview-title">今日用户数</div>
-          <div class="overview-value">{{ formatNum(stats.todayUsers) }}</div>
-        </div>
-        <div class="overview-card">
-          <div class="overview-title">今日金额</div>
-          <div class="overview-value">{{ formatNum(stats.todayAmount) }}</div>
-        </div>
-        <div class="overview-card">
-          <div class="overview-title">今日订单</div>
-          <div class="overview-value">{{ formatNum(stats.todayOrders) }}</div>
-        </div>
-        <div class="overview-card">
-          <div class="overview-title">未结算</div>
-          <div class="overview-value">{{ formatNum(stats.unsettled) }}</div>
-        </div>
-      </div>
-
-      <!-- KPI 卡片：消耗、时速、充值、ROI、利润 -->
-      <div class="kpi-row">
-        <div class="kpi-card">
-          <div class="kpi-title">消耗</div>
-          <div class="kpi-value">${{ formatMoney(stats.spend) }}</div>
-          <div class="kpi-sub">IDR {{ formatNum(stats.spend * (stats.exchangeRate || 16779)) }}</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">时速</div>
-          <div class="kpi-value">${{ formatMoney(stats.hourlyRate) }}</div>
-          <div class="kpi-sub">IDR {{ formatNum(stats.hourlyRate * (stats.exchangeRate || 16779)) }}</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">充值</div>
-          <div class="kpi-value">${{ formatMoney(stats.recharge) }}</div>
-          <div class="kpi-sub">IDR {{ formatNum(stats.recharge * (stats.exchangeRate || 16779)) }}</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">ROI</div>
-          <div class="kpi-value" :class="{ red: (stats.roi || 0) < 1 }">{{ (stats.roi || 0).toFixed(4) }}</div>
-          <div class="kpi-sub">收入/消耗</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">利润</div>
-          <div class="kpi-value" :class="{ red: (stats.profit || 0) < 0 }">${{ formatMoney(stats.profit) }}</div>
-          <div class="kpi-sub">IDR {{ formatNum((stats.profit || 0) * (stats.exchangeRate || 16779)) }}</div>
-        </div>
-        <div class="kpi-card exchange-card">
-          <div class="kpi-title">汇率 (BCA)</div>
-          <div class="kpi-value small">1 USD = {{ formatNum(stats.exchangeRate || 16779) }} IDR</div>
-          <div class="kpi-sub">{{ stats.exchangeTime || '-' }}</div>
-        </div>
-      </div>
-
-      <!-- 筛选区域 -->
-      <el-form :inline="true" class="filter-form" @submit.prevent="onSearch">
-        <el-form-item label="推广ID">
-          <el-input v-model="filter.promoteId" placeholder="请输入推广ID" clearable style="width:140px" @keyup.enter="onSearch" />
+  <div class="dashboard-container">
+    <el-card class="filter-card" shadow="never">
+      <el-form
+        :model="filterForm"
+        class="filter-form"
+        inline
+        size="small"
+        label-position="left"
+        @submit.prevent="handleFilter"
+      >
+        <el-form-item label="推广ID" label-width="60px">
+          <div class="filter-item-xs">
+            <el-input v-model="filterForm.promotion_id" placeholder="推广ID" clearable />
+          </div>
         </el-form-item>
-        <el-form-item label="推广名称">
-          <el-input v-model="filter.promoteName" placeholder="请输入推广名称" clearable style="width:140px" />
+        <el-form-item label="推广名称" label-width="60px">
+          <div class="filter-item-s">
+            <el-input v-model="filterForm.promotion_name" placeholder="推广名称" clearable />
+          </div>
         </el-form-item>
-        <el-form-item label="剧ID">
-          <el-input v-model="filter.dramaId" placeholder="请输入剧ID" clearable style="width:120px" />
+        <el-form-item label="剧ID" label-width="50px">
+          <div class="filter-item-xs">
+            <el-input v-model="filterForm.drama_id" placeholder="剧ID" clearable />
+          </div>
         </el-form-item>
-        <el-form-item label="剧名称">
-          <el-input v-model="filter.dramaName" placeholder="请输入剧名称" clearable style="width:140px" />
+        <el-form-item label="剧名称" label-width="50px">
+          <div class="filter-item-s">
+            <el-input v-model="filterForm.drama_name" placeholder="剧名称" clearable />
+          </div>
         </el-form-item>
-        <el-form-item label="账户">
-          <el-input v-model="filter.account" placeholder="请输入账户" clearable style="width:120px" />
+        <el-form-item label="账户" label-width="50px">
+          <div class="filter-item-s">
+            <el-input v-model="filterForm.account" placeholder="账户" clearable />
+          </div>
         </el-form-item>
-        <el-form-item label="投放媒体">
-          <el-select v-model="filter.media" placeholder="请选择" clearable style="width:120px">
-            <el-option label="TikTok" value="TikTok" />
-            <el-option label="Facebook" value="Facebook" />
-            <el-option label="Google" value="Google" />
-          </el-select>
+        <el-form-item label="投放媒体" label-width="70px">
+          <div class="filter-item-m">
+            <el-select
+              v-model="filterForm.media"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              placeholder="媒体"
+            >
+              <el-option label="TikTok" value="tiktok" />
+              <el-option label="Facebook" value="facebook" />
+              <el-option label="Google" value="google" />
+              <el-option label="Snapchat" value="snapchat" />
+            </el-select>
+          </div>
         </el-form-item>
-        <el-form-item label="国家">
-          <el-select v-model="filter.country" placeholder="请选择" clearable style="width:100px">
-            <el-option label="印尼" value="ID" />
-            <el-option label="美国" value="US" />
-            <el-option label="泰国" value="TH" />
-          </el-select>
+        <el-form-item v-if="countries.length > 0" label="国家" label-width="50px">
+          <div class="filter-item-m">
+            <el-select
+              v-model="filterForm.country"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              clearable
+              placeholder="国家"
+            >
+              <el-option
+                v-for="opt in countryMultiOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+          </div>
         </el-form-item>
-        <el-form-item label="日期">
-          <el-date-picker v-model="filter.dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="width:240px" />
+        <el-form-item label="日期范围" label-width="60px">
+          <div class="filter-item-daterange">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始"
+              end-placeholder="结束"
+              value-format="YYYY-MM-DD"
+              @change="handleDateChange"
+            />
+          </div>
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="onSearch">搜索</el-button>
-          <el-button @click="onReset">重置</el-button>
+        <el-form-item label-width="0">
+          <div class="filter-buttons">
+            <el-button type="primary" :loading="filterSubmitting" @click="handleFilter">
+              <el-icon><Search /></el-icon>
+              查询
+            </el-button>
+            <el-button :disabled="filterSubmitting" @click="handleReset">
+              <el-icon><RefreshLeft /></el-icon>
+              重置
+            </el-button>
+            <el-button type="success" @click="handleExport">
+              <el-icon><Download /></el-icon>
+              导出
+            </el-button>
+          </div>
         </el-form-item>
       </el-form>
-
-      <!-- 表格区域 -->
-      <div class="table-toolbar">
-        <el-button @click="onExport"><el-icon><Download /></el-icon> 导出</el-button>
-        <span class="local-time">当地时间: {{ localTime }}</span>
-      </div>
-      <el-table :data="tableData" v-loading="loading" stripe class="dashboard-table">
-        <template #empty>
-          <el-empty description="暂无数据" />
-        </template>
-        <el-table-column prop="date" label="日期" width="110" />
-        <el-table-column prop="promote_id" label="推广ID" width="120" />
-        <el-table-column prop="promote_name" label="推广名称" min-width="140" />
-        <el-table-column prop="account" label="账户" width="100">
-          <template #default="{ row }">
-            <span v-if="row.account && row.account !== '-' && !row.is_summary" class="account-link">...{{ row.account }}</span>
-            <span v-else>{{ row.account || (row.is_summary ? '' : '-') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="series" label="系列广告组" width="100">
-          <template #default="{ row }">
-            <el-button v-if="!row.is_summary" type="success" size="small" link>调试</el-button>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="spend" label="消耗" width="90" sortable>
-          <template #default="{ row }">{{ row.promote_name === '汇总' ? '-' : formatMoney(row.spend) }}</template>
-        </el-table-column>
-        <el-table-column prop="hourly_rate" label="时速" width="90" sortable>
-          <template #default="{ row }">{{ row.promote_name === '汇总' ? '-' : formatMoney(row.hourly_rate) }}</template>
-        </el-table-column>
-        <el-table-column prop="roi" label="ROI" width="90" sortable>
-          <template #default="{ row }">
-            <span v-if="row.promote_name === '汇总'">-</span>
-            <span v-else :class="{ red: (row.roi || 0) < 1 }">{{ (row.roi || 0).toFixed(4) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="users" label="用户数" width="80">
-          <template #default="{ row }">{{ row.promote_name === '汇总' ? '-' : row.users }}</template>
-        </el-table-column>
-        <el-table-column prop="recharge" label="充值金额" width="100" sortable>
-          <template #default="{ row }">{{ row.is_summary && row.promote_name === '汇总' ? '-' : formatNum(row.recharge) }}</template>
-        </el-table-column>
-        <el-table-column prop="profit" label="利润" width="90" sortable>
-          <template #default="{ row }">
-            <span v-if="row.promote_name === '汇总'">-</span>
-            <span v-else :class="{ red: (row.profit || 0) < 0, green: (row.profit || 0) > 0 }">{{ formatMoney(row.profit) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="orders" label="订单数" width="80">
-          <template #default="{ row }">{{ row.promote_name === '汇总' ? '-' : row.orders }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="showProfitChart(row)">利润图</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
     </el-card>
 
-    <!-- 利润图弹窗 -->
-    <el-dialog v-model="profitChartVisible" title="利润趋势" width="720px" destroy-on-close>
-      <div v-if="profitChartData.length" class="profit-chart">
-        <div class="profit-bars">
-          <div v-for="(item, i) in profitChartData" :key="i" class="bar-row">
-            <span class="bar-label">{{ item.label }}</span>
-            <div class="bar-track">
-              <div class="bar-fill" :class="{ negative: item.profit < 0 }" :style="{ width: barWidth(item) }" />
-            </div>
-            <span class="bar-value" :class="{ red: item.profit < 0, green: item.profit > 0 }">{{ formatMoney(item.profit) }}</span>
+    <el-card class="tabs-card" shadow="never">
+      <el-tabs v-model="activeTab" class="custom-tabs" @tab-change="handleTabChange">
+        <el-tab-pane name="promotion">
+          <template #label>
+            <span class="tab-label">
+              <el-icon><DataLine /></el-icon>
+              推广明细
+            </span>
+          </template>
+
+          <el-table
+            :data="promotionData"
+            v-loading="promotionLoading"
+            element-loading-text="加载中..."
+            border
+            stripe
+            height="calc(100vh - 288px)"
+            style="width: 100%"
+            :default-sort="{ prop: 'date', order: 'descending' }"
+            :header-cell-style="tableHeaderStyle"
+          >
+            <el-table-column type="index" label="序号" width="58" fixed="left" align="center" />
+            <el-table-column prop="date" label="日期" width="118" sortable fixed="left" align="center">
+              <template #default="{ row }">
+                <el-tag type="info" size="small">{{ row.date }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              prop="promotion_name"
+              label="推广名称"
+              min-width="200"
+              show-overflow-tooltip
+              fixed="left"
+            />
+            <el-table-column prop="drama_id" label="剧ID" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag type="primary" size="small">{{ row.drama_id }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column
+              prop="drama_name"
+              label="剧名"
+              min-width="140"
+              show-overflow-tooltip
+            />
+            <el-table-column prop="account" label="账户" width="100" align="center" />
+            <el-table-column prop="country" label="国家" width="88" align="center">
+              <template #default="{ row }">
+                <el-tag size="small">{{ formatAccountCountryLabel(row.country) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="promotion_id" label="推广ID" width="126" align="center" />
+            <el-table-column prop="cost" label="消耗" width="108" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-cost">¥{{ formatMoney(row.cost) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="cpm" label="千次曝光" width="100" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-muted">{{ formatMoney(row.cpm) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="clicks" label="点击" width="88" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-blue">{{ row.clicks ?? 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="registrations" label="注册" width="88" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-warn">{{ row.registrations ?? 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="recharge_users" label="充值人数" width="100" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-ok-strong">{{ row.recharge_users ?? 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="recharge_amount" label="充值金额" width="118" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-ok-strong">¥{{ formatMoney(row.recharge_amount) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="roi" label="ROI" width="100" sortable align="center">
+              <template #default="{ row }">
+                <el-tag :type="Number(row.roi) >= 1 ? 'success' : 'danger'" size="small" effect="dark">
+                  {{ formatMoney(row.roi) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="user_count" label="用户数" width="90" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-plain">{{ row.user_count ?? 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="order_count" label="订单数" width="90" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-plain">{{ row.order_count ?? 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="paid_users" label="有充数" width="90" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-ok">{{ row.paid_users ?? 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="profit" label="利润" width="108" sortable align="right">
+              <template #default="{ row }">
+                <span
+                  :class="Number(row.profit) >= 0 ? 'profit-pos' : 'profit-neg'"
+                >
+                  {{ Number(row.profit) >= 0 ? '+' : '' }}¥{{ formatMoney(row.profit) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="avg_cost_per_user" label="人均消耗" width="100" sortable align="right">
+              <template #default="{ row }">
+                <span class="num-muted">¥{{ formatMoney(row.avg_cost_per_user) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" fixed="right" align="center">
+              <template #default="{ row }">
+                <el-button type="primary" size="small" link @click="viewDetail(row)">
+                  <el-icon class="el-icon--left"><View /></el-icon>
+                  详情
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pagination-container">
+            <el-pagination
+              v-model:current-page="pagination.page"
+              v-model:page-size="pagination.pageSize"
+              :total="pagination.total"
+              :page-sizes="[20, 50, 100, 200]"
+              layout="total, sizes, prev, pager, next, jumper"
+              background
+              @size-change="handlePageSizeChange"
+              @current-change="handlePageChange"
+            />
           </div>
-        </div>
-      </div>
-      <el-empty v-else description="暂无利润数据" />
-      <template #footer>
-        <el-button @click="profitChartVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+        </el-tab-pane>
+
+        <el-tab-pane name="overview" lazy>
+          <template #label>
+            <span class="tab-label">
+              <el-icon><PieChart /></el-icon>
+              数据概览
+            </span>
+          </template>
+
+          <div v-loading="statsLoading" element-loading-text="加载中..." class="overview-charts">
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-card shadow="hover" class="chart-card">
+                  <template #header>
+                    <div class="chart-header">
+                      <el-icon><PieChart /></el-icon>
+                      <span>充值状态分布</span>
+                    </div>
+                  </template>
+                  <div ref="rechargeStatusChartRef" class="chart-inner" />
+                </el-card>
+              </el-col>
+              <el-col :span="8">
+                <el-card shadow="hover" class="chart-card">
+                  <template #header>
+                    <div class="chart-header">
+                      <el-icon><Histogram /></el-icon>
+                      <span>每日新增用户 vs 充值笔数</span>
+                    </div>
+                  </template>
+                  <div ref="dailyCompareChartRef" class="chart-inner" />
+                </el-card>
+              </el-col>
+              <el-col :span="8">
+                <el-card shadow="hover" class="chart-card">
+                  <template #header>
+                    <div class="chart-header">
+                      <el-icon><TrendCharts /></el-icon>
+                      <span>趋势分析</span>
+                    </div>
+                  </template>
+                  <div ref="trendChartRef" class="chart-inner chart-inner--trend" />
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
+    <p class="hint hint--footer">
+      推广明细为 Java 演示数据（<code>drama_id</code> 如 <code>D10000</code>）；数据概览与
+      <code>/api/dashboard/stats</code> 一致。
+    </p>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Download } from '@element-plus/icons-vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import {
+  Search,
+  RefreshLeft,
+  Download,
+  DataLine,
+  PieChart,
+  Histogram,
+  TrendCharts,
+  View,
+} from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
-import request from '../api/request'
-import { exportToCSV } from '../utils/export'
-import { formatNum, formatMoney } from '../utils/format'
+import request from '@/api/request'
+import { useCountries } from '@/composables/useCountries'
 
-const loading = ref(false)
-const stats = ref({
-  spend: 0,
-  hourlyRate: 0,
-  recharge: 0,
-  roi: 0,
-  profit: 0,
-  exchangeRate: 16779,
-  exchangeTime: '',
-  todayUsers: 0,
-  todayAmount: 0,
-  todayOrders: 0,
-  unsettled: 0,
-})
-const tableData = ref([])
-const profitChartVisible = ref(false)
-const profitChartData = ref([])
-const filter = reactive({
-  promoteId: '',
-  promoteName: '',
-  dramaId: '',
-  dramaName: '',
+const { countries, countryMultiOptions, formatAccountCountryLabel } = useCountries()
+
+const tableHeaderStyle = {
+  background: '#f5f7fa',
+  color: '#606266',
+  fontWeight: 'bold',
+  fontSize: '14px',
+}
+
+const activeTab = ref('promotion')
+const dateRange = ref([])
+const statsLoading = ref(false)
+const promotionLoading = ref(false)
+const filterSubmitting = ref(false)
+
+const filterForm = ref({
+  promotion_id: '',
+  promotion_name: '',
+  drama_id: '',
+  drama_name: '',
   account: '',
-  media: '',
-  country: '',
-  dateRange: null,
+  media: [],
+  country: [],
 })
 
-const localTime = computed(() => {
+const statsData = ref({
+  total_users: 0,
+  total_recharge: 0,
+  total_amount: 0,
+  today_users: 0,
+  recharge_status_dist: { success: 0, pending: 0, failed: 0 },
+  chart_data: { dates: [], users: [], recharge: [], amount: [] },
+})
+
+const promotionData = ref([])
+const pagination = ref({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+})
+
+const rechargeStatusChartRef = ref(null)
+const dailyCompareChartRef = ref(null)
+const trendChartRef = ref(null)
+let rechargeStatusChart = null
+let dailyCompareChart = null
+let trendChart = null
+
+function formatMoney(v) {
+  if (v === null || v === undefined) return '0.00'
+  const n = Number(v)
+  if (!Number.isFinite(n)) return '0.00'
+  return n.toFixed(2)
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function daysAgoStr(n) {
   const d = new Date()
-  return d.toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')
+  d.setDate(d.getDate() - n)
+  return d.toISOString().slice(0, 10)
+}
+
+function buildPromotionParams() {
+  const params = {
+    page: pagination.value.page,
+    pageSize: pagination.value.pageSize,
+    promotion_id: filterForm.value.promotion_id || undefined,
+    promotion_name: filterForm.value.promotion_name || undefined,
+    drama_id: filterForm.value.drama_id || undefined,
+    drama_name: filterForm.value.drama_name || undefined,
+    account: filterForm.value.account || undefined,
+  }
+  if (dateRange.value && dateRange.value.length === 2) {
+    params.start_date = dateRange.value[0]
+    params.end_date = dateRange.value[1]
+  }
+  if (filterForm.value.media && filterForm.value.media.length > 0) {
+    params.media = filterForm.value.media.join(',')
+  }
+  if (filterForm.value.country && filterForm.value.country.length > 0) {
+    params.country = filterForm.value.country.join(',')
+  }
+  return params
+}
+
+async function fetchStats() {
+  if (!dateRange.value || dateRange.value.length !== 2) {
+    ElMessage.warning('请选择日期范围')
+    return
+  }
+  statsLoading.value = true
+  try {
+    const res = await request.get('/dashboard/stats', {
+      params: {
+        start_date: dateRange.value[0],
+        end_date: dateRange.value[1],
+      },
+    })
+    const d = res.data || {}
+    const rsd = d.recharge_status_dist || {}
+    const ch = d.chart_data || {}
+    statsData.value = {
+      total_users: d.total_users ?? 0,
+      total_recharge: d.total_recharge ?? 0,
+      total_amount: Number(d.total_amount ?? 0),
+      today_users: d.today_users ?? 0,
+      recharge_status_dist: {
+        success: Number(rsd.success ?? 0),
+        pending: Number(rsd.pending ?? 0),
+        failed: Number(rsd.failed ?? 0),
+      },
+      chart_data: {
+        dates: ch.dates || [],
+        users: ch.users || [],
+        recharge: ch.recharge || [],
+        amount: (ch.amount || []).map((x) => Number(x)),
+      },
+    }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    statsLoading.value = false
+  }
+}
+
+async function fetchPromotionData() {
+  if (!dateRange.value || dateRange.value.length !== 2) return
+  promotionLoading.value = true
+  try {
+    const res = await request.get('/dashboard/promotion-details', {
+      params: buildPromotionParams(),
+    })
+    const d = res.data || {}
+    promotionData.value = d.list || []
+    pagination.value.total = Number(d.total ?? 0)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    promotionLoading.value = false
+  }
+}
+
+function initRechargeStatusChart() {
+  if (!rechargeStatusChartRef.value) return
+  const rs = statsData.value.recharge_status_dist || {}
+  if (!rechargeStatusChart) rechargeStatusChart = echarts.init(rechargeStatusChartRef.value)
+  rechargeStatusChart.setOption({
+    tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
+    legend: { orient: 'vertical', left: 'left' },
+    series: [
+      {
+        name: '充值状态',
+        type: 'pie',
+        radius: '60%',
+        data: [
+          { value: rs.success || 0, name: '成功', itemStyle: { color: '#67c23a' } },
+          { value: rs.pending || 0, name: '待支付', itemStyle: { color: '#e6a23c' } },
+          { value: rs.failed || 0, name: '失败', itemStyle: { color: '#f56c6c' } },
+        ],
+      },
+    ],
+  })
+}
+
+function initDailyCompareChart() {
+  if (!dailyCompareChartRef.value) return
+  const cd = statsData.value.chart_data || {}
+  const dates = cd.dates || []
+  const users = cd.users || []
+  const recharge = cd.recharge || []
+  if (!dailyCompareChart) dailyCompareChart = echarts.init(dailyCompareChartRef.value)
+  dailyCompareChart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { data: ['新增用户', '充值笔数'] },
+    grid: { left: 44, right: 20, bottom: 48, top: 32 },
+    xAxis: { type: 'category', data: dates, axisLabel: { rotate: dates.length > 8 ? 28 : 0 } },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [
+      { name: '新增用户', type: 'bar', data: users, itemStyle: { color: '#409eff' } },
+      { name: '充值笔数', type: 'bar', data: recharge, itemStyle: { color: '#67c23a' } },
+    ],
+  })
+}
+
+function initTrendChart() {
+  if (!trendChartRef.value) return
+  const cd = statsData.value.chart_data || {}
+  const dates = cd.dates || []
+  const users = (cd.users || []).map((x) => Number(x))
+  const recharge = (cd.recharge || []).map((x) => Number(x))
+  const amount = (cd.amount || []).map((x) => Number(x))
+  if (!trendChart) trendChart = echarts.init(trendChartRef.value)
+  trendChart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+    legend: { data: ['新增用户', '充值笔数', '实付金额'] },
+    grid: { left: 52, right: 52, bottom: 48, top: 56 },
+    xAxis: { type: 'category', boundaryGap: false, data: dates },
+    yAxis: [
+      { type: 'value', name: '数量', minInterval: 1 },
+      { type: 'value', name: '金额(元)', splitLine: { show: false } },
+    ],
+    series: [
+      { name: '新增用户', type: 'line', smooth: true, data: users, itemStyle: { color: '#409eff' } },
+      { name: '充值笔数', type: 'line', smooth: true, data: recharge, itemStyle: { color: '#67c23a' } },
+      { name: '实付金额', type: 'line', yAxisIndex: 1, smooth: true, data: amount, itemStyle: { color: '#e6a23c' } },
+    ],
+  })
+}
+
+function initAllCharts() {
+  initRechargeStatusChart()
+  initDailyCompareChart()
+  initTrendChart()
+}
+
+function disposeCharts() {
+  rechargeStatusChart?.dispose()
+  dailyCompareChart?.dispose()
+  trendChart?.dispose()
+  rechargeStatusChart = null
+  dailyCompareChart = null
+  trendChart = null
+}
+
+function resizeCharts() {
+  rechargeStatusChart?.resize()
+  dailyCompareChart?.resize()
+  trendChart?.resize()
+}
+
+async function handleTabChange(name) {
+  if (name === 'overview') {
+    await fetchStats()
+    await nextTick()
+    await nextTick()
+    disposeCharts()
+    initAllCharts()
+    resizeCharts()
+  } else {
+    disposeCharts()
+    if (name === 'promotion') {
+      pagination.value.page = 1
+      await fetchPromotionData()
+    }
+  }
+}
+
+async function handleDateChange() {
+  await fetchStats()
+  pagination.value.page = 1
+  if (activeTab.value === 'promotion') {
+    await fetchPromotionData()
+  } else {
+    disposeCharts()
+    await nextTick()
+    initAllCharts()
+  }
+}
+
+async function handleFilter() {
+  filterSubmitting.value = true
+  try {
+    pagination.value.page = 1
+    await fetchStats()
+    if (activeTab.value === 'promotion') {
+      await fetchPromotionData()
+    } else {
+      disposeCharts()
+      await nextTick()
+      initAllCharts()
+    }
+  } finally {
+    filterSubmitting.value = false
+  }
+}
+
+async function handleReset() {
+  filterForm.value = {
+    promotion_id: '',
+    promotion_name: '',
+    drama_id: '',
+    drama_name: '',
+    account: '',
+    media: [],
+    country: [],
+  }
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 6)
+  dateRange.value = [start.toISOString().split('T')[0], end.toISOString().split('T')[0]]
+  pagination.value.page = 1
+  await handleFilter()
+}
+
+function handleExport() {
+  ElMessage.success('导出功能开发中…')
+}
+
+function handlePageSizeChange() {
+  fetchPromotionData()
+}
+
+function handlePageChange() {
+  fetchPromotionData()
+}
+
+function viewDetail(row) {
+  ElMessage.info(`查看推广详情：${row.promotion_name || ''}`)
+}
+
+onMounted(async () => {
+  dateRange.value = [daysAgoStr(6), todayStr()]
+  await fetchStats()
+  await fetchPromotionData()
+  window.addEventListener('resize', resizeCharts)
 })
 
-async function loadData() {
-  loading.value = true
-  try {
-    const params = {}
-    if (filter.promoteId) params.promoteId = filter.promoteId
-    if (filter.promoteName) params.promoteName = filter.promoteName
-    if (filter.dramaId) params.dramaId = filter.dramaId
-    if (filter.dramaName) params.dramaName = filter.dramaName
-    if (filter.account) params.account = filter.account
-    if (filter.media) params.media = filter.media
-    if (filter.country) params.country = filter.country
-    if (filter.dateRange && filter.dateRange.length === 2) {
-      params.dateStart = filter.dateRange[0]
-      params.dateEnd = filter.dateRange[1]
-    }
-    const res = await request.get('/dashboard/stats', { params }).catch(() => ({ data: {} }))
-    const d = res.data || {}
-    stats.value = {
-      spend: d.spend ?? 0,
-      hourlyRate: d.hourlyRate ?? 0,
-      recharge: d.recharge ?? 0,
-      roi: d.roi ?? 0,
-      profit: d.profit ?? 0,
-      exchangeRate: d.exchangeRate ?? 16779,
-      exchangeTime: d.exchangeTime ?? '',
-      todayUsers: d.todayUsers ?? 0,
-      todayAmount: d.todayAmount ?? 0,
-      todayOrders: d.todayOrders ?? 0,
-      unsettled: d.unsettled ?? 0,
-    }
-    tableData.value = d.tableData || []
-  } finally {
-    loading.value = false
-  }
-}
-
-function onSearch() {
-  loadData()
-}
-
-function onReset() {
-  Object.assign(filter, { promoteId: '', promoteName: '', dramaId: '', dramaName: '', account: '', media: '', country: '', dateRange: null })
-  loadData()
-}
-
-function showProfitChart(row) {
-  const data = tableData.value.filter(r => !r.is_summary && r.promote_id)
-  if (!data.length) {
-    profitChartData.value = []
-  } else {
-    const byPromote = {}
-    data.forEach(r => {
-      const key = r.promote_id || r.promote_name || '-'
-      if (!byPromote[key]) byPromote[key] = { label: key, profit: 0 }
-      byPromote[key].profit += r.profit || 0
-    })
-    profitChartData.value = Object.values(byPromote).sort((a, b) => b.profit - a.profit).slice(0, 10)
-  }
-  profitChartVisible.value = true
-}
-
-function barWidth(item) {
-  const max = Math.max(...profitChartData.value.map(x => Math.abs(x.profit)), 1)
-  const pct = Math.min(100, (Math.abs(item.profit) / max) * 100)
-  return pct + '%'
-}
-
-function onExport() {
-  const data = tableData.value.filter(r => !r.is_summary)
-  if (!data.length) return ElMessage.warning('暂无数据可导出')
-  exportToCSV(data, [
-    { prop: 'date', label: '日期' },
-    { prop: 'promote_id', label: '推广ID' },
-    { prop: 'promote_name', label: '推广名称' },
-    { prop: 'account', label: '账户' },
-    { prop: 'spend', label: '消耗' },
-    { prop: 'recharge', label: '充值金额' },
-    { prop: 'profit', label: '利润' },
-    { prop: 'orders', label: '订单数' },
-  ], `看板数据_${new Date().toISOString().slice(0, 10)}.csv`)
-  ElMessage.success('导出成功')
-}
-
-onMounted(loadData)
+onUnmounted(() => {
+  window.removeEventListener('resize', resizeCharts)
+  disposeCharts()
+})
 </script>
 
 <style scoped>
-.dashboard { padding: 0; }
-.overview-row {
+.dashboard-container {
+  padding: 8px;
+  background: #f0f2f5;
+  height: calc(100vh - 48px - 36px - 24px);
+  min-height: 320px;
+  box-sizing: border-box;
   display: flex;
-  gap: 20px;
-  margin-bottom: 28px;
-  flex-wrap: wrap;
+  flex-direction: column;
 }
-.overview-card {
+
+.filter-card {
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.filter-form {
+  margin-top: 0;
+}
+
+.filter-form :deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #606266;
+}
+
+.tabs-card {
   flex: 1;
-  min-width: 180px;
-  padding: 20px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(102,126,234,0.35);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.overview-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(102,126,234,0.4);
-}
-.overview-card:nth-child(2) {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  box-shadow: 0 4px 16px rgba(245,87,108,0.35);
-}
-.overview-card:nth-child(3) {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  box-shadow: 0 4px 16px rgba(79,172,254,0.35);
-}
-.overview-card:nth-child(4) {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-  box-shadow: 0 4px 16px rgba(67,233,123,0.35);
-}
-.overview-title { font-size: 13px; opacity: 0.95; margin-bottom: 10px; letter-spacing: 0.5px; }
-.overview-value { font-size: 26px; font-weight: 700; letter-spacing: 0.5px; }
-.kpi-row {
+  min-height: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  margin-bottom: 28px;
+  flex-direction: column;
+  border-radius: 8px;
 }
-.kpi-card {
+
+.custom-tabs {
   flex: 1;
-  min-width: 150px;
-  padding: 18px 22px;
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 10px;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.kpi-card:hover {
-  border-color: #409EFF;
-  box-shadow: 0 4px 12px rgba(64,158,255,0.12);
-}
-.kpi-card.exchange-card { min-width: 220px; }
-.kpi-title { font-size: 13px; color: #909399; margin-bottom: 10px; font-weight: 500; }
-.kpi-value { font-size: 22px; font-weight: 700; color: #303133; letter-spacing: 0.3px; }
-.kpi-value.small { font-size: 15px; }
-.kpi-value.red { color: #f56c6c; }
-.kpi-value.green { color: #67c23a; }
-.kpi-sub { font-size: 12px; color: #909399; margin-top: 6px; }
-.filter-form { margin-bottom: 16px; }
-.table-toolbar {
+  min-height: 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+}
+
+.custom-tabs :deep(.el-tabs__header) {
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.custom-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.custom-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
+.custom-tabs :deep(.el-tabs__item) {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 16px;
+  height: 40px;
+}
+
+.tab-label {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 6px;
 }
-.local-time { font-size: 13px; color: #909399; }
-.account-link { color: #409EFF; cursor: pointer; text-decoration: underline; }
-.dashboard-table .red { color: #f56c6c; }
-.dashboard-table .green { color: #67c23a; }
-.profit-chart { padding: 12px 0; }
-.profit-bars { display: flex; flex-direction: column; gap: 12px; }
-.bar-row { display: flex; align-items: center; gap: 12px; }
-.bar-label { width: 120px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar-track { flex: 1; height: 12px; background: #f0f2f5; border-radius: 4px; overflow: hidden; }
-.bar-fill { height: 100%; background: #67c23a; border-radius: 4px; min-width: 2px; transition: width 0.3s; }
-.bar-fill.negative { background: #f56c6c; }
-.bar-value { width: 80px; text-align: right; font-size: 13px; font-weight: 500; }
-.bar-value.red { color: #f56c6c; }
-.bar-value.green { color: #67c23a; }
+
+.chart-card {
+  margin-bottom: 16px;
+  border-radius: 12px;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.chart-inner {
+  width: 100%;
+  height: 300px;
+}
+.chart-inner--trend {
+  height: 320px;
+}
+.overview-charts {
+  min-height: 320px;
+}
+
+.pagination-container {
+  margin-top: 22px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hint {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+.num-cost {
+  color: #f56c6c;
+  font-weight: 700;
+}
+.num-ok {
+  color: #67c23a;
+}
+.num-ok-strong {
+  color: #67c23a;
+  font-weight: 700;
+}
+.num-blue {
+  color: #409eff;
+}
+.num-warn {
+  color: #e6a23c;
+}
+.num-muted {
+  color: #909399;
+}
+.num-plain {
+  color: #606266;
+}
+.profit-pos {
+  color: #67c23a;
+  font-weight: 700;
+}
+.profit-neg {
+  color: #f56c6c;
+  font-weight: 700;
+}
+
+:deep(.el-table) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+:deep(.el-table__body tr:hover > td) {
+  background-color: #f5f7fa !important;
+}
+:deep(.el-table__row) {
+  transition: background-color 0.2s;
+}
+
 </style>

@@ -1,0 +1,3 @@
+file '/Volumes/存钱罐/cursor项目/素材制作工具/viral_clone/_scratch_gui/indo_seg_000.mp4'
+file '/Volumes/存钱罐/cursor项目/素材制作工具/viral_clone/_scratch_gui/indo_seg_001.mp4'
+file '/Volumes/存钱罐/cursor项目/素材制作工具/viral_clone/_scratch_gui/indo_seg_002.mp4'

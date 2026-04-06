@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.AdTaskMapper">
+
+  <resultMap id="TaskMap" type="com.drama.entity.AdTask">
+    <id column="id" property="id"/>
+    <result column="task_id" property="taskId"/>
+    <result column="account_ids" property="accountIds"/>
+    <result column="account_names" property="accountNames"/>
+    <result column="promotion_type" property="promotionType"/>
+    <result column="status" property="status"/>
+    <result column="created_by" property="createdBy"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="config_json" property="configJson"/>
+  </resultMap>
+
+  <select id="selectAllOrderByCreatedDesc" resultMap="TaskMap">
+    SELECT * FROM ad_tasks ORDER BY created_at DESC
+  </select>
+
+  <select id="selectByTaskId" resultMap="TaskMap">
+    SELECT * FROM ad_tasks WHERE task_id = #{taskId}
+  </select>
+
+  <select id="selectByNumericId" resultMap="TaskMap">
+    SELECT * FROM ad_tasks WHERE id = #{id}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ad_tasks (
+      task_id, account_ids, account_names, promotion_type, status, created_by, created_at, config_json
+    ) VALUES (
+      #{taskId}, #{accountIds}, #{accountNames}, #{promotionType}, #{status}, #{createdBy}, #{createdAt}, #{configJson}
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE ad_tasks SET
+      account_ids = #{accountIds},
+      account_names = #{accountNames},
+      promotion_type = #{promotionType},
+      status = #{status},
+      config_json = #{configJson}
+    WHERE task_id = #{taskId}
+  </update>
+
+  <delete id="deleteByTaskId">
+    DELETE FROM ad_tasks WHERE task_id = #{taskId}
+  </delete>
+</mapper>

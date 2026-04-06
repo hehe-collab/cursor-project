@@ -1,0 +1,4 @@
+# 爆款复制 PoC：音频互相关（与主项目 venv 共用时可 pip install -r 本文件）
+scipy>=1.10.0
+scenedetect[opencv]>=0.6.0
+PyQt6>=6.4.0

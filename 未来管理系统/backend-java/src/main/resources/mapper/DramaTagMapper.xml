@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.DramaTagMapper">
+  <select id="selectByDramaId" resultType="com.drama.entity.DramaTag">
+    SELECT * FROM drama_tags WHERE drama_id = #{dramaId}
+  </select>
+  <insert id="insert">
+    INSERT INTO drama_tags (drama_id, tag_id) VALUES (#{dramaId}, #{tagId})
+  </insert>
+  <delete id="delete">
+    DELETE FROM drama_tags WHERE drama_id = #{dramaId} AND tag_id = #{tagId}
+  </delete>
+  <delete id="deleteByDramaId">
+    DELETE FROM drama_tags WHERE drama_id = #{dramaId}
+  </delete>
+</mapper>

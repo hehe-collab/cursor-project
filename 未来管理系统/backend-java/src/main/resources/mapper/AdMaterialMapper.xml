@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.AdMaterialMapper">
+
+  <resultMap id="RowMap" type="com.drama.entity.AdMaterial">
+    <id column="id" property="id"/>
+    <result column="material_id" property="materialId"/>
+    <result column="material_name" property="materialName"/>
+    <result column="type" property="type"/>
+    <result column="entity_name" property="entityName"/>
+    <result column="account_id" property="accountId"/>
+    <result column="video_id" property="videoId"/>
+    <result column="cover_url" property="coverUrl"/>
+    <result column="created_by" property="createdBy"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="updated_at" property="updatedAt"/>
+  </resultMap>
+
+  <select id="selectAllOrderByIdDesc" resultMap="RowMap">
+    SELECT * FROM ad_materials ORDER BY id DESC
+  </select>
+
+  <select id="selectById" resultMap="RowMap">
+    SELECT * FROM ad_materials WHERE id = #{id}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ad_materials (
+      material_id, material_name, type, entity_name, account_id, video_id, cover_url, created_by, created_at, updated_at
+    ) VALUES (
+      #{materialId}, #{materialName}, #{type}, #{entityName}, #{accountId}, #{videoId}, #{coverUrl}, #{createdBy}, NOW(), NOW()
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE ad_materials SET
+      material_name = #{materialName},
+      type = #{type},
+      entity_name = #{entityName},
+      account_id = #{accountId},
+      video_id = #{videoId},
+      cover_url = #{coverUrl},
+      updated_at = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM ad_materials WHERE id = #{id}
+  </delete>
+</mapper>

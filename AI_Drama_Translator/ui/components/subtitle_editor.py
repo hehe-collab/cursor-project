@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel, QLineEdit, QHBoxLayout, QTextEdit, QMessageBox
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel, QLineEdit, QHBoxLayout, QTextEdit, QMessageBox, QAbstractItemView
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTimer
 from PyQt6.QtGui import QColor, QFont
 import logging
 
@@ -195,8 +195,8 @@ class SubtitleEditor(QWidget):
         btn_layout.addWidget(self.btn_export)
         layout.addLayout(btn_layout)
     
-    def load_subtitles(self, video_path, subtitle_data):
-        """加载字幕数据"""
+    def load_subtitles(self, video_path, subtitle_data, scroll_to_index=None):
+        """加载字幕数据。scroll_to_index：重建列表后将列表滚动到该索引（用于删除后锚定视口）。"""
         self.current_video_path = video_path
         # 深拷贝列表中的每个元组，避免引用问题
         self.subtitle_data = [(start, end, text) for start, end, text in subtitle_data] if subtitle_data else []
@@ -228,6 +228,10 @@ class SubtitleEditor(QWidget):
             self.subtitle_widgets.append(item_widget)
         
         logger.info(f"[SubtitleEditor] 字幕编辑器加载完成: {len(self.subtitle_data)} 条字幕，创建了 {len(self.subtitle_widgets)} 个组件")
+
+        if scroll_to_index is not None:
+            # 下一事件循环再滚，确保 item 布局与视口已更新（否则偶发仍停在顶部）
+            QTimer.singleShot(0, lambda idx=scroll_to_index: self._scroll_list_to_index(idx))
     
     def on_subtitle_text_changed(self, index, new_text):
         """字幕文本改变"""
@@ -257,19 +261,22 @@ class SubtitleEditor(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             # 删除数据
+            deleted_at = index
             deleted_text = self.subtitle_data.pop(index)
             logger.info(f"[删除字幕] 已删除第 {index+1} 条字幕: {deleted_text[2][:30]}...")
+            # 锚定：删第 i 条后滚到 min(i, 新长度-1)，便于接着编辑附近条目
+            anchor = min(deleted_at, len(self.subtitle_data) - 1) if self.subtitle_data else None
             
             # 重新加载（重建所有组件）
-            self.reload_subtitles()
+            self.reload_subtitles(scroll_to_index=anchor)
             
             # 通知变化
             self.subtitleChanged.emit()
             
             logger.info(f"[删除字幕] 剩余 {len(self.subtitle_data)} 条字幕")
     
-    def reload_subtitles(self):
-        """重新加载字幕列表（用于删除后刷新）"""
+    def reload_subtitles(self, scroll_to_index=None):
+        """重新加载字幕列表（用于删除后刷新）。scroll_to_index 会传给 load_subtitles。"""
         if not self.current_video_path:
             return
         
@@ -278,7 +285,18 @@ class SubtitleEditor(QWidget):
         current_path = self.current_video_path
         
         # 重新加载
-        self.load_subtitles(current_path, current_data)
+        self.load_subtitles(current_path, current_data, scroll_to_index=scroll_to_index)
+
+    def _scroll_list_to_index(self, index):
+        """将字幕列表滚动到指定行（尽量居中），索引越界时钳制。"""
+        if not self.subtitle_widgets or index is None:
+            return
+        n = len(self.subtitle_widgets)
+        idx = max(0, min(int(index), n - 1))
+        item = self.list_widget.item(idx)
+        if item is None:
+            return
+        self.list_widget.scrollToItem(item, QAbstractItemView.ScrollHint.PositionAtCenter)
     
     def format_time(self, seconds):
         """格式化时间为 MM:SS"""
@@ -286,12 +304,12 @@ class SubtitleEditor(QWidget):
         secs = int(seconds % 60)
         return f"{mins:02d}:{secs:02d}"
     
-    def highlight_subtitle_at_time(self, current_time):
-        """高亮当前时间点的字幕"""
+    def highlight_subtitle_at_time(self, current_time, offset=0):
+        """高亮当前时间点的字幕，offset 为时间偏移（负=提前）"""
         found = False
         for i, widget in enumerate(self.subtitle_widgets):
-            # 修复时间匹配逻辑：使用更精确的范围判断
-            if widget.start_time <= current_time < widget.end_time:
+            s, e = widget.start_time + offset, widget.end_time + offset
+            if s <= current_time < e:
                 widget.set_highlight(True)
                 # 自动滚动到当前字幕
                 self.list_widget.scrollToItem(self.list_widget.item(i))

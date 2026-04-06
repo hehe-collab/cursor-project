@@ -119,14 +119,3 @@ a:hover { color: var(--primary-light); }
 /* 分页 */
 .el-pagination { margin-top: 20px; }
 .el-pagination .el-pager li { border-radius: var(--radius-sm) !important; }
-
-/* 响应式 */
-@media (max-width: 768px) {
-  .main .el-card__body { padding: 16px; }
-  .filter-form .el-form-item { margin-right: 8px !important; }
-  .overview-row { flex-direction: column; }
-  .overview-card { min-width: 100%; }
-  .kpi-row { flex-wrap: wrap; }
-  .kpi-card { min-width: calc(50% - 8px); }
-}
-

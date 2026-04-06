@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TagMapper">
+
+  <sql id="TagColumns">
+    t.id, t.name, t.created_at, t.updated_at,
+    (SELECT COUNT(*) FROM drama_tags dt WHERE dt.tag_id = t.id) AS drama_count
+  </sql>
+
+  <sql id="WhereName">
+    <where>
+      <if test="name != null and name != ''">
+        AND t.name LIKE CONCAT('%', #{name}, '%')
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectById" resultType="com.drama.entity.Tag">
+    SELECT <include refid="TagColumns"/> FROM tags t WHERE t.id = #{id}
+  </select>
+
+  <select id="selectAll" resultType="com.drama.entity.Tag">
+    SELECT <include refid="TagColumns"/> FROM tags t ORDER BY t.id ASC
+  </select>
+
+  <select id="countByParam" resultType="long">
+    SELECT COUNT(*) FROM tags t
+    <include refid="WhereName"/>
+  </select>
+
+  <select id="selectByParam" resultType="com.drama.entity.Tag">
+    SELECT <include refid="TagColumns"/> FROM tags t
+    <include refid="WhereName"/>
+    ORDER BY t.id ASC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectStats" resultType="com.drama.dto.TagStatsRow">
+    SELECT
+      (SELECT COUNT(*) FROM tags) AS total_count,
+      (SELECT COUNT(DISTINCT tag_id) FROM drama_tags) AS tags_linked_count,
+      (SELECT COUNT(*) FROM drama_tags) AS total_links,
+      (SELECT COUNT(DISTINCT drama_id) FROM drama_tags) AS dramas_with_tags_count
+  </select>
+
+  <select id="selectNamesByDramaId" resultType="string">
+    SELECT t.name FROM tags t
+    INNER JOIN drama_tags dt ON dt.tag_id = t.id
+    WHERE dt.drama_id = #{dramaId}
+    ORDER BY t.id ASC
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO tags (name) VALUES (#{name})
+  </insert>
+
+  <update id="update">
+    UPDATE tags SET name = #{name}, updated_at = NOW() WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tags WHERE id = #{id}
+  </delete>
+</mapper>

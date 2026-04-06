@@ -17,10 +17,13 @@ class OCREngine:
         if not HAS_VISION:
             logger.warning("⚠️ 警告: 未检测到 macOS Vision 框架")
 
-    def recognize_text(self, image):
+    def recognize_text(self, image, should_continue=None):
         """
         标准识别模式 (回退稳定版)
+        should_continue: 可选，返回 False 时跳过本次 Vision（用于停止键尽快生效）
         """
+        if should_continue is not None and not should_continue():
+            return []
         if not self.enabled or image.size == 0:
             return []
 
@@ -43,10 +46,13 @@ class OCREngine:
             for observation in observations:
                 top_candidate = observation.topCandidates_(1)[0]
                 text = top_candidate.string()
-                # 剔除常见的噪点字符，且只保留长度大于1的字符串（过滤单字噪点）
+                # 剔除常见的噪点字符
                 clean_text = "".join([c for c in text if c not in "¾⑨/\\_—|~{}[]{}"])
                 clean_text = clean_text.strip(" .,-")
-                if len(clean_text) > 1:  # 恢复：过滤掉所有单字识别结果
+                # 方案A：多字保留；单字仅保留 CJK 汉字（好、啊、嗯等），过滤单字噪点（|、l、。等）
+                if len(clean_text) > 1:
+                    results.append(clean_text)
+                elif len(clean_text) == 1 and '\u4e00' <= clean_text <= '\u9fff':
                     results.append(clean_text)
 
         try:

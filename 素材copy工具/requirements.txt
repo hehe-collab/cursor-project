@@ -2,3 +2,4 @@ imagehash
 Pillow
 opencv-python
 scenedetect
+tqdm

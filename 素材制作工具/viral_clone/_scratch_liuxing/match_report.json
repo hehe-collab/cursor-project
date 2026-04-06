@@ -1,0 +1,31 @@
+{
+  "viral": "/Volumes/存钱罐/素材汇总/参考素材3.29/天马/天马1.mp4",
+  "episodes_dir": "/Volumes/存钱罐/剧集汇总/流星中文",
+  "sample_rate": 4000,
+  "timeline_start_sample": 908404,
+  "timeline_end_sample": 1817512,
+  "viral_duration_sec": 227.277,
+  "ncc_full_at_refined_lag": 0.4697,
+  "ncc_full_at_coarse_lag": 0.4697,
+  "lag_coarse_sample": 908404,
+  "lag_refined_sample": 908404,
+  "lag_refined_by_full_ncc_scan": false,
+  "refine_search_sec": 6.0,
+  "refine_step_sec": 0.1,
+  "correlate_mode": "windowed",
+  "coarse_decim": 8,
+  "correlate_pad_sec": 45.0,
+  "segment_cut": "reencode_h264_aac",
+  "cuts_chinese": [
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/02.mp4",
+      "start_sec": 54.205,
+      "end_sec": 146.1
+    },
+    {
+      "path": "/Volumes/存钱罐/剧集汇总/流星中文/03.mp4",
+      "start_sec": 0.0,
+      "end_sec": 135.382
+    }
+  ]
+}

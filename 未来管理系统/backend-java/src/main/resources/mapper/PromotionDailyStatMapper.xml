@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.PromotionDailyStatMapper">
+  <select id="selectById" resultType="com.drama.entity.PromotionDailyStat">
+    SELECT * FROM promotion_daily_stats WHERE id = #{id}
+  </select>
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO promotion_daily_stats (promotion_id, stat_date, metric, metric_value)
+    VALUES (#{promotionId}, #{statDate}, #{metric}, #{metricValue})
+  </insert>
+</mapper>

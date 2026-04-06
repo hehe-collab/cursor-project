@@ -1,0 +1,33 @@
+/target/
+!.mvn/wrapper/maven-wrapper.jar
+.idea/
+*.iml
+.DS_Store
+
+# 环境变量（勿提交密钥）
+.env
+.env.prod
+.env.local
+.env.*.local
+
+# 日志与上传
+logs/
+*.log
+uploads/
+
+# 备份
+backups/
+
+# Maven
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+
+.vscode/
+.AppleDouble
+.LSOverride
+*.tmp
+*.bak

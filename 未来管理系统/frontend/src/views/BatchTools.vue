@@ -1,255 +1,1294 @@
 <template>
-  <div class="batch-tools-page">
-    <el-card>
-      <template #header><span>批量工具</span></template>
-    <div class="page-toolbar">
-      <el-form :inline="true" class="filter-form">
+  <div class="batch-tools-container">
+    <!-- 筛选区域 -->
+    <el-card class="filter-card" shadow="never">
+      <el-form
+        :model="filterForm"
+        label-position="left"
+        label-width="48px"
+        class="filter-form batch-filter-form"
+        inline
+        size="small"
+      >
         <el-form-item label="主体">
-          <el-select v-model="filter.subject" placeholder="请选择主体" clearable style="width:160px">
-            <el-option label="启量" value="启量" />
-            <el-option label="其他" value="其他" />
-          </el-select>
+          <div class="filter-item-m">
+            <el-select
+              v-model="filterForm.entity"
+              placeholder="请选择主体"
+              clearable
+              filterable
+              @change="onEntityChange"
+            >
+              <el-option
+                v-for="item in entityOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </div>
         </el-form-item>
-        <el-form-item label="账户">
-          <el-select
-            v-model="filter.accounts"
-            multiple
-            filterable
-            placeholder="可多选账户，支持名称/ID搜索"
-            style="width:320px"
-          >
-            <el-option v-for="a in accountOptions" :key="a.id" :label="`${a.account_name || a.account_id || '-'} (${a.account_id || '-'})`" :value="a.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="onSubmit">提交</el-button>
-          <el-button type="primary" @click="$router.push('/ad-task')">查看任务</el-button>
+        <el-form-item label="账户" label-width="40px">
+          <div class="filter-item-wide">
+            <el-select
+              v-model="filterForm.accounts"
+              placeholder="可多选账户，支持名称搜索"
+              multiple
+              filterable
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
+            >
+              <el-option
+                v-for="item in accountOptionsFiltered"
+                :key="item.id"
+                :label="item.label"
+                :value="item.id"
+              />
+            </el-select>
+          </div>
         </el-form-item>
       </el-form>
-      <el-button type="primary" @click="$router.push('/delivery-links')">投放链接配置</el-button>
-    </div>
-
-    <el-row :gutter="20" class="cards-row">
-      <el-col :span="8">
-        <el-card shadow="hover" class="workflow-card">
-          <template #header>
-            <span>项目</span>
-            <div class="card-actions">
-              <el-button link type="primary" size="small" @click="onProjectUseExisting">使用已有</el-button>
-              <el-button link type="primary" size="small" @click="onProjectAdd">新增</el-button>
-              <el-button link type="primary" size="small" @click="onProjectSet">设置</el-button>
-            </div>
-          </template>
-          <div class="card-content">
-            <el-icon :size="64" class="cloud-icon"><Upload /></el-icon>
-            <p class="card-hint">{{ projectName || (hasAccounts ? '点击设置选择或创建项目' : '请先选择账户') }}</p>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="workflow-card">
-          <template #header>
-            <span>广告组</span>
-            <div class="card-actions">
-              <el-button link type="primary" size="small" @click="onAdGroupUseExisting">使用已有</el-button>
-              <el-button link type="primary" size="small" @click="onAdGroupAdd">新增</el-button>
-              <el-button link type="primary" size="small" @click="onAdGroupSet">设置</el-button>
-            </div>
-          </template>
-          <div class="card-content">
-            <el-icon :size="64" class="cloud-icon"><Upload /></el-icon>
-            <p class="card-hint">{{ adGroupName || '点击设置配置出价与预算' }}</p>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="workflow-card">
-          <template #header>
-            <span>广告</span>
-            <div class="card-actions">
-              <el-button link type="primary" size="small" @click="onAdSet">设置</el-button>
-              <el-button link type="primary" size="small" @click="onAdClear">清空</el-button>
-            </div>
-          </template>
-          <div class="card-content">
-            <el-icon :size="64" class="cloud-icon"><Upload /></el-icon>
-            <p class="card-hint">{{ adName || '点击设置关联素材与标题' }}</p>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+      <div class="button-group">
+        <div class="button-group-left">
+          <el-button type="primary" @click="handleSubmitTask">提交任务</el-button>
+          <el-button type="primary" @click="handleViewTask">查看任务</el-button>
+        </div>
+        <div class="button-group-right"></div>
+      </div>
     </el-card>
 
-    <!-- 项目选择/设置弹窗 -->
-    <el-dialog v-model="projectDialogVisible" title="选择项目" width="480px" destroy-on-close>
-      <el-select v-model="selectedProjectId" placeholder="请选择项目" filterable style="width:100%">
-        <el-option v-for="p in projectOptions" :key="p.id" :label="p.name" :value="p.id" />
-      </el-select>
+    <!-- 三列：第 N 行一一对应（无复选框，仅序号） -->
+    <div class="cards-container">
+      <el-card class="tool-card" shadow="hover">
+        <template #header>
+          <div class="card-header">
+            <span class="card-title">项目</span>
+            <div class="card-actions">
+              <el-button type="primary" link @click="handleUseExisting('project')">使用已有</el-button>
+              <el-button type="primary" link @click="handleAdd('project')">新增</el-button>
+              <el-button type="primary" link @click="handleSettings('project')">设置</el-button>
+            </div>
+          </div>
+        </template>
+        <div class="card-content card-content--scroll">
+          <el-scrollbar height="350px">
+            <div v-if="projectList.length > 0" class="data-list">
+              <div v-for="(item, index) in projectList" :key="item.id" class="data-item">
+                <div class="item-index">{{ index + 1 }}</div>
+                <div class="item-info">
+                  <div class="item-name">{{ item.campaignName || '未命名广告系列' }}</div>
+                  <div class="item-meta"><span>账户ID: {{ item.accountId || '—' }}</span></div>
+                  <div class="item-meta"><span>账户: {{ item.accountName || '—' }}</span></div>
+                  <div class="item-meta"><span>项目名称: {{ item.projectName || '—' }}</span></div>
+                </div>
+              </div>
+            </div>
+            <el-empty v-else description="请先选择账户" />
+          </el-scrollbar>
+        </div>
+      </el-card>
+
+      <el-card class="tool-card" shadow="hover">
+        <template #header>
+          <div class="card-header">
+            <span class="card-title">广告组</span>
+            <div class="card-actions">
+              <el-button type="primary" link @click="handleUseExisting('adGroup')">使用已有</el-button>
+              <el-button type="primary" link @click="handleAdd('adGroup')">新增</el-button>
+              <el-button type="primary" link @click="handleClear('adGroup')">清空</el-button>
+              <el-button type="primary" link @click="handleSettings('adGroup')">设置</el-button>
+            </div>
+          </div>
+        </template>
+        <div class="card-content card-content--scroll">
+          <el-scrollbar height="350px">
+            <div v-if="adGroupList.length > 0" class="data-list">
+              <div v-for="(item, index) in adGroupList" :key="item.id" class="data-item">
+                <div class="item-index">{{ index + 1 }}</div>
+                <div class="item-info">
+                  <div class="item-name">{{ item.adGroupName || 'Smart2.0+' }}</div>
+                  <div class="item-meta"><span>账户ID: {{ item.accountId || '—' }}</span></div>
+                  <div class="item-meta"><span>账户: {{ item.accountName || '—' }}</span></div>
+                  <div class="item-meta"><span>项目: {{ item.projectName || '—' }}</span></div>
+                  <div v-if="item.price != null && item.price !== ''" class="item-meta">
+                    <span>出价: {{ item.price }}</span>
+                  </div>
+                  <div v-if="item.age" class="item-meta"><span>年龄: {{ item.age }}</span></div>
+                </div>
+              </div>
+            </div>
+            <el-empty v-else description="与项目行数一致；请先选择账户或点击设置" />
+          </el-scrollbar>
+        </div>
+      </el-card>
+
+      <el-card class="tool-card" shadow="hover">
+        <template #header>
+          <div class="card-header">
+            <span class="card-title">广告</span>
+            <div class="card-actions">
+              <el-button type="primary" link @click="handleClear('ad')">清空</el-button>
+              <el-button type="primary" link @click="handleSettings('ad')">设置</el-button>
+            </div>
+          </div>
+        </template>
+        <div class="card-content card-content--scroll">
+          <el-scrollbar height="350px">
+            <div v-if="adList.length > 0" class="data-list">
+              <div v-for="(item, index) in adList" :key="item.id" class="data-item">
+                <div class="item-index">{{ index + 1 }}</div>
+                <div class="item-info">
+                  <div class="item-name">广告 {{ index + 1 }}</div>
+                  <div class="item-meta"><span>账户ID: {{ item.accountId || '—' }}</span></div>
+                  <div class="item-meta"><span>项目: {{ item.projectName || '—' }}</span></div>
+                  <div v-if="item.materialId != null && item.materialId !== ''" class="item-meta">
+                    <span>素材: {{ materialLabel(item.materialId) }}</span>
+                  </div>
+                  <div v-if="item.titlePackId != null && item.titlePackId !== ''" class="item-meta">
+                    <span>标题: {{ titleLabel(item.titlePackId) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <el-empty v-else description="与项目行数一致；请点击设置关联素材与标题" />
+          </el-scrollbar>
+        </div>
+      </el-card>
+    </div>
+
+    <!-- 选择广告系列（项目设置） -->
+    <el-dialog
+      v-model="projectDialogVisible"
+      title="选择广告系列"
+      width="90%"
+      top="5vh"
+      class="batch-dialog batch-dialog--wide"
+      destroy-on-close
+    >
+      <div class="table-wrap">
+        <el-table :data="projectTableData" border stripe>
+          <el-table-column prop="accountId" label="账户ID" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="account" label="账户" min-width="140" show-overflow-tooltip />
+          <el-table-column label="已有项目(空则新增)" min-width="180">
+            <template #default="{ row }">
+              <el-select
+                v-model="row.existingProject"
+                placeholder="空则新增"
+                clearable
+                filterable
+                size="small"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in existingProjectOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="项目名称" min-width="140">
+            <template #default="{ row }">
+              <el-input v-model="row.projectName" placeholder="请输入项目名称" size="small" />
+            </template>
+          </el-table-column>
+          <el-table-column label="每日预算" width="120">
+            <template #default="{ row }">
+              <el-input-number v-model="row.dailyBudget" :min="0" size="small" controls-position="right" />
+            </template>
+          </el-table-column>
+          <el-table-column label="基于目标增加预算" width="150">
+            <template #default="{ row }">
+              <el-switch v-model="row.targetBasedBudget" />
+            </template>
+          </el-table-column>
+          <el-table-column label="商品库" width="100">
+            <template #default="{ row }">
+              <el-switch v-model="row.productLibrary" />
+            </template>
+          </el-table-column>
+          <el-table-column label="启用" width="88" fixed="right">
+            <template #default="{ row }">
+              <el-switch v-model="row.enabled" />
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
       <template #footer>
         <el-button @click="projectDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmProject">确定</el-button>
+        <el-button type="primary" @click="handleConfirmCampaign">确定</el-button>
       </template>
     </el-dialog>
-    <!-- 广告组选择弹窗 -->
-    <el-dialog v-model="adGroupDialogVisible" title="选择广告组" width="480px" destroy-on-close>
-      <el-select v-model="selectedAdGroupId" placeholder="请选择广告组" filterable style="width:100%">
-        <el-option v-for="g in adGroupOptions" :key="g.id" :label="g.name" :value="g.id" />
-      </el-select>
+
+    <!-- 广告组设置（友商 10 列） -->
+    <el-dialog
+      v-model="adGroupDialogVisible"
+      title="广告组设置"
+      width="95%"
+      top="5vh"
+      class="batch-dialog batch-dialog--wide"
+      destroy-on-close
+    >
+      <div class="table-wrap">
+        <el-table :data="adGroupTableData" border stripe>
+          <el-table-column prop="account" label="账户" min-width="130" show-overflow-tooltip />
+          <el-table-column prop="project" label="项目" min-width="100" show-overflow-tooltip />
+          <el-table-column label="广告组(空则新增)" min-width="180">
+            <template #default="{ row }">
+              <el-select
+                v-model="row.existingAdGroups"
+                placeholder="可多选"
+                multiple
+                filterable
+                clearable
+                collapse-tags
+                collapse-tags-tooltip
+                size="small"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in existingAdGroupOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="名称" min-width="130">
+            <template #default="{ row }">
+              <el-input v-model="row.adGroupName" placeholder="请输入名称" size="small" />
+            </template>
+          </el-table-column>
+          <el-table-column label="Pixel" min-width="140">
+            <template #default="{ row }">
+              <el-select v-model="row.pixel" placeholder="请选择" filterable clearable size="small" style="width: 100%">
+                <el-option v-for="item in pixelOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="优化目标" width="120">
+            <template #default="{ row }">
+              <el-select v-model="row.optimizationGoal" placeholder="请选择" clearable size="small" style="width: 100%">
+                <el-option label="转化" value="conversion" />
+                <el-option label="点击" value="click" />
+                <el-option label="展示" value="impression" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="出价" width="110">
+            <template #default="{ row }">
+              <el-input-number v-model="row.price" :min="0" :step="0.01" size="small" controls-position="right" />
+            </template>
+          </el-table-column>
+          <el-table-column label="开始时间" min-width="190">
+            <template #default="{ row }">
+              <el-date-picker
+                v-model="row.startTime"
+                type="datetime"
+                placeholder="北京时间"
+                size="small"
+                style="width: 100%"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="年龄" width="120">
+            <template #default="{ row }">
+              <el-select v-model="row.age" placeholder="请选择" clearable size="small" style="width: 100%">
+                <el-option label="18+" value="18+" />
+                <el-option label="25+" value="25+" />
+                <el-option label="35+" value="35+" />
+                <el-option label="45+" value="45+" />
+                <el-option label="不限" value="all" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="商品库" min-width="160">
+            <template #default="{ row }">
+              <el-select
+                v-model="row.adGroupCatalog"
+                placeholder="请选择商品库"
+                filterable
+                clearable
+                size="small"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in adGroupCatalogOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
       <template #footer>
         <el-button @click="adGroupDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmAdGroup">确定</el-button>
+        <el-button type="primary" @click="handleConfirmAdGroup">确定</el-button>
       </template>
     </el-dialog>
-    <!-- 广告设置弹窗 -->
-    <el-dialog v-model="adDialogVisible" title="广告设置" width="480px" destroy-on-close>
-      <el-form label-width="100px">
-        <el-form-item label="素材"><el-select v-model="adForm.materialId" placeholder="请选择素材" clearable style="width:100%" /></el-form-item>
-        <el-form-item label="标题"><el-input v-model="adForm.title" placeholder="请输入标题" /></el-form-item>
+
+    <!-- 广告设置 -->
+    <el-dialog
+      v-model="adSettingsDialogVisible"
+      title="广告设置"
+      width="90%"
+      top="5vh"
+      class="batch-dialog batch-dialog--wide"
+      destroy-on-close
+    >
+      <div class="dialog-tag-row">
+        <el-tag type="primary">Smart-2.0</el-tag>
+      </div>
+      <div class="table-wrap">
+        <el-table :data="adTableData" border stripe>
+          <el-table-column label="基本信息" min-width="200">
+            <template #default="{ row }">
+              <div class="basic-cell">账户ID: {{ row.accountId || '—' }}</div>
+              <div class="basic-cell">项目: {{ row.project || '—' }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="弹窗落地页" min-width="160">
+            <template #default="{ row }">
+              <el-input v-model="row.landingPage" placeholder="落地页链接" size="small" />
+            </template>
+          </el-table-column>
+          <el-table-column label="素材" min-width="180">
+            <template #default="{ row }">
+              <el-select
+                v-model="row.materialId"
+                placeholder="请选择素材"
+                filterable
+                clearable
+                size="small"
+                style="width: 100%"
+                :loading="materialsLoading"
+              >
+                <el-option
+                  v-for="item in materialOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="标题" min-width="180">
+            <template #default="{ row }">
+              <el-select
+                v-model="row.titlePackId"
+                placeholder="请选择标题包"
+                filterable
+                clearable
+                size="small"
+                style="width: 100%"
+                :loading="titlesLoading"
+              >
+                <el-option
+                  v-for="item in titleOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="试看" width="110">
+            <template #default="{ row }">
+              <el-input-number v-model="row.preview" :min="0" :max="999" size="small" controls-position="right" />
+            </template>
+          </el-table-column>
+          <el-table-column label="认证页面" min-width="140">
+            <template #default="{ row }">
+              <el-input v-model="row.authPage" placeholder="认证页面" size="small" />
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="adSettingsDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleConfirmAdSettings">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 使用已有（广告组 / 广告） -->
+    <el-dialog
+      v-model="useExistingDialogVisible"
+      :title="useExistingTitle"
+      width="600px"
+      destroy-on-close
+    >
+      <el-table :data="existingList" @selection-change="handleExistingSelectionChange">
+        <el-table-column type="selection" width="55" />
+        <el-table-column prop="name" label="名称" min-width="160" />
+        <el-table-column prop="createTime" label="创建时间" width="180" />
+      </el-table>
+      <template #footer>
+        <el-button @click="useExistingDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleConfirmUseExisting">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 新增 -->
+    <el-dialog v-model="addDialogVisible" :title="addDialogTitle" width="520px" destroy-on-close>
+      <el-form :model="addForm" label-width="100px">
+        <el-form-item label="名称">
+          <el-input v-model="addForm.name" placeholder="请输入名称" maxlength="200" show-word-limit />
+        </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="adDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmAd">确定</el-button>
+        <el-button @click="addDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleConfirmAdd">确定</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Upload } from '@element-plus/icons-vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 import request from '../api/request'
 
-const filter = reactive({ subject: '', accounts: [] })
-const accountOptions = ref([])
-const projectName = ref('')
-const adGroupName = ref('')
-const adName = ref('')
+const router = useRouter()
+
+const DEFAULT_ENTITY_OPTIONS = [
+  { label: '测试一', value: '测试一' },
+  { label: '测试二', value: '测试二' },
+]
+
+const filterForm = reactive({
+  entity: '',
+  accounts: [],
+})
+
+const entityOptions = ref([...DEFAULT_ENTITY_OPTIONS])
+const allAccounts = ref([])
+
+const accountOptionsFiltered = computed(() => {
+  const rows = allAccounts.value || []
+  const entity = (filterForm.entity || '').trim()
+  const filtered = entity
+    ? rows.filter((a) => (a.subject_name || '').trim() === entity)
+    : rows
+  return filtered.map((a) => ({
+    id: a.id,
+    label: `${a.account_name || '-'} (${a.account_id || '-'})`,
+  }))
+})
+
+watch([() => filterForm.entity, allAccounts], () => {
+  const allowed = new Set(accountOptionsFiltered.value.map((x) => x.id))
+  filterForm.accounts = (filterForm.accounts || []).filter((id) => allowed.has(id))
+})
+
+function accountById(id) {
+  return allAccounts.value.find((a) => a.id === id)
+}
+
+const projectList = ref([])
+const adGroupList = ref([])
+const adList = ref([])
+
 const projectDialogVisible = ref(false)
 const adGroupDialogVisible = ref(false)
-const adDialogVisible = ref(false)
-const selectedProjectId = ref(null)
-const selectedAdGroupId = ref(null)
-const projectOptions = ref([{ id: 1, name: '项目A' }, { id: 2, name: '项目B' }])
-const adGroupOptions = ref([{ id: 1, name: '广告组1' }, { id: 2, name: '广告组2' }])
-const adForm = reactive({ materialId: null, title: '' })
+const adSettingsDialogVisible = ref(false)
+const useExistingDialogVisible = ref(false)
+const addDialogVisible = ref(false)
+const currentCardType = ref('')
 
-const hasAccounts = computed(() => filter.accounts && filter.accounts.length > 0)
+const projectTableData = ref([])
+const adGroupTableData = ref([])
+const adTableData = ref([])
 
-async function loadAccounts() {
+const existingList = ref([])
+const selectedExisting = ref([])
+
+const addForm = reactive({
+  name: '',
+})
+
+const materialOptions = ref([])
+const titleOptions = ref([])
+const materialsLoading = ref(false)
+const titlesLoading = ref(false)
+
+/** 已有项目下拉（占位，后续可接真实接口） */
+const existingProjectOptions = ref([])
+/** 广告组弹窗：已有广告组 / Pixel / 商品库（占位） */
+const existingAdGroupOptions = ref([])
+const pixelOptions = ref([])
+const adGroupCatalogOptions = ref([])
+
+const useExistingTitle = computed(() => {
+  if (currentCardType.value === 'adGroup') return '选择已有广告组'
+  return '选择已有广告'
+})
+
+const addDialogTitle = computed(() => {
+  if (currentCardType.value === 'project') return '新增项目'
+  if (currentCardType.value === 'adGroup') return '新增广告组'
+  return '新增广告'
+})
+
+async function fetchEntityOptions() {
   try {
-    const res = await request.get('/accounts', { params: { pageSize: 100 } }).catch(() => ({ data: { list: [] } }))
-    accountOptions.value = (res.data?.list || []).filter(a => a && a.id != null)
+    const res = await request.get('/accounts/entities')
+    if (res.code === 0 && Array.isArray(res.data) && res.data.length) {
+      entityOptions.value = res.data
+    }
   } catch {
-    accountOptions.value = []
+    entityOptions.value = [...DEFAULT_ENTITY_OPTIONS]
   }
 }
 
-function onSubmit() {
-  if (!filter.accounts?.length) {
+let accountsFetchPromise = null
+async function loadAllAccounts() {
+  if (accountsFetchPromise) {
+    await accountsFetchPromise
+    return
+  }
+  accountsFetchPromise = (async () => {
+    try {
+      const first = await request.get('/accounts', { params: { page: 1, pageSize: 100 } })
+      if (first.code !== 0) return
+      let list = [...(first.data?.list || [])]
+      const total = first.data?.total ?? list.length
+      let page = 2
+      while (list.length < total && page <= 50) {
+        const r = await request.get('/accounts', { params: { page, pageSize: 100 } })
+        if (r.code !== 0) break
+        const chunk = r.data?.list || []
+        list = list.concat(chunk)
+        if (chunk.length < 100) break
+        page += 1
+      }
+      allAccounts.value = list
+    } catch {
+      allAccounts.value = []
+      ElMessage.error('加载账户列表失败')
+    } finally {
+      accountsFetchPromise = null
+    }
+  })()
+  await accountsFetchPromise
+}
+
+async function loadMaterialOptions() {
+  if (materialOptions.value.length) return
+  materialsLoading.value = true
+  try {
+    const res = await request.get('/ad-material', { params: { page: 1, pageSize: 200 } })
+    if (res.code === 0) {
+      const list = res.data?.list || []
+      materialOptions.value = list.map((m) => {
+        const mid = m.materialId || m.material_id || (m.id != null ? `MAT${m.id}` : '')
+        const name = m.materialName || m.material_name || m.name || mid
+        return { label: String(name), value: m.id != null ? m.id : mid }
+      })
+    }
+  } catch {
+    materialOptions.value = []
+  } finally {
+    materialsLoading.value = false
+  }
+}
+
+async function loadTitleOptions() {
+  if (titleOptions.value.length) return
+  titlesLoading.value = true
+  try {
+    const res = await request.get('/title-pack', { params: { page: 1, pageSize: 200 } })
+    if (res.code === 0) {
+      const list = res.data?.list || []
+      titleOptions.value = list.map((t) => ({
+        label: t.name || `标题包 ${t.id}`,
+        value: t.id,
+      }))
+    }
+  } catch {
+    titleOptions.value = []
+  } finally {
+    titlesLoading.value = false
+  }
+}
+
+function projectNameForAccount(a) {
+  const e = (filterForm.entity || '').trim()
+  if (e) return e
+  return (a?.subject_name || '').trim() || '—'
+}
+
+/** 弹窗与保存：无默认值，空则为 null */
+function parseDailyBudget(v) {
+  if (v === '' || v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+function existingProjectLabel(value) {
+  if (value == null || value === '') return ''
+  const o = existingProjectOptions.value.find((x) => x.value === value)
+  return o?.label || String(value)
+}
+
+async function loadExistingProjects() {
+  try {
+    // TODO: 替换为真实接口，例如 request.get('/campaign/existing-options', …)
+    existingProjectOptions.value = [
+      { label: '项目A', value: 'project_a' },
+      { label: '项目B', value: 'project_b' },
+      { label: '项目C', value: 'project_c' },
+    ]
+  } catch {
+    existingProjectOptions.value = []
+  }
+}
+
+async function loadExistingAdGroups() {
+  try {
+    // TODO: 接真实接口
+    existingAdGroupOptions.value = [
+      { label: '广告组A', value: 'adgroup_a' },
+      { label: '广告组B', value: 'adgroup_b' },
+      { label: '广告组C', value: 'adgroup_c' },
+    ]
+  } catch {
+    existingAdGroupOptions.value = []
+  }
+}
+
+async function loadPixelOptions() {
+  try {
+    pixelOptions.value = [
+      { label: 'THA-低-C', value: 'tha_low_c' },
+      { label: 'THA-高-C', value: 'tha_high_c' },
+      { label: 'VN-低-C', value: 'vn_low_c' },
+    ]
+  } catch {
+    pixelOptions.value = []
+  }
+}
+
+async function loadAdGroupCatalogOptions() {
+  try {
+    adGroupCatalogOptions.value = [
+      { label: '商品库A', value: 'library_a' },
+      { label: '商品库B', value: 'library_b' },
+      { label: '商品库C', value: 'library_c' },
+    ]
+  } catch {
+    adGroupCatalogOptions.value = []
+  }
+}
+
+/** 按当前所选账户生成项目行，再按行生成同长度的广告组、广告（第 N 行一一对应） */
+function syncProjectListFromAccounts() {
+  const ids = filterForm.accounts || []
+  if (!ids.length) {
+    projectList.value = []
+    adGroupList.value = []
+    adList.value = []
+    return
+  }
+  projectList.value = ids.map((internalId) => {
+    const a = accountById(internalId)
+    const pid = `cmp_${internalId}_0`
+    const prev = projectList.value.find((p) => p.id === pid)
+    return {
+      id: pid,
+      internalAccountId: internalId,
+      accountId: a?.account_id || '',
+      accountName: a?.account_name || '',
+      campaignName: prev?.campaignName ?? '待配置',
+      projectName: prev?.projectName ?? '',
+      existingProject: prev?.existingProject ?? '',
+      dailyBudget: parseDailyBudget(prev?.dailyBudget),
+      targetBasedBudget: prev?.targetBasedBudget ?? false,
+      productLibrary: prev?.productLibrary ?? false,
+      enabled: prev?.enabled !== false,
+    }
+  })
+  rebuildDerivedChains()
+}
+
+function onEntityChange() {
+  filterForm.accounts = []
+}
+
+watch(
+  () => filterForm.accounts,
+  () => syncProjectListFromAccounts(),
+  { deep: true }
+)
+
+/** 与 projectList 等长：第 i 行项目 ↔ 第 i 行广告组 ↔ 第 i 行广告 */
+function rebuildDerivedChains() {
+  const projects = projectList.value
+  if (!projects.length) {
+    adGroupList.value = []
+    adList.value = []
+    return
+  }
+  const prevAg = [...adGroupList.value]
+  const prevAd = [...adList.value]
+  adGroupList.value = projects.map((p, i) => {
+    const agid = `ag_${p.id}`
+    const old = prevAg.find((x) => x.projectId === p.id) || prevAg[i]
+    return {
+      id: agid,
+      projectId: p.id,
+      accountId: p.accountId,
+      accountName: p.accountName,
+      projectName: p.projectName,
+      campaignName: p.campaignName,
+      adGroupName: old?.adGroupName ?? `${p.campaignName || '广告系列'}-广告组`,
+      existingAdGroups: Array.isArray(old?.existingAdGroups) ? [...old.existingAdGroups] : [],
+      pixel: old?.pixel ?? '',
+      optimizationGoal: old?.optimizationGoal ?? '',
+      price: old?.price ?? null,
+      startTime: old?.startTime ?? null,
+      age: old?.age ?? '',
+      adGroupCatalog: old?.adGroupCatalog ?? '',
+    }
+  })
+  adList.value = projects.map((p, i) => {
+    const adid = `ad_${p.id}`
+    const old = prevAd.find((x) => x.projectId === p.id) || prevAd[i]
+    return {
+      id: adid,
+      projectId: p.id,
+      adGroupId: `ag_${p.id}`,
+      accountId: p.accountId,
+      projectName: p.projectName,
+      adName: old?.adName ?? `广告 ${i + 1}`,
+      materialId: old?.materialId ?? '',
+      titlePackId: old?.titlePackId ?? '',
+      landingPage: old?.landingPage ?? '',
+      preview: old?.preview ?? 0,
+      authPage: old?.authPage ?? '',
+    }
+  })
+}
+
+function materialLabel(val) {
+  const m = materialOptions.value.find((x) => x.value === val)
+  return m?.label || String(val ?? '—')
+}
+
+function titleLabel(val) {
+  const t = titleOptions.value.find((x) => x.value === val)
+  return t?.label || String(val ?? '—')
+}
+
+function parseInternalAccountId(row) {
+  if (row.internalAccountId != null) return row.internalAccountId
+  const m = String(row.id).match(/^cmp_(\d+)_/)
+  return m ? parseInt(m[1], 10) : undefined
+}
+
+function campaignRowToProject(row) {
+  const internal = parseInternalAccountId(row)
+  const a = internal != null ? accountById(internal) : undefined
+  const pn = (row.projectName != null ? String(row.projectName) : '').trim()
+  const ep = row.existingProject != null && row.existingProject !== '' ? String(row.existingProject) : ''
+  const resolvedName = pn || existingProjectLabel(ep)
+  return {
+    id: row.id,
+    internalAccountId: internal,
+    accountId: row.accountId || a?.account_id || '',
+    accountName: row.account || row.accountName || a?.account_name || '',
+    campaignName: resolvedName || row.campaignName || '待配置',
+    projectName: resolvedName,
+    existingProject: ep,
+    dailyBudget: parseDailyBudget(row.dailyBudget),
+    targetBasedBudget: !!row.targetBasedBudget,
+    productLibrary: !!row.productLibrary,
+    enabled: row.enabled !== false,
+  }
+}
+
+/** 打开项目弹窗时：仅保留账户维度，输入项一律空白（不预填已保存配置） */
+function buildCampaignTableFromAccounts() {
+  if (projectList.value.length > 0) {
+    projectTableData.value = projectList.value.map((p) => ({
+      id: p.id,
+      internalAccountId: p.internalAccountId,
+      accountId: p.accountId,
+      account: p.accountName,
+      existingProject: '',
+      projectName: '',
+      dailyBudget: null,
+      targetBasedBudget: false,
+      productLibrary: false,
+      enabled: true,
+    }))
+    return true
+  }
+  const ids = filterForm.accounts || []
+  if (!ids.length) {
+    ElMessage.warning('请先选择账户')
+    return false
+  }
+  projectTableData.value = ids.map((internalId, i) => {
+    const a = accountById(internalId)
+    const pid = `cmp_${internalId}_${i}`
+    const existing = projectList.value.find((p) => p.id === pid) || projectList.value.find((p) => p.internalAccountId === internalId)
+    return {
+      id: pid,
+      internalAccountId: internalId,
+      accountId: existing?.accountId || a?.account_id || '',
+      account: existing?.accountName || a?.account_name || '',
+      existingProject: '',
+      projectName: '',
+      dailyBudget: null,
+      targetBasedBudget: false,
+      productLibrary: false,
+      enabled: true,
+    }
+  })
+  return true
+}
+
+function handleConfirmCampaign() {
+  const rows = projectTableData.value || []
+  if (!rows.length) {
+    ElMessage.warning('暂无项目行')
+    return
+  }
+  for (const row of rows) {
+    const hasExisting = row.existingProject != null && row.existingProject !== ''
+    const hasName = row.projectName != null && String(row.projectName).trim() !== ''
+    if (!hasExisting && !hasName) {
+      ElMessage.warning('请选择已有项目或填写项目名称')
+      return
+    }
+  }
+  for (const row of rows) {
+    const merged = campaignRowToProject(row)
+    const idx = projectList.value.findIndex((p) => p.id === merged.id)
+    if (idx >= 0) projectList.value[idx] = merged
+    else projectList.value.push(merged)
+  }
+  rebuildDerivedChains()
+  projectDialogVisible.value = false
+  ElMessage.success('已同步到项目列表')
+}
+
+function ensureAdGroupRows() {
+  if (!projectList.value.length) {
+    adGroupTableData.value = []
+    return false
+  }
+  if (adGroupList.value.length !== projectList.value.length) {
+    rebuildDerivedChains()
+  }
+  /** 打开弹窗：仅保留账户/项目列，其余输入一律空白（与项目弹窗一致） */
+  adGroupTableData.value = adGroupList.value.map((g) => ({
+    id: g.id,
+    account: g.accountName || g.accountId || '',
+    project: g.projectName || '—',
+    existingAdGroups: [],
+    adGroupName: '',
+    pixel: '',
+    optimizationGoal: '',
+    price: null,
+    startTime: null,
+    age: '',
+    adGroupCatalog: '',
+  }))
+  return true
+}
+
+function handleConfirmAdGroup() {
+  for (const row of adGroupTableData.value) {
+    const idx = adGroupList.value.findIndex((x) => x.id === row.id)
+    if (idx < 0) continue
+    const prev = adGroupList.value[idx]
+    adGroupList.value[idx] = {
+      ...prev,
+      existingAdGroups: Array.isArray(row.existingAdGroups) ? [...row.existingAdGroups] : [],
+      adGroupName: row.adGroupName,
+      pixel: row.pixel,
+      optimizationGoal: row.optimizationGoal,
+      price: row.price,
+      startTime: row.startTime,
+      age: row.age,
+      adGroupCatalog: row.adGroupCatalog,
+    }
+  }
+  ElMessage.success('广告组设置已保存')
+  adGroupDialogVisible.value = false
+}
+
+async function ensureAdTableRows() {
+  await Promise.all([loadMaterialOptions(), loadTitleOptions()])
+  if (!projectList.value.length) {
+    adTableData.value = []
+    return false
+  }
+  if (adList.value.length !== projectList.value.length) {
+    rebuildDerivedChains()
+  }
+  adTableData.value = adList.value.map((ad) => ({
+    id: ad.id,
+    accountId: ad.accountId,
+    project: ad.projectName || '—',
+    landingPage: ad.landingPage || '',
+    materialId: ad.materialId ?? '',
+    titlePackId: ad.titlePackId ?? '',
+    preview: ad.preview ?? 0,
+    authPage: ad.authPage || '',
+  }))
+  return true
+}
+
+function handleConfirmAdSettings() {
+  for (const row of adTableData.value) {
+    const idx = adList.value.findIndex((x) => x.id === row.id)
+    if (idx < 0) continue
+    const prev = adList.value[idx]
+    adList.value[idx] = {
+      ...prev,
+      landingPage: row.landingPage,
+      materialId: row.materialId,
+      titlePackId: row.titlePackId,
+      preview: row.preview,
+      authPage: row.authPage,
+    }
+  }
+  ElMessage.success('广告设置已保存')
+  adSettingsDialogVisible.value = false
+}
+
+async function handleSubmitTask() {
+  if (!filterForm.entity) {
+    ElMessage.warning('请选择主体')
+    return
+  }
+  if (!filterForm.accounts.length) {
+    ElMessage.warning('请选择账户')
+    return
+  }
+  if (!projectList.value.length) {
+    ElMessage.warning('请至少配置一个项目（选择账户并完善项目行）')
+    return
+  }
+  const ids = filterForm.accounts || []
+  const accountIds = []
+  const accountNames = []
+  for (const internalId of ids) {
+    const a = accountById(internalId)
+    if (a) {
+      accountIds.push(a.account_id || '')
+      accountNames.push(a.account_name || '')
+    }
+  }
+  let createdBy = 'admin'
+  try {
+    const u = JSON.parse(localStorage.getItem('user') || '{}')
+    createdBy = u.username || u.nickname || createdBy
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    const res = await request.post('/ad-task', {
+      account_ids: accountIds.join(','),
+      account_names: accountNames.join(','),
+      promotion_type: 'B-GF-zzz',
+      created_by: createdBy,
+      status: 'success',
+      config: {
+        entity: filterForm.entity,
+        accountInternalIds: ids,
+        projects: projectList.value,
+        adGroups: adGroupList.value,
+        ads: adList.value,
+      },
+    })
+    const tid = res?.data?.task_id
+    ElMessage.success(tid ? `任务提交成功！任务ID: ${tid}` : '任务提交成功')
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function handleViewTask() {
+  router.push('/ad-task')
+}
+
+function openProjectCampaignDialog() {
+  if (!buildCampaignTableFromAccounts()) return
+  projectDialogVisible.value = true
+}
+
+function handleUseExisting(type) {
+  currentCardType.value = type
+  if (type === 'project') {
+    openProjectCampaignDialog()
+    return
+  }
+  const label = type === 'adGroup' ? '广告组' : '广告'
+  existingList.value = [
+    { id: 91001, name: `已有${label} A`, createTime: '2024-01-01 10:00:00' },
+    { id: 91002, name: `已有${label} B`, createTime: '2024-01-02 10:00:00' },
+  ]
+  selectedExisting.value = []
+  useExistingDialogVisible.value = true
+}
+
+function handleExistingSelectionChange(selection) {
+  selectedExisting.value = selection
+}
+
+function handleConfirmUseExisting() {
+  if (selectedExisting.value.length === 0) {
+    ElMessage.warning('请选择数据')
+    return
+  }
+  const internalId = filterForm.accounts[0]
+  if (!internalId) {
     ElMessage.warning('请先选择账户')
     return
   }
-  ElMessage.info('任务已提交（功能开发中）')
+  const a = accountById(internalId)
+  for (const r of selectedExisting.value) {
+    projectList.value.push({
+      id: `cmp_${internalId}_exist_${r.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      internalAccountId: internalId,
+      accountId: a?.account_id || '',
+      accountName: a?.account_name || '',
+      campaignName: r.name,
+      projectName: projectNameForAccount(a),
+      existingProject: '',
+      dailyBudget: null,
+      targetBasedBudget: false,
+      productLibrary: false,
+      enabled: true,
+    })
+  }
+  rebuildDerivedChains()
+  useExistingDialogVisible.value = false
+  ElMessage.success('已按行追加项目并同步广告组/广告')
 }
 
-function onProjectUseExisting() {
-  if (!hasAccounts.value) return ElMessage.warning('请先选择账户')
-  projectDialogVisible.value = true
-}
-function onProjectAdd() {
-  if (!hasAccounts.value) return ElMessage.warning('请先选择账户')
-  ElMessage.info('新增项目（需对接广告平台 API）')
-}
-function onProjectSet() {
-  if (!hasAccounts.value) return ElMessage.warning('请先选择账户')
-  projectDialogVisible.value = true
-}
-function confirmProject() {
-  const p = projectOptions.value.find(x => x.id === selectedProjectId.value)
-  projectName.value = p?.name || ''
-  projectDialogVisible.value = false
-  if (p) ElMessage.success('已选择项目')
+function handleAdd(type) {
+  currentCardType.value = type
+  addForm.name = ''
+  addDialogVisible.value = true
 }
 
-function onAdGroupUseExisting() {
-  adGroupDialogVisible.value = true
-}
-function onAdGroupAdd() {
-  ElMessage.info('新增广告组（需对接广告平台 API）')
-}
-function onAdGroupSet() {
-  adGroupDialogVisible.value = true
-}
-function confirmAdGroup() {
-  const g = adGroupOptions.value.find(x => x.id === selectedAdGroupId.value)
-  adGroupName.value = g?.name || ''
-  adGroupDialogVisible.value = false
-  if (g) ElMessage.success('已选择广告组')
+function handleConfirmAdd() {
+  if (!addForm.name.trim()) {
+    ElMessage.warning('请输入名称')
+    return
+  }
+  const name = addForm.name.trim()
+  const internalId = filterForm.accounts[0]
+  if (!internalId) {
+    ElMessage.warning('请先选择账户')
+    return
+  }
+  const a = accountById(internalId)
+  projectList.value.push({
+    id: `cmp_${internalId}_line_${Date.now()}`,
+    internalAccountId: internalId,
+    accountId: a?.account_id || '',
+    accountName: a?.account_name || '',
+    campaignName: name,
+    projectName: name,
+    existingProject: '',
+    dailyBudget: null,
+    targetBasedBudget: false,
+    productLibrary: false,
+    enabled: true,
+  })
+  rebuildDerivedChains()
+  addDialogVisible.value = false
+  ElMessage.success('新增成功')
 }
 
-function onAdSet() {
-  adDialogVisible.value = true
-}
-function onAdClear() {
-  adName.value = ''
-  adForm.materialId = null
-  adForm.title = ''
-  ElMessage.success('已清空')
-}
-function confirmAd() {
-  adName.value = adForm.title || '广告'
-  adDialogVisible.value = false
-  ElMessage.success('已设置')
+function handleClear(type) {
+  if (type === 'adGroup') {
+    rebuildDerivedChains()
+    ElMessage.success('已重置广告组为与项目行对应的默认')
+    return
+  }
+  if (!projectList.value.length) {
+    adList.value = []
+    ElMessage.warning('暂无项目行')
+    return
+  }
+  adList.value = projectList.value.map((p, i) => ({
+    id: `ad_${p.id}`,
+    projectId: p.id,
+    adGroupId: `ag_${p.id}`,
+    accountId: p.accountId,
+    projectName: p.projectName,
+    adName: `广告 ${i + 1}`,
+    materialId: '',
+    titlePackId: '',
+    landingPage: '',
+    preview: 0,
+    authPage: '',
+  }))
+  ElMessage.success('已清空广告层素材与标题')
 }
 
-onMounted(loadAccounts)
+async function handleSettings(type) {
+  currentCardType.value = type
+  if (type === 'project') {
+    openProjectCampaignDialog()
+    return
+  }
+  if (!projectList.value.length) {
+    ElMessage.warning('请先选择账户生成项目行')
+    return
+  }
+  if (type === 'adGroup') {
+    if (!ensureAdGroupRows()) return
+    adGroupDialogVisible.value = true
+  } else {
+    if (!(await ensureAdTableRows())) return
+    adSettingsDialogVisible.value = true
+  }
+}
+
+onMounted(async () => {
+  await fetchEntityOptions()
+  await loadAllAccounts()
+  await Promise.all([
+    loadExistingProjects(),
+    loadExistingAdGroups(),
+    loadPixelOptions(),
+    loadAdGroupCatalogOptions(),
+    loadMaterialOptions(),
+    loadTitleOptions(),
+  ])
+})
 </script>
 
 <style scoped>
-.batch-tools-page { padding: 0; }
-.page-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
+.batch-tools-container {
+  padding: 0;
 }
-.filter-form { margin: 0; }
-.cards-row { margin-top: 0; }
-.workflow-card {
-  min-height: 240px;
+
+.filter-card {
   margin-bottom: 20px;
+}
+
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.tool-card {
+  min-height: 400px;
   border-radius: 10px;
-  transition: all 0.2s ease;
-  overflow: hidden;
 }
-.workflow-card:hover {
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-  transform: translateY(-2px);
-}
-.workflow-card :deep(.el-card__header) {
+
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card-title {
+  font-size: 16px;
   font-weight: 600;
 }
-.card-actions { display: flex; gap: 6px; }
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
 .card-content {
+  min-height: 280px;
+  padding: 8px 0 0;
+}
+
+.card-content--scroll {
+  min-height: 360px;
+}
+
+.data-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  min-height: 160px;
-  background: linear-gradient(180deg, #fafbfc 0%, #f5f7fa 100%);
+  gap: 12px;
+  padding-right: 4px;
 }
-.cloud-icon {
-  color: #c0c4cc;
-  margin-bottom: 16px;
-  opacity: 0.8;
+
+.data-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-bg-color);
 }
-.card-hint { font-size: 14px; color: #909399; margin: 0; line-height: 1.6; }
+
+.item-index {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  text-align: center;
+  background: var(--el-color-primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 6px;
+}
+
+.item-meta {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+}
+
+.item-meta span {
+  margin-right: 12px;
+}
+
+.dialog-tag-row {
+  margin-bottom: 12px;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.basic-cell {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--el-text-color-regular);
+}
+
+.batch-dialog--wide :deep(.el-dialog__body) {
+  padding-top: 12px;
+}
 </style>

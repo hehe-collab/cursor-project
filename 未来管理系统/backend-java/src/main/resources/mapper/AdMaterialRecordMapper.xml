@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.AdMaterialRecordMapper">
+
+  <resultMap id="RowMap" type="com.drama.entity.AdMaterialRecord">
+    <id column="id" property="id"/>
+    <result column="account_id" property="accountId"/>
+    <result column="account_name" property="accountName"/>
+    <result column="status" property="status"/>
+    <result column="task_type" property="taskType"/>
+    <result column="detail" property="detail"/>
+    <result column="created_at" property="createdAt"/>
+  </resultMap>
+
+  <select id="selectAllOrderByCreatedDesc" resultMap="RowMap">
+    SELECT * FROM ad_material_records ORDER BY created_at DESC, id DESC
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ad_material_records (account_id, account_name, status, task_type, detail, created_at)
+    VALUES (#{accountId}, #{accountName}, #{status}, #{taskType}, #{detail}, NOW())
+  </insert>
+</mapper>

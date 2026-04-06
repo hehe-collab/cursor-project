@@ -6,6 +6,8 @@ import logging
 logger = logging.getLogger("AI_Drama")
 
 class VideoPreview(QLabel):
+    erase_rects_changed = pyqtSignal()  # 擦除框增删时发出，用于实时更新计数
+
     def __init__(self, color=QColor(255, 0, 0), parent=None):
         super().__init__(parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -26,9 +28,10 @@ class VideoPreview(QLabel):
         self.video_size = QSize(0, 0)
         self.current_time = 0.0
         self.srt_data = []
-        self.font_config = {"size": 18, "color": "白色"}
+        self.font_config = {"size": 36, "color": "白色"}
         self.ocr_subtitle_data = []  # OCR模式的字幕数据（用于叠加显示）
         self.ocr_current_time = 0.0
+        self.ocr_subtitle_offset = 0.0  # 方案4：用户可调偏移，在展示时应用（负=提前）
 
     @property
     def target_rect(self):
@@ -61,8 +64,13 @@ class VideoPreview(QLabel):
         self.ocr_current_time = time
         self.update()  # 触发重绘，显示当前时间的字幕
     
+    def set_ocr_subtitle_offset(self, offset):
+        """设置OCR字幕时间偏移（负=提前），展示时实时应用"""
+        self.ocr_subtitle_offset = float(offset)
+        self.update()
+    
     def load_ocr_subtitles(self, subtitle_data):
-        """加载OCR模式的字幕数据用于叠加显示"""
+        """加载OCR模式的字幕数据用于叠加显示（保存原始时间，展示时应用 offset）"""
         self.ocr_subtitle_data = subtitle_data
         logger.info(f"[VideoPreview] load_ocr_subtitles 被调用，加载 {len(subtitle_data)} 条字幕")
         if subtitle_data:
@@ -124,6 +132,7 @@ class VideoPreview(QLabel):
                     self.erase_rects.append(self.current_erase_rect)
                     self.current_erase_rect = QRect()  # 重置当前框，准备绘制下一个
                     logger.info(f"已添加擦除框，当前共 {len(self.erase_rects)} 个擦除区域")
+                    self.erase_rects_changed.emit()
             
             self.update()
         elif event.button() == Qt.MouseButton.RightButton:
@@ -131,6 +140,7 @@ class VideoPreview(QLabel):
             if self.mode == "erase" and self.erase_rects:
                 self.erase_rects.pop()
                 logger.info(f"已删除最后一个擦除框，剩余 {len(self.erase_rects)} 个")
+                self.erase_rects_changed.emit()
                 self.update()
 
     def paintEvent(self, event):
@@ -208,12 +218,12 @@ class VideoPreview(QLabel):
                 overlay_color.setAlpha(40)
                 painter.fillRect(rect, overlay_color)
 
-        # OCR 模式字幕叠加显示
+        # OCR 模式字幕叠加显示（展示时应用 ocr_subtitle_offset）
         if self.mode == "ocr" and self.ocr_subtitle_data:
             current_text = ""
-            # 使用半开区间 [start, end) 与字幕编辑器保持一致
+            off = self.ocr_subtitle_offset
             for start, end, text in self.ocr_subtitle_data:
-                if start <= self.ocr_current_time < end:
+                if (start + off) <= self.ocr_current_time < (end + off):
                     current_text = text
                     logger.debug(f"[VideoPreview] 匹配到字幕: {self.ocr_current_time:.2f}s -> {text[:30]}")
                     break
@@ -275,14 +285,22 @@ class VideoPreview(QLabel):
             
             # 只在找到匹配字幕时显示
             if current_text:
-                font_size = self.font_config.get("size", 18)
-                font = QFont("Arial Unicode MS", font_size)
+                # 与 workflow 压制一致：字号为「视频像素高度上的字号」；预览按当前 pixmap 与视频高度比例缩放
+                cfg_px = int(self.font_config.get("size", 36))
+                vh = self.video_size.height() if self.video_size and self.video_size.height() > 0 else 0
+                ph = pix.height()
+                if vh > 0 and ph > 0:
+                    display_px = max(6, int(cfg_px * ph / vh))
+                else:
+                    display_px = max(6, cfg_px)
+                font = QFont("Arial Unicode MS")
+                font.setPixelSize(display_px)
                 painter.setFont(font)
                 
                 c_map = {"白色": Qt.GlobalColor.white, "黄色": Qt.GlobalColor.yellow, "红色": Qt.GlobalColor.red, "绿色": Qt.GlobalColor.green}
                 text_color = c_map.get(self.font_config.get("color", "白色"), Qt.GlobalColor.white)
                 
-                stroke_width = max(1, font_size // 15)
+                stroke_width = max(1, display_px // 15)
                 painter.setPen(QPen(Qt.GlobalColor.black, stroke_width * 2))
                 for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
                     painter.drawText(self.burn_rect.translated(dx, dy), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, current_text)
@@ -303,6 +321,7 @@ class VideoPreview(QLabel):
         """清空所有擦除框"""
         self.erase_rects = []
         self.current_erase_rect = QRect()
+        self.erase_rects_changed.emit()
         self.update()
         logger.info("已清空所有擦除框")
     

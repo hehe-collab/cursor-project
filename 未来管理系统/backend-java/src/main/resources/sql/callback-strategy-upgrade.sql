@@ -1,0 +1,11 @@
+-- #060 回传策略升级说明（与现有表结构兼容）
+--
+-- 策略数据存储在 callback_configs.config_json（TEXT），JSON 形态示例：
+-- {"strategies":[{"amount_min":0,"amount_max":99.99,"params":{"传":"v1","卡":"v2"}}]}
+-- 复充回传开关：replenish_callback_enabled（见 fix-058-callback-config-strategy.sql）
+--
+-- 若库中尚无 replenish_callback_enabled / config_json 列，请先执行：
+--   fix-058-callback-config-strategy.sql
+--
+-- 本脚本不新增列，避免与 application 已使用的字段重复。
+SELECT 1 AS _060_callback_strategy_ok;

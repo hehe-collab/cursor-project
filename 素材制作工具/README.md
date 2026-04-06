@@ -46,7 +46,8 @@
 
 阶段2：生成 20 条组合方案
 ├── 12–14 条：围绕起量片段
-└── 6–8 条：围绕次高能/其他内容
+├── 6–8 条：围绕次高能/其他内容
+└── （可选）印尼语 SRT：主体以字幕块为边界，再套时长目标；无字幕则按场景切分
 
 阶段3：批量裁剪拼接
 └── FFmpeg 输出成片
@@ -72,6 +73,8 @@
 ├── requirements.txt   # 依赖
 ├── src/
 │   ├── scene_detect.py   # 场景切分
+│   ├── srt_parse.py       # 解析 SRT
+│   ├── subtitle_plan.py   # 字幕块 + 主体选片
 │   ├── analyze.py       # AI 分析
 │   ├── plan.py          # 生成 20 条方案
 │   └── export.py        # 裁剪拼接
@@ -104,6 +107,13 @@ python src/plan.py --input analysis.json --output plan.json
 
 # 命令行覆盖时长：--short-ratio 0.4 --short-min 15 --short-max 20 --long-min 20 --long-max 30
 # 或 --materials 20 指定素材数量
+# 主体时长：默认在配置的短/长区间内「随机目标」（避免条条顶格）；旧行为：--duration-mode max
+# 随机抽样默认偏区间上半段（尽量不偏短）：config 里 duration_target_bias: upper；全区间均匀：uniform
+# 可复现随机：--random-seed 42（配合 random 模式）
+# 字幕（印尼语 SRT，与视频同集文件名：1.mp4 ↔ 1.srt）
+# 在 config.yaml 中设置 subtitles.enabled: true 与 subtitles.dir: 字幕目录
+# 规划模式：subtitle_first（默认，有字幕则字幕块优先）| scene_only
+# 仅场景：python src/plan.py -i analysis.json -o plan.json --plan-mode scene_only
 
 # 5. 导出成片（需安装 ffmpeg）
 python src/export.py --plan plan.json --output ./output

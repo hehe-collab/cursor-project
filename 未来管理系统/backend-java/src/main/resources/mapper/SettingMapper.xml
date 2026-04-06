@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.SettingMapper">
+
+  <select id="selectById" resultType="com.drama.entity.Setting">
+    SELECT id, key_name AS keyName, value, updated_at AS updatedAt FROM settings WHERE id = #{id}
+  </select>
+
+  <select id="selectByKeyName" resultType="com.drama.entity.Setting">
+    SELECT id, key_name AS keyName, value, updated_at AS updatedAt FROM settings WHERE key_name = #{keyName}
+  </select>
+
+  <select id="selectAll" resultType="com.drama.entity.Setting">
+    SELECT id, key_name AS keyName, value, updated_at AS updatedAt FROM settings ORDER BY key_name ASC
+  </select>
+
+  <insert id="upsert">
+    INSERT INTO settings (key_name, value) VALUES (#{keyName}, #{value})
+    ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO settings (key_name, value) VALUES (#{keyName}, #{value})
+  </insert>
+
+  <update id="update">
+    UPDATE settings SET value = #{value}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}
+  </update>
+</mapper>

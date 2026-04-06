@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.UserMapper">
+
+  <select id="selectNextUserCode" resultType="java.lang.String">
+    SELECT LPAD(IFNULL(MAX(CAST(user_code AS UNSIGNED)), 0) + 1, 8, '0') FROM users
+  </select>
+
+  <select id="countAll" resultType="long">
+    SELECT COUNT(*) FROM users
+  </select>
+
+  <sql id="WhereFilter">
+    <where>
+      <if test="userId != null and userId != ''">
+        AND (
+          CAST(id AS CHAR) LIKE CONCAT('%', #{userId}, '%')
+          OR IFNULL(user_code, '') LIKE CONCAT('%', #{userId}, '%')
+        )
+      </if>
+      <if test="username != null and username != ''">
+        AND username LIKE CONCAT('%', #{username}, '%')
+      </if>
+      <if test="token != null and token != ''">
+        AND (token LIKE CONCAT('%', #{token}, '%') OR token = #{token})
+      </if>
+      <if test="promotionId != null and promotionId != ''">
+        AND (promote_id = #{promotionId} OR promote_id LIKE CONCAT('%', #{promotionId}, '%'))
+      </if>
+      <if test="country != null and country != ''">
+        AND (country LIKE CONCAT('%', #{country}, '%') OR country = #{country})
+      </if>
+      <if test="startDate != null and startDate != ''">
+        AND DATE(created_at) &gt;= #{startDate}
+      </if>
+      <if test="endDate != null and endDate != ''">
+        AND DATE(created_at) &lt;= #{endDate}
+      </if>
+    </where>
+  </sql>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO users (
+      user_code, username, phone, avatar, status, promote_id, promote_name, coin_balance, token, country, new_user_id,
+      created_at, updated_at
+    ) VALUES (
+      #{userCode}, #{username}, #{phone}, #{avatar}, #{status}, #{promoteId}, #{promoteName}, #{coinBalance}, #{token}, #{country}, #{newUserId},
+      NOW(), NOW()
+    )
+  </insert>
+
+  <update id="updateById">
+    UPDATE users SET
+      username = #{username},
+      phone = #{phone},
+      avatar = #{avatar},
+      status = #{status},
+      promote_id = #{promoteId},
+      promote_name = #{promoteName},
+      coin_balance = #{coinBalance},
+      token = #{token},
+      country = #{country},
+      new_user_id = #{newUserId},
+      updated_at = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM users WHERE id = #{id}
+  </delete>
+
+  <select id="selectStatsAggregate" resultType="com.drama.dto.UserStatsRow">
+    SELECT
+      COUNT(*) AS total_count,
+      SUM(CASE WHEN IFNULL(status, 1) = 1 THEN 1 ELSE 0 END) AS active_count,
+      SUM(CASE WHEN IFNULL(status, 1) != 1 THEN 1 ELSE 0 END) AS inactive_count,
+      COALESCE(SUM(coin_balance), 0) AS total_coins
+    FROM users
+    <include refid="WhereFilter"/>
+  </select>
+
+  <select id="countByParam" resultType="long">
+    SELECT COUNT(*) FROM users
+    <include refid="WhereFilter"/>
+  </select>
+
+  <select id="selectByParam" resultType="com.drama.entity.User">
+    SELECT * FROM users
+    <include refid="WhereFilter"/>
+    ORDER BY id DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectById" resultType="com.drama.entity.User">
+    SELECT * FROM users WHERE id = #{id}
+  </select>
+</mapper>

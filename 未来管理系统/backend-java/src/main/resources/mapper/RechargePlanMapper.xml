@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.RechargePlanMapper">
+
+  <resultMap id="PlanMap" type="com.drama.entity.RechargePlan">
+    <id column="id" property="id"/>
+    <result column="name" property="name"/>
+    <result column="bean_count" property="beanCount"/>
+    <result column="extra_bean" property="extraBean"/>
+    <result column="amount" property="amount"/>
+    <result column="recharge_info" property="rechargeInfo"/>
+    <result column="pay_platform" property="payPlatform"/>
+    <result column="currency" property="currency"/>
+    <result column="status" property="status"/>
+    <result column="description" property="description"/>
+    <result column="unlock_full_series" property="unlockFullSeries"/>
+    <result column="plan_uuid" property="planUuid"/>
+    <result column="created_by" property="createdBy"/>
+    <result column="created_by_name" property="createdByName"/>
+    <result column="is_recommended" property="isRecommended"/>
+    <result column="is_hot" property="isHot"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="updated_at" property="updatedAt"/>
+  </resultMap>
+
+  <sql id="WhereFiltered">
+    <where>
+      <if test="name != null and name != ''">
+        AND name LIKE CONCAT('%', #{name}, '%')
+      </if>
+      <if test="idToken != null and idToken != ''">
+        AND (
+          CAST(id AS CHAR) LIKE CONCAT('%', #{idToken}, '%')
+          OR LOWER(COALESCE(plan_uuid,'')) LIKE CONCAT('%', LOWER(#{idToken}), '%')
+        )
+      </if>
+      <if test="paymentPlatform != null and paymentPlatform != '' and paymentPlatform != 'all'">
+        AND pay_platform = #{paymentPlatform}
+      </if>
+      <if test="status != null and status != ''">
+        AND status = #{status}
+      </if>
+    </where>
+  </sql>
+
+  <select id="countFiltered" resultType="long">
+    SELECT COUNT(*) FROM recharge_plans
+    <include refid="WhereFiltered"/>
+  </select>
+
+  <select id="selectFilteredPage" resultMap="PlanMap">
+    SELECT * FROM recharge_plans
+    <include refid="WhereFiltered"/>
+    ORDER BY id DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectAllActiveOrderByIdDesc" resultMap="PlanMap">
+    SELECT * FROM recharge_plans
+    WHERE status = 'active'
+    ORDER BY id DESC
+  </select>
+
+  <select id="selectById" resultMap="PlanMap">
+    SELECT * FROM recharge_plans WHERE id = #{id}
+  </select>
+
+  <select id="selectByIds" resultMap="PlanMap">
+    SELECT * FROM recharge_plans
+    WHERE id IN
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
+      #{id}
+    </foreach>
+    ORDER BY FIELD(id,
+    <foreach collection="ids" item="id" separator=",">
+      #{id}
+    </foreach>
+    )
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO recharge_plans (
+      name, bean_count, extra_bean, amount, recharge_info, pay_platform, currency, status,
+      description, unlock_full_series, plan_uuid, created_by, created_by_name,
+      is_recommended, is_hot, created_at, updated_at
+    ) VALUES (
+      #{name}, #{beanCount}, #{extraBean}, #{amount}, #{rechargeInfo}, #{payPlatform}, #{currency}, #{status},
+      #{description}, #{unlockFullSeries}, #{planUuid}, #{createdBy}, #{createdByName},
+      #{isRecommended}, #{isHot}, NOW(), NOW()
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE recharge_plans SET
+      name = #{name},
+      bean_count = #{beanCount},
+      extra_bean = #{extraBean},
+      amount = #{amount},
+      recharge_info = #{rechargeInfo},
+      pay_platform = #{payPlatform},
+      currency = #{currency},
+      status = #{status},
+      description = #{description},
+      unlock_full_series = #{unlockFullSeries},
+      plan_uuid = #{planUuid},
+      created_by_name = #{createdByName},
+      is_recommended = #{isRecommended},
+      is_hot = #{isHot},
+      updated_at = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM recharge_plans WHERE id = #{id}
+  </delete>
+</mapper>

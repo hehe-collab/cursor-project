@@ -2,48 +2,62 @@
   <div class="drama-manage-list">
     <el-card>
       <template #header>
-        <div class="card-header">
-          <span>短剧管理</span>
-        </div>
+        <span>短剧管理</span>
       </template>
-      <el-form :inline="true" class="filter-form" @submit.prevent="loadList">
-        <el-form-item label="剧ID">
-          <el-input v-model="query.dramaId" placeholder="请输入" clearable style="width:140px" @keyup.enter="loadList" />
-        </el-form-item>
-        <el-form-item label="剧名">
-          <el-input v-model="query.title" placeholder="请输入" clearable style="width:160px" />
-        </el-form-item>
-        <el-form-item label="类型">
-          <el-select v-model="query.categoryId" placeholder="请选择" clearable style="width:140px">
-            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" placeholder="请选择" clearable style="width:120px">
-            <el-option label="草稿" value="draft" />
-            <el-option label="上线" value="published" />
-            <el-option label="下线" value="offline" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="loadList">搜索</el-button>
-          <el-button @click="onReset">重置</el-button>
-        </el-form-item>
+      <el-form :model="query" label-position="top" class="drama-manage-list-filter-form" @submit.prevent="loadList">
+        <el-row :gutter="16">
+          <el-col :span="6">
+            <el-form-item label="剧ID">
+              <el-input v-model="query.dramaId" placeholder="请输入" clearable @keyup.enter="loadList" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="剧名">
+              <el-input v-model="query.title" placeholder="请输入" clearable />
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="类型">
+              <el-select v-model="query.categoryId" placeholder="请选择" clearable style="width: 100%">
+                <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="6">
+            <el-form-item label="状态">
+              <el-select v-model="query.status" placeholder="请选择" clearable style="width: 100%">
+                <el-option label="草稿" value="draft" />
+                <el-option label="上线" value="published" />
+                <el-option label="下线" value="offline" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <div class="button-group">
+          <div class="button-group-left">
+            <el-button type="primary" @click="loadList">搜索</el-button>
+            <el-button @click="onReset">重置</el-button>
+          </div>
+          <div class="button-group-right"></div>
+        </div>
+        <div class="button-group">
+          <div class="button-group-left">
+            <el-button type="primary" @click="$router.push('/dramas/add')">
+              <el-icon><Plus /></el-icon>
+              新增
+            </el-button>
+            <el-button type="success" :disabled="selectedRows.length !== 1" @click="onBatchEdit">
+              <el-icon><Edit /></el-icon>
+              批量修改
+            </el-button>
+            <el-button type="danger" :disabled="!selectedRows.length" @click="onBatchDelete">
+              <el-icon><Delete /></el-icon>
+              批量删除
+            </el-button>
+          </div>
+          <div class="button-group-right"></div>
+        </div>
       </el-form>
-      <div class="page-toolbar drama-toolbar">
-        <el-button type="primary" @click="$router.push('/dramas/add')">
-          <el-icon><Plus /></el-icon>
-          新增
-        </el-button>
-        <el-button type="success" :disabled="selectedRows.length !== 1" @click="onBatchEdit">
-          <el-icon><Edit /></el-icon>
-          批量修改
-        </el-button>
-        <el-button type="danger" :disabled="!selectedRows.length" @click="onBatchDelete">
-          <el-icon><Delete /></el-icon>
-          批量删除
-        </el-button>
-      </div>
       <el-table :data="list" v-loading="loading" stripe size="small" @selection-change="handleSelectionChange">
         <template #empty>
           <el-empty description="暂无数据" />
@@ -84,7 +98,7 @@
       <el-pagination
         v-model:current-page="query.page"
         v-model:page-size="query.pageSize"
-        :page-sizes="[10, 20, 50]"
+        :page-sizes="[20, 50, 100, 200]"
         :total="total"
         layout="total, sizes, prev, pager, next"
         @current-change="loadList"
@@ -110,7 +124,7 @@ const categories = ref([])
 const selectedRows = ref([])
 const query = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: 20,
   dramaId: '',
   title: '',
   categoryId: '',
@@ -279,11 +293,16 @@ onMounted(() => {
 
 <style scoped>
 .drama-manage-list :deep(.el-card__body) { padding: 20px 24px; }
-.drama-manage-list .card-header { display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 600; }
-.drama-manage-list .filter-form { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #ebeef5; }
-.drama-manage-list .filter-form .el-form-item { margin-bottom: 12px !important; }
-.drama-toolbar { margin-bottom: 20px; display: flex; gap: 12px; align-items: center; justify-content: flex-start !important; }
-.drama-toolbar .el-button { min-width: 90px; }
+.drama-manage-list-filter-form :deep(.el-input),
+.drama-manage-list-filter-form :deep(.el-select) {
+  width: 100%;
+}
+.drama-manage-list-filter-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+.drama-manage-list .button-group .el-button {
+  min-width: 90px;
+}
 .drama-manage-list :deep(.el-table) { border-radius: 6px; overflow: hidden; }
 .drama-manage-list :deep(.el-table th) { background: #fafbfc !important; font-weight: 600; }
 .drama-manage-list :deep(.el-pagination) { margin-top: 20px; }

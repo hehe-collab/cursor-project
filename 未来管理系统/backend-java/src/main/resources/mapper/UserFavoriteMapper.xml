@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.UserFavoriteMapper">
+  <select id="selectById" resultType="com.drama.entity.UserFavorite">
+    SELECT * FROM user_favorites WHERE id = #{id}
+  </select>
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO user_favorites (user_pk, drama_id) VALUES (#{userPk}, #{dramaId})
+  </insert>
+  <delete id="deleteById">
+    DELETE FROM user_favorites WHERE id = #{id}
+  </delete>
+</mapper>

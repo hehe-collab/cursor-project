@@ -7,7 +7,7 @@ import shutil
 import difflib
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, CancelledError
 from PyQt6.QtCore import QThread, pyqtSignal, QWaitCondition, QMutex
 from core.ocr_engine import OCREngine
 from core.translator import TranslatorEngine
@@ -43,10 +43,17 @@ class TranslationWorkflow(QThread):
         self.proc_lock = QMutex()
         self.progress_lock = QMutex()
         self.processed_frames = {}
+        self._executor = None  # ThreadPoolExecutor，供 stop() 取消未开始的任务
 
     def stop(self):
         self.is_running = False
-        self.resume() 
+        try:
+            n = len(self.video_files) or 1
+            cur = int(sum(self.file_progress.values()) / n)
+            self.progress.emit(min(max(cur, 0), 99), "🛑 正在停止...")
+        except Exception:
+            self.progress.emit(0, "🛑 正在停止...")
+        self.resume()
         self.proc_lock.lock()
         for p in self.active_processes:
             try:
@@ -56,6 +63,14 @@ class TranslationWorkflow(QThread):
                 except: pass
         self.active_processes = []
         self.proc_lock.unlock()
+        ex = self._executor
+        if ex is not None:
+            try:
+                ex.shutdown(wait=False, cancel_futures=True)
+            except TypeError:
+                ex.shutdown(wait=False)
+            except Exception as e:
+                logger.debug(f"executor shutdown: {e}")
 
     def resume(self):
         self.mutex.lock()
@@ -80,15 +95,26 @@ class TranslationWorkflow(QThread):
             return
 
         max_workers = self.parallel_count
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        self._executor = executor
+        try:
             future_to_file = {executor.submit(self.process_single_file, f): f for f in self.video_files}
             for future in as_completed(future_to_file):
-                if not self.is_running: break
-                try: 
+                if not self.is_running:
+                    break
+                try:
                     result = future.result()
                     logger.debug(f"任务完成: 返回 {result}")
-                except Exception as e: 
+                except CancelledError:
+                    logger.debug("单个文件任务已取消")
+                except Exception as e:
                     logger.error(f"线程执行异常: {e}", exc_info=True)
+        finally:
+            self._executor = None
+            try:
+                executor.shutdown(wait=True)
+            except Exception:
+                pass
 
         status = "✅ 批量任务已完成" if self.is_running else "🛑 任务已停止"
         self.progress.emit(100, status)
@@ -208,16 +234,27 @@ class TranslationWorkflow(QThread):
                 self.update_overall_progress(video_path, 100 if success else 0, status_msg)
 
             elif self.single_step == 'scale':
-                # 分辨率调整逻辑
+                # 分辨率调整逻辑（可选统一帧率）
                 target_width = self.config.get('target_width', 1080)
                 target_height = self.config.get('target_height', 1920)
+                target_fps = self.config.get('target_fps')  # 如 "25" 或 "30"
                 
-                logger.info(f"✨ 调整分辨率: {video_full_name} -> {target_width}x{target_height}")
+                vf_parts = [f"scale={target_width}:{target_height}"]
+                if target_fps:
+                    try:
+                        fps_int = int(target_fps)
+                        vf_parts.append(f"fps={fps_int}")
+                        logger.info(f"✨ 调整分辨率+统一帧率: {video_full_name} -> {target_width}x{target_height} @ {fps_int}fps")
+                    except (ValueError, TypeError):
+                        logger.info(f"✨ 调整分辨率: {video_full_name} -> {target_width}x{target_height}")
+                else:
+                    logger.info(f"✨ 调整分辨率: {video_full_name} -> {target_width}x{target_height}")
                 
+                vf_str = ','.join(vf_parts)
                 cmd = [
                     self.ffmpeg.ffmpeg_bin, '-y',
                     '-i', os.path.abspath(video_path),
-                    '-vf', f"scale={target_width}:{target_height}",
+                    '-vf', vf_str,
                     '-c:v', 'h264_videotoolbox', '-b:v', bitrate,
                     '-pix_fmt', 'yuv420p', '-c:a', 'copy', os.path.abspath(final_output_path)
                 ]
@@ -245,7 +282,7 @@ class TranslationWorkflow(QThread):
                     cmd_cpu = [
                         self.ffmpeg.ffmpeg_bin, '-y',
                         '-i', os.path.abspath(video_path),
-                        '-vf', f"scale={target_width}:{target_height}",
+                        '-vf', vf_str,
                         '-c:v', 'libx264', '-preset', 'medium', '-b:v', bitrate,
                         '-pix_fmt', 'yuv420p', '-c:a', 'copy', os.path.abspath(final_output_path)
                     ]
@@ -358,7 +395,7 @@ class TranslationWorkflow(QThread):
                 px, py, pw, ph = rect
                 pad = 15  # 保留优化：减少 padding 提高单字识别
                 roi = frame[max(0, py-pad):min(fh, py+ph+pad), max(0, px-pad):min(fw, px+pw+pad)]
-                res = self.ocr.recognize_text(roi)
+                res = self.ocr.recognize_text(roi, lambda: self.is_running)
                 text = "".join(res).strip()
                 raw_samples.append({'time': t, 'text': text})
                 
@@ -396,6 +433,15 @@ class TranslationWorkflow(QThread):
         e = self.finalize_group(curr_g); 
         if e: processed.append(e)
         
+        # 方案2：仅保留含中文的字幕，过滤纯英文/数字误提取（如地面、logo）
+        def _has_cjk(t):
+            return any('\u4e00' <= c <= '\u9fff' for c in t)
+        before_count = len(processed)
+        processed = [e for e in processed if _has_cjk(e['text'])]
+        if before_count > len(processed):
+            logger.info(f"[字幕提取] {video_name}: 过滤纯英文/数字 {before_count - len(processed)} 条")
+        
+        # 方案4：偏移改为在预览/压制时应用，此处保存原始时间
         self.update_overall_progress(video_path, 95, "✍️ 生成SRT...")
         logger.info(f"[字幕提取] {video_name}: 合并完成，生成 {len(processed)} 条字幕")
         
@@ -477,6 +523,18 @@ class TranslationWorkflow(QThread):
             
         return "\n\n".join(translated_blocks)
 
+    def _burn_font_colors(self, color_name):
+        """与 video_preview  burn 模式「白色/黄色/红色/绿色」一致，返回 (填充 RGB, 描边 RGB)。"""
+        key = (color_name or "白色").strip()
+        fill_map = {
+            "白色": (255, 255, 255),
+            "黄色": (255, 255, 0),
+            "红色": (255, 0, 0),
+            "绿色": (0, 255, 0),
+        }
+        fill = fill_map.get(key, (255, 255, 255))
+        return fill, (0, 0, 0)
+
     def wrap_text(self, text, font, max_width, draw):
         """自动换行逻辑 - 智能支持中文（按字符）和西方语言（按单词）"""
         if not text: return []
@@ -551,16 +609,35 @@ class TranslationWorkflow(QThread):
         from PIL import Image, ImageDraw, ImageFont
         
         video_name = os.path.basename(video_path)
-        srt_path = video_path.replace(os.path.splitext(video_path)[1], ".srt")
-        # 尝试从 Translated_SRT 目录加载
         video_dir = os.path.dirname(video_path)
         video_base = os.path.splitext(video_name)[0]
-        alt_srt_path = os.path.join(video_dir, "Translated_SRT", f"{video_base}.srt")
-        
-        target_srt = alt_srt_path if os.path.exists(alt_srt_path) else srt_path
-        
-        if not os.path.exists(target_srt):
-            logger.error(f"❌ [{video_name}] 未找到字幕文件: {target_srt}")
+        parent_dir = os.path.dirname(video_dir)
+
+        # 1. 优先使用 UI 层传入的 video_srt_map（用户导入或 auto_match 已匹配）
+        target_srt = None
+        video_srt_map = self.config.get("video_srt_map") or {}
+        abs_video = os.path.abspath(video_path)
+        if abs_video in video_srt_map:
+            cand = video_srt_map[abs_video]
+            if isinstance(cand, str) and os.path.exists(cand):
+                target_srt = cand
+
+        # 2. 按约定目录顺序查找：同目录、Translated_SRT、父级 OCR_Result / Translated_SRT
+        if not target_srt:
+            candidates = [
+                os.path.join(video_dir, f"{video_base}.srt"),
+                os.path.join(video_dir, "Translated_SRT", f"{video_base}.srt"),
+                os.path.join(parent_dir, "OCR_Result", f"{video_base}.srt"),
+                os.path.join(parent_dir, "Translated_SRT", f"{video_base}.srt"),
+            ]
+            for p in candidates:
+                if os.path.exists(p):
+                    target_srt = p
+                    break
+
+        if not target_srt or not os.path.exists(target_srt):
+            hint = target_srt or f"已查找: 同目录、Translated_SRT、父级 OCR_Result/Translated_SRT"
+            logger.error(f"❌ [{video_name}] 未找到字幕文件: {hint}")
             self.update_overall_progress(video_path, 0, "❌ 缺失SRT")
             return
 
@@ -570,6 +647,11 @@ class TranslationWorkflow(QThread):
             with open(target_srt, "r", encoding="utf-8") as f:
                 content = f.read()
                 srt_entries = self.parse_srt_text(content)
+            # 方案4：压制时应用用户可调偏移（负=提前）
+            offset = self.config.get('subtitle_time_offset', 0)
+            if offset != 0:
+                srt_entries = [(max(0, s + offset), max(max(0, s + offset), e + offset), t) for s, e, t in srt_entries]
+                logger.info(f"[字幕压制] {video_name}: 已应用时间偏移 {offset:+.2f}s")
             logger.info(f"[字幕压制] {video_name} -> SRT: {os.path.basename(target_srt)}")
             logger.info(f"[字幕压制] 成功解析 {len(srt_entries)} 条字幕")
         except Exception as e:
@@ -584,12 +666,20 @@ class TranslationWorkflow(QThread):
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         logger.info(f"[字幕压制] 视频信息: {w}x{h}, {fps:.2f}fps, {total_frames}帧")
 
+        # 字号/颜色与 UI 预览 font_config 一致（Pillow 为像素级字号，与预览 SpinBox 数值对应）
+        cfg_font = self.config.get("font_size")
+        if cfg_font is not None:
+            f_size = max(8, min(200, int(cfg_font)))
+        else:
+            f_size = max(8, int(h * 0.04))
+        color_name = self.config.get("font_color") or "白色"
+        fill_rgb, stroke_rgb = self._burn_font_colors(color_name)
+
         # 加载字体
-        f_size = int(h * 0.04)
         font_path = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
         try:
             font = ImageFont.truetype(font_path, f_size)
-            logger.info(f"[字幕压制] 成功加载字体: {font_path}, 大小: {f_size}")
+            logger.info(f"[字幕压制] 成功加载字体: {font_path}, 大小: {f_size}px, 颜色: {color_name}")
         except:
             font = ImageFont.load_default()
             logger.warning("[字幕压制] 字体加载失败，使用默认字体")
@@ -670,8 +760,8 @@ class TranslationWorkflow(QThread):
 
                         sw = max(2, f_size // 20)
                         draw.text((tx + sw, ty + sw), line, font=font, fill=(0, 0, 0, 180)) # 阴影
-                        draw.text((tx, ty), line, font=font, fill=(255, 255, 255),
-                                stroke_width=sw, stroke_fill=(0, 0, 0)) # 描边
+                        draw.text((tx, ty), line, font=font, fill=fill_rgb,
+                                stroke_width=sw, stroke_fill=stroke_rgb)
                     
                     frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
                 
@@ -778,8 +868,8 @@ class TranslationWorkflow(QThread):
                                     ty = start_y + i * line_height
                                     
                                     draw.text((tx + 2, ty + 2), line, font=font, fill=(0, 0, 0, 180))
-                                    draw.text((tx, ty), line, font=font, fill=(255, 255, 255),
-                                             stroke_width=max(2, f_size // 20), stroke_fill=(0, 0, 0))
+                                    draw.text((tx, ty), line, font=font, fill=fill_rgb,
+                                             stroke_width=max(2, f_size // 20), stroke_fill=stroke_rgb)
                                 
                                 frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
                             

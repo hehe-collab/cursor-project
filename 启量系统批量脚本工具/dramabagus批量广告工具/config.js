@@ -51,6 +51,17 @@ const baseConfig = {
     pollMaxWait: 0,
   },
 
+  /**
+   * 多次提交（submitCount≥2）时，最后一次点击「提交」之后到结束本任务（并行模式会立刻关标签页）之间的缓冲。
+   * - finalSettleMs：固定额外等待，保证请求有时间落地（默认可维护、可调）
+   * - waitForSuccessToast：是否先尝试等待 Element Plus 成功提示（超时则忽略，仍执行 finalSettleMs）
+   */
+  submit: {
+    finalSettleMs: 3000,
+    waitForSuccessToast: true,
+    successToastTimeoutMs: 8000,
+  },
+
   // ===== 高级配置 =====
   advanced: {
     useIntelligentWait: true,

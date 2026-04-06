@@ -1,0 +1,13 @@
+# Cursor 索引：排除大目录（与 .gitignore 类似）
+
+**/node_modules/
+**/target/
+**/dist/
+**/.vite/
+**/build/
+**/__pycache__/
+**/.venv/
+**/venv/
+
+**/package-lock.json
+**/yarn.lock

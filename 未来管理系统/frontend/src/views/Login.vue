@@ -41,8 +41,9 @@ async function onSubmit() {
   loading.value = true
   try {
     const res = await request.post('/auth/login', form)
-    localStorage.setItem('token', res.data.token)
-    localStorage.setItem('user', JSON.stringify(res.data.user))
+    const payload = res.data || {}
+    localStorage.setItem('token', payload.token)
+    localStorage.setItem('user', JSON.stringify(payload.admin || payload.user || {}))
     sessionStorage.setItem('loginSuccess', '1')
     ElMessage.success('登录成功')
     router.push('/')

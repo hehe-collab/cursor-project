@@ -5,6 +5,48 @@ const XLSX = require('xlsx');
 const { log } = require('./utils');
 
 // Excel 列名映射
+/**
+ * 与 automation.js 中 selectBiddingStrategy 一致的策略归一化（用于校验与规则）
+ */
+function normalizeBiddingStrategy(optimizationTarget, biddingStrategy) {
+  const target = String(optimizationTarget || '').trim();
+  let strategy = String(biddingStrategy || '').trim();
+  if (!strategy) {
+    strategy = target === '转化' ? '成本上限(CPA)' : '目标ROAS';
+  } else {
+    const lower = strategy.replace(/\s/g, '').toLowerCase();
+    if (lower.includes('目标') && lower.includes('roas')) strategy = '目标ROAS';
+    else if (lower.includes('最高价值')) strategy = '最高价值';
+    else if (lower.includes('最大化投放')) strategy = '最大化投放';
+    else if (lower.includes('成本上限') || lower.includes('cpa')) strategy = '成本上限(CPA)';
+  }
+  return strategy;
+}
+
+/**
+ * 允许出价为空白（脚本跳过填出价）的组合：
+ * - 转化 + 最大化投放
+ * - 价值 + 最高价值
+ * 其余情况必须填出价
+ */
+function allowsEmptyBid(optimizationTarget, biddingStrategy) {
+  const opt = String(optimizationTarget || '').trim();
+  const strat = normalizeBiddingStrategy(optimizationTarget, biddingStrategy);
+  if (opt === '转化' && strat === '最大化投放') return true;
+  if (opt === '价值' && strat === '最高价值') return true;
+  return false;
+}
+
+/** 用于日志：空出价跳过时的组合说明 */
+function emptyBidSkipDescription(optimizationTarget, biddingStrategy) {
+  if (!allowsEmptyBid(optimizationTarget, biddingStrategy)) return '';
+  const opt = String(optimizationTarget || '').trim();
+  const strat = normalizeBiddingStrategy(optimizationTarget, biddingStrategy);
+  if (opt === '转化' && strat === '最大化投放') return '转化+最大化投放';
+  if (opt === '价值' && strat === '最高价值') return '价值+最高价值';
+  return '允许空出价';
+}
+
 const COLUMN_MAP = {
   '任务': 'taskId',
   '主体': 'entity',
@@ -160,42 +202,95 @@ function readTasks(filePath) {
     const firstRow = rows[0];
     const accounts = [];
 
+    // --- 在任务组层面预处理一些只有首行有意义的基础配置，但核心配置全部下放到 account 层 ---
+    // (主体、taskId作为基本元数据保留在 group)
+    const entity = String(firstRow.entity).trim();
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      // 解析"启用"字段：支持 true/false/"是"/"否"/空(默认true)
-      const enableRaw = String(row.enable !== '' ? row.enable : (firstRow.enable !== '' ? firstRow.enable : 'true')).trim().toLowerCase();
-      const enable = !['false', '否', '0', 'no'].includes(enableRaw);
+      
+      // 【核心思想】：逐行独立设置，如果当前行某列为空，则继承首行对应的列
 
-      // 解析标题：如果当前行有值则用当前行的，否则继承首行
-      const titlesStr = String(row.titles || firstRow.titles || '').trim();
-      const titles = titlesStr ? titlesStr.split(',').map(t => t.trim()).filter(Boolean) : [];
-
-      const account = {
-        accountId: String(row.accountId).trim(),
-        // Pixel: 如果当前行有值则用当前行的，否则继承首行
-        pixel: String(row.pixel || firstRow.pixel).trim(),
-        // 推广链接关键词：当前行有则用，否则继承首行（多账户时后续行可只填账户ID）
-        linkKeyword: String(row.linkKeyword || firstRow.linkKeyword || '').trim(),
-        // 标题：每个账户可以有自己的标题，或继承首行
-        titles,
-        // 启用：可逐行覆盖，默认 true
-        enable,
-      };
-
-      if (!account.accountId) {
+      const accountId = String(row.accountId).trim();
+      if (!accountId) {
         log(`任务 ${taskId} 第 ${i + 1} 行缺少账户ID，跳过`, 'WARN');
         continue;
       }
-      if (!account.linkKeyword) {
-        log(`任务 ${taskId} 账户 ${account.accountId} 缺少推广链接关键词，跳过`, 'WARN');
-        continue;
-      }
-      if (titles.length === 0) {
-        log(`任务 ${taskId} 账户 ${account.accountId} 缺少标题，跳过`, 'WARN');
-        continue;
+
+      // --- 文本型字段解析（当前行优先，否则首行） ---
+      const pixel = String(row.pixel || firstRow.pixel).trim();
+      const projectName = String(row.projectName || firstRow.projectName).trim();
+      const linkKeyword = String(row.linkKeyword || firstRow.linkKeyword || '').trim();
+      const optimizationTarget = String(row.optimizationTarget || firstRow.optimizationTarget || '价值').trim();
+      const biddingStrategy = String(row.biddingStrategy || firstRow.biddingStrategy || '').trim();
+      const bid = String(row.bid || firstRow.bid).trim();
+      const budget = String(row.budget || firstRow.budget).trim();
+      const age = String(row.age || firstRow.age || '18+').trim();
+      const identity = String(row.identity || firstRow.identity || '').trim();
+      const productStore = String(row.productStore || firstRow.productStore || '').trim();
+      const product = String(row.product || firstRow.product || '').trim();
+
+      // --- 特殊字段解析（启用状态） ---
+      const enableRaw = String(row.enable !== '' ? row.enable : (firstRow.enable !== '' ? firstRow.enable : 'true')).trim().toLowerCase();
+      const enable = !['false', '否', '0', 'no'].includes(enableRaw);
+
+      // --- 数组/列表型字段解析（标题、素材） ---
+      const titlesStr = String(row.titles || firstRow.titles || '').trim();
+      const titles = titlesStr ? titlesStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+      const materialKeyword = String(row.materialKeyword || firstRow.materialKeyword || '').trim();
+      
+      let materialIds = [];
+      const materialIdsStr = String(row.materialIds || firstRow.materialIds || '').trim();
+      if (materialIdsStr) {
+        materialIds = materialIdsStr
+          .replace(/[\r\n]+/g, '\n')
+          .replace(/^[;；\s]+|[;；\s]+$/g, '')
+          .split(/[\n;；,，]+/)
+          .map(id => id.trim())
+          .filter(id => id.length > 0);
       }
 
-      accounts.push(account);
+      // --- 日期和时间解析 ---
+      let startDateRaw = row.startDate || firstRow.startDate;
+      if (startDateRaw instanceof Date) {
+        startDateRaw = startDateRaw.toISOString().split('T')[0];
+      }
+      const startDate = normalizeStartDate(startDateRaw);
+      const startTime = normalizeStartTime(row.startTime !== undefined && row.startTime !== '' ? row.startTime : firstRow.startTime);
+
+      // --- 验证该行的必填字段 ---
+      if (!linkKeyword) log(`任务 ${taskId} 账户 ${accountId} 缺少推广链接关键词`, 'WARN');
+      if (titles.length === 0) log(`任务 ${taskId} 账户 ${accountId} 缺少标题`, 'WARN');
+      if (!projectName) log(`任务 ${taskId} 账户 ${accountId} 缺少项目名称`, 'WARN');
+      const bidEmpty = !String(bid || '').trim();
+      const budgetEmpty = !String(budget || '').trim();
+      if (budgetEmpty) log(`任务 ${taskId} 账户 ${accountId} 缺少预算`, 'WARN');
+      if (bidEmpty && !allowsEmptyBid(optimizationTarget, biddingStrategy)) {
+        log(`任务 ${taskId} 账户 ${accountId} 缺少出价（仅「转化+最大化投放」或「价值+最高价值」可不填）`, 'WARN');
+      }
+      if (!materialKeyword && materialIds.length === 0) log(`任务 ${taskId} 账户 ${accountId} 缺少素材检索信息`, 'WARN');
+
+      accounts.push({
+        accountId,
+        pixel,
+        projectName,
+        linkKeyword,
+        titles,
+        optimizationTarget,
+        biddingStrategy,
+        bid,
+        budget,
+        startDate,
+        startTime,
+        materialKeyword,
+        materialIds,
+        age,
+        identity,
+        productStore,
+        product,
+        enable
+      });
     }
 
     if (accounts.length === 0) {
@@ -203,76 +298,18 @@ function readTasks(filePath) {
       continue;
     }
 
-    // 格式化日期（支持 2026/3/5、2026-02-09、Excel 序列号等，统一为 YYYY-MM-DD）
-    let startDateRaw = firstRow.startDate;
-    if (startDateRaw instanceof Date) {
-      startDateRaw = startDateRaw.toISOString().split('T')[0];
-    }
-    const startDate = normalizeStartDate(startDateRaw);
-
-    // 格式化时间（支持 03:00、03:00:00、Excel 小数等，统一为 HH:mm:ss）
-    const startTime = normalizeStartTime(firstRow.startTime);
-
-    // 解析提交次数（默认1次）
+    // 提交次数一般是针对整个任务控制的，读取首行即可
     let submitCount = parseInt(firstRow.submitCount) || 1;
     if (submitCount < 1) submitCount = 1;
-    if (submitCount > 10) submitCount = 10; // 限制最大10次
+    if (submitCount > 10) submitCount = 10;
 
-    // 解析素材ID列表（支持多种分隔符：换行、分号、逗号）
-    let materialIds = [];
-    const materialIdsStr = String(firstRow.materialIds || '').trim();
-    if (materialIdsStr) {
-      // 1. 替换 Excel 换行符（\r\n, \n, \r）为统一的换行符
-      // 2. 去除首尾的分号和空格
-      // 3. 按换行、分号、逗号分隔
-      materialIds = materialIdsStr
-        .replace(/[\r\n]+/g, '\n')           // 统一换行符
-        .replace(/^[;；\s]+|[;；\s]+$/g, '') // 去除首尾的分号和空格
-        .split(/[\n;；,，]+/)                 // 按换行、中英文分号、中英文逗号分隔
-        .map(id => id.trim())                // 去除每个ID的前后空格
-        .filter(id => id.length > 0);        // 去除空字符串
-    }
-
-    const taskGroup = {
+    // 构建组对象 (公共数据 + 各自独立的账户配置数据)
+    taskGroups.push({
       taskId,
-      entity: String(firstRow.entity).trim(),
-      projectName: String(firstRow.projectName).trim(),
-      optimizationTarget: String(firstRow.optimizationTarget || '价值').trim(),
-      biddingStrategy: String(firstRow.biddingStrategy || '').trim(),
-      bid: String(firstRow.bid).trim(),
-      budget: String(firstRow.budget).trim(),
-      startDate,
-      startTime,
-      materialKeyword: String(firstRow.materialKeyword).trim(),
-      materialIds,  // 素材ID数组
-      age: String(firstRow.age || '18+').trim(),
-      identity: String(firstRow.identity || '').trim(),
-      productStore: String(firstRow.productStore || '').trim(),
-      product: String(firstRow.product || '').trim(),
-      enable: true, // 默认启用
-      submitCount, // 提交次数
-      accounts,
-    };
-
-    // 验证必填字段
-    const missing = [];
-    if (!taskGroup.entity) missing.push('主体');
-    if (!taskGroup.projectName) missing.push('项目名称');
-    // 素材关键词和素材ID至少要有一个
-    if (!taskGroup.materialKeyword && taskGroup.materialIds.length === 0) {
-      missing.push('素材关键词或素材ID（至少填写一项）');
-    }
-    // 标题已移至账户级别，在上面的循环中已验证
-    if (!taskGroup.bid) missing.push('出价');
-    if (!taskGroup.budget) missing.push('预算');
-    if (!taskGroup.startDate) missing.push('开始日期');
-    if (!taskGroup.startTime) missing.push('开始时间');
-
-    if (missing.length > 0) {
-      log(`任务 ${taskId} 缺少必填字段: ${missing.join(', ')}`, 'WARN');
-    }
-
-    taskGroups.push(taskGroup);
+      entity,
+      submitCount,
+      accounts
+    });
   }
 
   log(`共解析 ${taskGroups.length} 个任务组，${taskGroups.reduce((s, g) => s + g.accounts.length, 0)} 个账户`);
@@ -288,27 +325,46 @@ function printTaskSummary(taskGroups) {
   console.log('='.repeat(70));
 
   for (const group of taskGroups) {
-    console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${group.projectName}`);
-    console.log(`   优化目标: ${group.optimizationTarget} | 出价: ${group.bid} | 预算: ${group.budget}`);
-    console.log(`   开始时间: ${group.startDate} ${group.startTime} | 年龄: ${group.age}`);
-    
-    // 显示素材检索方式
-    if (group.materialKeyword) {
-      console.log(`   素材检索: 关键词 "${group.materialKeyword}"`);
+    const first = group.accounts && group.accounts[0];
+    const projectName = first ? first.projectName : '';
+    const optimizationTarget = first ? first.optimizationTarget : '';
+    const bid = first ? first.bid : '';
+    const budget = first ? first.budget : '';
+    const startDate = first ? first.startDate : '';
+    const startTime = first ? first.startTime : '';
+    const age = first ? first.age : '';
+    const materialKeyword = first ? first.materialKeyword : '';
+    const materialIds = first && Array.isArray(first.materialIds) ? first.materialIds : [];
+
+    console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${projectName}`);
+    console.log(`   优化目标: ${optimizationTarget} | 出价: ${bid} | 预算: ${budget}`);
+    console.log(`   开始时间: ${startDate} ${startTime} | 年龄: ${age}`);
+
+    if (materialKeyword) {
+      console.log(`   素材检索: 关键词 "${materialKeyword}"`);
     }
-    if (group.materialIds.length > 0) {
-      console.log(`   素材检索: ID (${group.materialIds.length}个) ${group.materialIds.slice(0, 3).join(', ')}${group.materialIds.length > 3 ? '...' : ''}`);
+    if (materialIds.length > 0) {
+      console.log(`   素材检索: ID (${materialIds.length}个) ${materialIds.slice(0, 3).join(', ')}${materialIds.length > 3 ? '...' : ''}`);
     }
-    
+
     console.log(`   账户 (${group.accounts.length} 个):`);
     for (const acc of group.accounts) {
+      const titles = Array.isArray(acc.titles) ? acc.titles : [];
       console.log(`     - ${acc.accountId} | Pixel: ${acc.pixel} | 启用: ${acc.enable ? '是' : '否'} | 链接: ${acc.linkKeyword}`);
-      console.log(`       标题: ${acc.titles.join(', ')}`);
+      console.log(`       标题: ${titles.join(', ')}`);
     }
   }
 
   console.log('\n' + '='.repeat(70) + '\n');
 }
 
-module.exports = { readTasks, printTaskSummary, normalizeStartDate, normalizeStartTime };
+module.exports = {
+  readTasks,
+  printTaskSummary,
+  normalizeStartDate,
+  normalizeStartTime,
+  normalizeBiddingStrategy,
+  allowsEmptyBid,
+  emptyBidSkipDescription,
+};
 

@@ -8,9 +8,9 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QComboBox, QProgressBar, QFrame, QSplitter, QButtonGroup, 
                              QMessageBox, QSpinBox, QDoubleSpinBox, QStackedWidget, QMenu, QGroupBox,
                              QTabWidget, QListWidgetItem, QSlider, QApplication, QDialog, QRadioButton, 
-                             QDialogButtonBox, QCheckBox, QLineEdit, QTextEdit, QSizePolicy, QShortcut)
+                             QDialogButtonBox, QCheckBox, QLineEdit, QTextEdit, QSizePolicy, QScrollArea)
 from PyQt6.QtCore import Qt, QSize, QRect, pyqtSignal, QObject, QTimer, QUrl
-from PyQt6.QtGui import QPixmap, QImage, QFont, QColor, QPalette, QKeySequence
+from PyQt6.QtGui import QPixmap, QImage, QFont, QColor, QPalette, QKeySequence, QShortcut
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from ui.components.video_preview import VideoPreview
 from ui.components.subtitle_editor import SubtitleEditor
@@ -26,10 +26,10 @@ QTabBar::tab { background: #e5e5ea; color: #1c1c1e; padding: 12px 35px; margin-r
 QTabBar::tab:selected { background: white; border-bottom: 3px solid #0071e3; font-weight: bold; }
 QPushButton { border-radius: 8px; padding: 12px; background-color: #0071e3; color: white; font-weight: bold; font-size: 14px; }
 QPushButton:hover { background-color: #007aff; }
-QFrame#ControlPanel { background-color: #e5e5ea; border: 1px solid #c6c6c8; border-radius: 15px; }
+QFrame#ControlPanel { background-color: #ffffff; border: 1px solid #d1d1d6; border-radius: 10px; }
 QListWidget { border: 1px solid #c6c6c8; border-radius: 10px; background: white; color: #000000; font-size: 14px; }
 QLabel { color: #000000; }
-QGroupBox { font-weight: bold; color: #1c1c1e; border: 1px solid #c6c6c8; border-radius: 12px; margin-top: 15px; padding-top: 20px; background: #f2f2f7; }
+QGroupBox { font-weight: bold; color: #1c1c1e; border: 1px solid #d1d1d6; border-radius: 10px; margin-top: 12px; padding-top: 16px; background: #ffffff; }
 /* 深色滑块样式 */
 QSlider::groove:horizontal { border: 1px solid #999999; height: 6px; background: #3a3a3c; margin: 2px 0; border-radius: 3px; }
 QSlider::handle:horizontal { background: #0071e3; border: 1px solid #005bb7; width: 16px; height: 16px; margin: -6px 0; border-radius: 8px; }
@@ -120,6 +120,11 @@ QComboBox QAbstractItemView {
     selection-color: white;
     padding: 5px;
 }
+/* 复选框：白底上清晰可见 */
+QCheckBox { color: #1c1c1e; spacing: 8px; }
+QCheckBox::indicator { width: 18px; height: 18px; border: 2px solid #0071e3; border-radius: 4px; background: white; }
+QCheckBox::indicator:checked { background: #0071e3; border: 2px solid #005bb7; }
+QCheckBox::indicator:hover { border: 2px solid #007aff; }
 """
 
 class TaskItemWidget(QWidget):
@@ -280,33 +285,31 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tabs, 7)
         
         # 饱和布局：加高控制面板
-        settings_panel = QFrame(); settings_panel.setObjectName("ControlPanel"); settings_panel.setFixedHeight(60)
+        settings_panel = QFrame(); settings_panel.setObjectName("ControlPanel"); settings_panel.setFixedHeight(52)
         settings_layout = QHBoxLayout(settings_panel)
-        lbl_engine = QLabel("⚙️ <b>性能引擎控制:</b>"); lbl_engine.setStyleSheet("font-size: 14px; color: #000000;")
+        lbl_engine = QLabel("性能设置"); lbl_engine.setStyleSheet("font-size: 13px; font-weight: bold; color: #1c1c1e;")
         settings_layout.addWidget(lbl_engine); settings_layout.addSpacing(25)
         
         # 字幕压制并发数（硬件加速限制）
-        lbl_burn_parallel = QLabel("字幕压制并发数:"); lbl_burn_parallel.setStyleSheet("color: #000000; font-weight: bold;")
+        lbl_burn_parallel = QLabel("字幕压制并发:"); lbl_burn_parallel.setStyleSheet("color: #1c1c1e; font-size: 12px;")
         settings_layout.addWidget(lbl_burn_parallel); self.burn_parallel_spin = QSpinBox()
         self.burn_parallel_spin.setRange(1, 4); self.burn_parallel_spin.setValue(4); self.burn_parallel_spin.setFixedSize(80, 35)
         self.burn_parallel_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         settings_layout.addWidget(self.burn_parallel_spin)
-        burn_hint = QLabel("💡 <span style='color: #666; font-size: 11px;'>硬件加速限制≤4</span>")
+        burn_hint = QLabel("≤4"); burn_hint.setStyleSheet("color: #8e8e93; font-size: 11px;")
         settings_layout.addWidget(burn_hint)
         settings_layout.addSpacing(20)
         
         # 其他功能并发数
-        lbl_other_parallel = QLabel("其他功能并发数:"); lbl_other_parallel.setStyleSheet("color: #000000; font-weight: bold;")
+        lbl_other_parallel = QLabel("其他并发:"); lbl_other_parallel.setStyleSheet("color: #1c1c1e; font-size: 12px;")
         settings_layout.addWidget(lbl_other_parallel); self.parallel_spin = QSpinBox()
-        self.parallel_spin.setRange(1, 50); self.parallel_spin.setValue(50); self.parallel_spin.setFixedSize(80, 35)
+        self.parallel_spin.setRange(1, 50); self.parallel_spin.setValue(8); self.parallel_spin.setFixedSize(80, 35)
         self.parallel_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         settings_layout.addWidget(self.parallel_spin)
-        other_hint = QLabel("💡 <span style='color: #666; font-size: 11px;'>OCR/擦除/调整等</span>")
-        settings_layout.addWidget(other_hint)
         settings_layout.addStretch()
         main_layout.addWidget(settings_panel)
         
-        task_group = QGroupBox("🚀 实时任务中心")
+        task_group = QGroupBox("实时任务中心")
         task_layout = QVBoxLayout(task_group)
         task_layout.addWidget(self.task_stack)
         main_layout.addWidget(task_group, 3)
@@ -394,17 +397,24 @@ class MainWindow(QMainWindow):
         lyric_page = QWidget(); lyric_layout = QVBoxLayout(lyric_page)
         lyric_list = QListWidget(); lyric_layout.addWidget(lyric_list); sidebar.addTab(lyric_page, "台词")
         style_page = QWidget(); style_layout = QVBoxLayout(style_page)
-        style_layout.addWidget(QLabel("字体大小:")); font_size = QSpinBox(); font_size.setRange(10, 100); font_size.setValue(18); style_layout.addWidget(font_size)
+        style_layout.addWidget(QLabel("字体大小:")); font_size = QSpinBox(); font_size.setRange(10, 100); font_size.setValue(36); style_layout.addWidget(font_size)
         style_layout.addWidget(QLabel("文字颜色:")); font_color = QComboBox(); font_color.addItems(["白色", "黄色", "红色", "绿色"]); style_layout.addWidget(font_color)
+        offset_row = QHBoxLayout(); offset_row.addWidget(QLabel("字幕时间偏移:"))
+        burn_offset_spin = QDoubleSpinBox(); burn_offset_spin.setRange(-0.5, 0.5); burn_offset_spin.setSingleStep(0.05); burn_offset_spin.setValue(0)
+        burn_offset_spin.setDecimals(2); burn_offset_spin.setToolTip("负值=提前，正值=延后")
+        burn_offset_spin.setAlignment(Qt.AlignmentFlag.AlignCenter); burn_offset_spin.setFixedSize(80, 28)
+        offset_row.addWidget(burn_offset_spin); offset_row.addStretch(); style_layout.addLayout(offset_row)
         style_layout.addStretch(); sidebar.addTab(style_page, "样式")
         font_size.valueChanged.connect(lambda v: self.update_preview_font(index, "size", v))
         font_color.currentTextChanged.connect(lambda v: self.update_preview_font(index, "color", v))
+        burn_offset_spin.valueChanged.connect(lambda: self.on_subtitle_offset_changed(index))
         lv2_layout.addWidget(sidebar, 1)
         
         mid_panel = QVBoxLayout()
         mid_panel.setContentsMargins(5, 5, 5, 5)  # 小边距
         preview = VideoPreview(color=QColor(0, 113, 227))
         preview.set_mode("burn"); preview.setMinimumSize(300, 500)
+        preview.font_config["size"] = 36
         preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         mid_panel.addWidget(preview)  # 移除居中对齐，让它自然扩展
         slider_layout = QHBoxLayout(); btn_play = QPushButton("▶"); btn_play.setFixedSize(40, 40)
@@ -428,7 +438,7 @@ class MainWindow(QMainWindow):
         local_task_list = QListWidget(); local_task_list.setStyleSheet("border: none;")
         self.task_stack.addWidget(local_task_list)
         
-        self.tab_widgets[index] = {"preview": preview, "slider": slider, "time": time_label, "btn_play": btn_play, "list": v_list, "v_list": v_list, "s_list": s_list, "batch_list": batch_list, "task_list": local_task_list, "lyric_list": lyric_list, "bitrate": None}
+        self.tab_widgets[index] = {"preview": preview, "slider": slider, "time": time_label, "btn_play": btn_play, "list": v_list, "v_list": v_list, "s_list": s_list, "batch_list": batch_list, "task_list": local_task_list, "lyric_list": lyric_list, "bitrate": None, "subtitle_offset_spin": burn_offset_spin}
         container.addWidget(lv1_page); container.addWidget(lv2_page); self.tabs.addTab(container, "字幕压制")
         btn_v.clicked.connect(lambda: self.import_videos(v_list)); btn_s.clicked.connect(lambda: self.import_srts(s_list))
         v_list.itemClicked.connect(lambda item: self.load_preview(item, index)); batch_list.itemClicked.connect(lambda item: self.load_preview(item, index))
@@ -439,130 +449,193 @@ class MainWindow(QMainWindow):
         """剧集合并功能标签页 - 智能无感去尾合并器"""
         page = QWidget()
         layout = QHBoxLayout(page)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(20)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(24)
         
-        # === 左侧：配置区域 ===
-        left_panel = QVBoxLayout()
+        # === 左侧：配置区域（可滚动）===
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        left_scroll.setMinimumWidth(320)
+        left_scroll.setMaximumWidth(400)
         
-        # 输入文件夹选择
-        input_group = QFrame()
-        input_group.setObjectName("ControlPanel")
-        input_layout = QVBoxLayout(input_group)
-        input_layout.addWidget(QLabel("📂 <b>输入文件夹</b>"))
-        input_hint = QLabel("<span style='color: #666; font-size: 11px;'>选择包含多集视频的文件夹</span>")
-        input_layout.addWidget(input_hint)
+        left_container = QWidget()
+        left_panel = QVBoxLayout(left_container)
+        left_panel.setSpacing(16)
+        left_panel.setContentsMargins(8, 8, 8, 8)
         
-        input_path_layout = QHBoxLayout()
+        # 1. 输入输出文件夹
+        io_group = QGroupBox("📂 输入输出")
+        io_group.setStyleSheet("QGroupBox { color: #1c1c1e; } QGroupBox QLabel { color: #1c1c1e; font-size: 13px; }")
+        io_layout = QVBoxLayout(io_group)
+        io_layout.setSpacing(10)
+        
+        input_row = QHBoxLayout()
+        input_row.addWidget(QLabel("输入:"))
         self.merge_input_edit = QLineEdit()
         self.merge_input_edit.setPlaceholderText("请选择输入文件夹...")
         self.merge_input_edit.setReadOnly(True)
-        input_path_layout.addWidget(self.merge_input_edit)
-        
-        btn_select_input = QPushButton("选择文件夹")
-        btn_select_input.setFixedWidth(120)
-        btn_select_input.setStyleSheet("background-color: #007aff; color: white; padding: 8px;")
+        input_row.addWidget(self.merge_input_edit)
+        btn_select_input = QPushButton("选择")
+        btn_select_input.setFixedWidth(70)
+        btn_select_input.setStyleSheet("background-color: #007aff; color: white; padding: 6px;")
         btn_select_input.clicked.connect(self.select_merge_input_folder)
-        input_path_layout.addWidget(btn_select_input)
-        input_layout.addLayout(input_path_layout)
-        left_panel.addWidget(input_group)
+        input_row.addWidget(btn_select_input)
+        io_layout.addLayout(input_row)
         
-        # 输出文件夹选择
-        output_group = QFrame()
-        output_group.setObjectName("ControlPanel")
-        output_layout = QVBoxLayout(output_group)
-        output_layout.addWidget(QLabel("💾 <b>输出文件夹</b>"))
-        output_hint = QLabel("<span style='color: #666; font-size: 11px;'>合并后的文件将保存到此文件夹</span>")
-        output_layout.addWidget(output_hint)
-        
-        output_path_layout = QHBoxLayout()
+        output_row = QHBoxLayout()
+        output_row.addWidget(QLabel("输出:"))
         self.merge_output_edit = QLineEdit()
         self.merge_output_edit.setPlaceholderText("请选择输出文件夹...")
         self.merge_output_edit.setReadOnly(True)
-        output_path_layout.addWidget(self.merge_output_edit)
-        
-        btn_select_output = QPushButton("选择文件夹")
-        btn_select_output.setFixedWidth(120)
-        btn_select_output.setStyleSheet("background-color: #007aff; color: white; padding: 8px;")
+        output_row.addWidget(self.merge_output_edit)
+        btn_select_output = QPushButton("选择")
+        btn_select_output.setFixedWidth(70)
+        btn_select_output.setStyleSheet("background-color: #007aff; color: white; padding: 6px;")
         btn_select_output.clicked.connect(self.select_merge_output_folder)
-        output_path_layout.addWidget(btn_select_output)
-        output_layout.addLayout(output_path_layout)
-        left_panel.addWidget(output_group)
+        output_row.addWidget(btn_select_output)
+        io_layout.addLayout(output_row)
         
-        # 参数设置
-        params_group = QFrame()
-        params_group.setObjectName("ControlPanel")
-        params_layout = QVBoxLayout(params_group)
-        params_layout.addWidget(QLabel("⚙️ <b>参数设置</b>"))
+        left_panel.addWidget(io_group)
+        left_panel.addSpacing(8)
         
-        # 去尾时长
-        tail_layout = QHBoxLayout()
-        tail_layout.addWidget(QLabel("检测时长(秒):"))
+        # 2. 裁剪模式与参数
+        trim_group = QGroupBox("✂️ 裁剪设置")
+        trim_group.setStyleSheet("QGroupBox { color: #1c1c1e; } QGroupBox QLabel { color: #1c1c1e; font-size: 13px; } QGroupBox QCheckBox { color: #1c1c1e; font-size: 13px; }")
+        trim_layout = QVBoxLayout(trim_group)
+        trim_layout.setSpacing(12)
+        
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("裁剪模式:"))
+        self.merge_trim_mode = QComboBox()
+        self.merge_trim_mode.addItems(["智能亮度检测", "固定秒数裁剪"])
+        self.merge_trim_mode.setCurrentIndex(1)  # 默认：固定秒数裁剪
+        self.merge_trim_mode.setMinimumWidth(165)
+        self.merge_trim_mode.setFixedHeight(30)
+        self.merge_trim_mode.setToolTip("智能亮度检测：自动识别片尾；固定秒数裁剪：每集末尾统一切除指定秒数")
+        mode_row.addWidget(self.merge_trim_mode)
+        mode_row.addStretch()
+        trim_layout.addLayout(mode_row)
+        
+        fixed_row = QHBoxLayout()
+        fixed_row.addWidget(QLabel("固定裁剪(秒):"))
+        self.merge_fixed_trim_seconds = QDoubleSpinBox()
+        self.merge_fixed_trim_seconds.setRange(0, 60)
+        self.merge_fixed_trim_seconds.setValue(2)
+        self.merge_fixed_trim_seconds.setSingleStep(0.5)
+        self.merge_fixed_trim_seconds.setDecimals(1)
+        self.merge_fixed_trim_seconds.setFixedSize(70, 28)
+        self.merge_fixed_trim_seconds.setToolTip("每集末尾切除的秒数，0表示不裁剪（仅固定秒数模式生效）")
+        fixed_row.addWidget(self.merge_fixed_trim_seconds)
+        fixed_row.addStretch()
+        trim_layout.addLayout(fixed_row)
+        
+        self.merge_skip_last_episode = QCheckBox("最后一集保留原片尾不切除")
+        self.merge_skip_last_episode.setChecked(True)
+        self.merge_skip_last_episode.setToolTip("大结局保留完整片尾（仅固定秒数模式生效）")
+        trim_layout.addWidget(self.merge_skip_last_episode)
+        
+        self.merge_compatible_mode = QCheckBox("高兼容合并（避免交界处卡顿）")
+        self.merge_compatible_mode.setChecked(False)
+        self.merge_compatible_mode.setToolTip("裁剪时重编码，确保每段以关键帧开头，合并后播放更流畅。速度较慢但可解决片段交界处卡住的问题。")
+        trim_layout.addWidget(self.merge_compatible_mode)
+        
+        left_panel.addWidget(trim_group)
+        left_panel.addSpacing(8)
+        
+        # 3. 智能亮度检测参数
+        brightness_group = QGroupBox("🔆 智能亮度检测参数")
+        brightness_group.setStyleSheet("QGroupBox { color: #1c1c1e; } QGroupBox QLabel { color: #1c1c1e; font-size: 13px; }")
+        brightness_group.setToolTip("仅在选择「智能亮度检测」模式时生效")
+        bright_layout = QVBoxLayout(brightness_group)
+        bright_layout.setSpacing(10)
+        
+        def add_param_row(lay, label, spin, tooltip):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(label))
+            spin.setToolTip(tooltip)
+            spin.setFixedSize(70, 28)
+            row.addWidget(spin)
+            row.addStretch()
+            lay.addLayout(row)
+        
         self.merge_tail_seconds = QSpinBox()
         self.merge_tail_seconds.setRange(1, 60)
         self.merge_tail_seconds.setValue(8)
-        self.merge_tail_seconds.setFixedSize(80, 30)
-        self.merge_tail_seconds.setToolTip("检测视频末尾N秒，用于识别片尾")
-        tail_layout.addWidget(self.merge_tail_seconds)
-        tail_layout.addStretch()
-        params_layout.addLayout(tail_layout)
+        add_param_row(bright_layout, "检测时长(秒):", self.merge_tail_seconds, "检测视频末尾N秒，用于识别片尾")
         
-        # 亮度阈值
-        brightness_layout = QHBoxLayout()
-        brightness_layout.addWidget(QLabel("亮度阈值:"))
         self.merge_brightness = QSpinBox()
         self.merge_brightness.setRange(100, 255)
         self.merge_brightness.setValue(245)
-        self.merge_brightness.setFixedSize(80, 30)
-        self.merge_brightness.setToolTip("当亮度超过此值时判定为片尾")
-        brightness_layout.addWidget(self.merge_brightness)
-        brightness_layout.addStretch()
-        params_layout.addLayout(brightness_layout)
+        add_param_row(bright_layout, "亮度阈值:", self.merge_brightness, "当亮度超过此值时判定为片尾")
         
-        # 亮度跳变阈值
-        delta_layout = QHBoxLayout()
-        delta_layout.addWidget(QLabel("亮度跳变:"))
         self.merge_delta = QSpinBox()
         self.merge_delta.setRange(1, 100)
         self.merge_delta.setValue(25)
-        self.merge_delta.setFixedSize(80, 30)
-        self.merge_delta.setToolTip("亮度变化超过此值时判定为片尾开始")
-        delta_layout.addWidget(self.merge_delta)
-        delta_layout.addStretch()
-        params_layout.addLayout(delta_layout)
+        add_param_row(bright_layout, "亮度跳变:", self.merge_delta, "亮度变化超过此值时判定为片尾开始")
         
-        # 并发核心数
-        workers_layout = QHBoxLayout()
-        workers_layout.addWidget(QLabel("并发核心数:"))
+        restore_row = QHBoxLayout()
+        restore_row.addStretch()
+        btn_restore_brightness = QPushButton("恢复默认值")
+        btn_restore_brightness.setFixedHeight(36)
+        btn_restore_brightness.setMinimumWidth(100)
+        btn_restore_brightness.setStyleSheet("""
+            QPushButton {
+                font-size: 14px; font-weight: 500; color: white;
+                background-color: #5ac8fa; border: none; border-radius: 8px;
+                padding: 8px 16px; min-height: 20px;
+            }
+            QPushButton:hover { background-color: #70d4ff; }
+            QPushButton:pressed { background-color: #48b8e6; }
+        """)
+        btn_restore_brightness.setToolTip("恢复为：检测时长8秒、亮度阈值245、亮度跳变25")
+        btn_restore_brightness.clicked.connect(lambda: (
+            self.merge_tail_seconds.setValue(8),
+            self.merge_brightness.setValue(245),
+            self.merge_delta.setValue(25)
+        ))
+        restore_row.addWidget(btn_restore_brightness)
+        bright_layout.addLayout(restore_row)
+        
+        left_panel.addWidget(brightness_group)
+        left_panel.addSpacing(8)
+        
+        # 4. 并发与启动
+        exec_group = QGroupBox("⚡ 执行设置")
+        exec_group.setStyleSheet("QGroupBox { color: #1c1c1e; } QGroupBox QLabel { color: #1c1c1e; font-size: 13px; }")
+        exec_layout = QVBoxLayout(exec_group)
+        exec_layout.setSpacing(10)
+        
+        workers_row = QHBoxLayout()
+        workers_row.addWidget(QLabel("并发核心数:"))
         self.merge_workers = QSpinBox()
         self.merge_workers.setRange(1, os.cpu_count() or 10)
         self.merge_workers.setValue(min(10, os.cpu_count() or 10))
-        self.merge_workers.setFixedSize(80, 30)
+        self.merge_workers.setFixedSize(70, 28)
         self.merge_workers.setToolTip(f"并行处理核心数（当前CPU: {os.cpu_count()}核）")
-        workers_layout.addWidget(self.merge_workers)
-        workers_layout.addStretch()
-        params_layout.addLayout(workers_layout)
+        workers_row.addWidget(self.merge_workers)
+        workers_row.addStretch()
+        exec_layout.addLayout(workers_row)
         
-        left_panel.addWidget(params_group)
+        btn_start_merge = QPushButton("🚀 开始智能合并")
+        btn_start_merge.setFixedHeight(52)
+        btn_start_merge.setStyleSheet("background-color: #34c759; color: white; font-size: 15px; font-weight: bold; border-radius: 8px;")
+        btn_start_merge.clicked.connect(self.start_merge_task)
+        exec_layout.addWidget(btn_start_merge)
+        
+        left_panel.addWidget(exec_group)
         left_panel.addStretch()
         
-        # 启动按钮
-        btn_start_merge = QPushButton("🚀 开始智能合并")
-        btn_start_merge.setFixedHeight(60)
-        btn_start_merge.setStyleSheet("background-color: #34c759; color: white; font-size: 16px; font-weight: bold;")
-        btn_start_merge.clicked.connect(self.start_merge_task)
-        left_panel.addWidget(btn_start_merge)
-        
-        layout.addLayout(left_panel, 2)
+        left_scroll.setWidget(left_container)
+        layout.addWidget(left_scroll, 1)
         
         # === 右侧：文件列表和日志区域 ===
         right_panel = QVBoxLayout()
+        right_panel.setSpacing(16)
         
-        # 文件列表
-        files_group = QFrame()
-        files_group.setObjectName("ControlPanel")
+        files_group = QGroupBox("📄 待合并文件列表")
         files_layout = QVBoxLayout(files_group)
-        files_layout.addWidget(QLabel("📄 <b>待合并文件列表</b>"))
         
         self.merge_file_list = QListWidget()
         self.merge_file_list.setStyleSheet("""
@@ -585,11 +658,8 @@ class MainWindow(QMainWindow):
         files_layout.addWidget(self.merge_file_list)
         right_panel.addWidget(files_group, 3)
         
-        # 日志区域
-        log_group = QFrame()
-        log_group.setObjectName("ControlPanel")
+        log_group = QGroupBox("📋 处理日志")
         log_layout = QVBoxLayout(log_group)
-        log_layout.addWidget(QLabel("📋 <b>处理日志</b>"))
         
         self.merge_log_text = QTextEdit()
         self.merge_log_text.setReadOnly(True)
@@ -620,6 +690,10 @@ class MainWindow(QMainWindow):
             "output_edit": self.merge_output_edit,
             "file_list": self.merge_file_list,
             "log_text": self.merge_log_text,
+            "trim_mode": self.merge_trim_mode,
+            "fixed_trim_seconds": self.merge_fixed_trim_seconds,
+            "skip_last_episode": self.merge_skip_last_episode,
+            "compatible_mode": self.merge_compatible_mode,
             "tail_seconds": self.merge_tail_seconds,
             "brightness": self.merge_brightness,
             "delta": self.merge_delta,
@@ -632,29 +706,37 @@ class MainWindow(QMainWindow):
     def add_scale_tab(self, index):
         """调整分辨率功能标签页"""
         page = QWidget(); layout = QHBoxLayout(page); layout.setContentsMargins(15, 15, 15, 15); layout.setSpacing(20)
-        left_panel = QVBoxLayout(); left_panel.addWidget(QLabel("📂 <b>调分辨率 待选列表</b>"))
+        left_panel = QVBoxLayout()
+        left_panel.addWidget(QLabel("📂 待处理视频"))
         btn_import = QPushButton("➕ 导入视频"); left_panel.addWidget(btn_import)
         select_ctrl = QHBoxLayout(); btn_all = QPushButton("全选"); btn_clear = QPushButton("清除")
         select_ctrl.addWidget(btn_all); select_ctrl.addWidget(btn_clear); left_panel.addLayout(select_ctrl)
         
-        # 查询分辨率按钮
+        # 查询与筛选按钮（统一蓝色主色，筛选为次要样式）
         query_ctrl = QHBoxLayout()
-        btn_check_resolution = QPushButton("🔍 查询分辨率"); 
-        btn_check_resolution.setStyleSheet("background-color: #34c759; font-size: 13px;")
-        btn_select_by_resolution = QPushButton("🎯 按分辨率筛选")
-        btn_select_by_resolution.setStyleSheet("background-color: #ff9500; font-size: 12px;")
-        query_ctrl.addWidget(btn_check_resolution, 3)
-        query_ctrl.addWidget(btn_select_by_resolution, 2)
+        btn_check_resolution = QPushButton("🔍 查询分辨率与帧率")
+        btn_check_resolution.setStyleSheet("background-color: #0071e3; color: white; font-size: 13px; font-weight: bold;")
+        btn_check_resolution.setToolTip("一次性扫描所有视频的分辨率和帧率，合并前可发现帧率不一致问题")
+        btn_select_by_resolution = QPushButton("按分辨率筛选")
+        btn_select_by_resolution.setStyleSheet("background-color: #f2f2f7; color: #1c1c1e; border: 1px solid #d1d1d6; font-size: 12px;")
+        btn_select_by_resolution.setToolTip("筛选指定分辨率的视频")
+        btn_select_by_fps = QPushButton("按帧率筛选")
+        btn_select_by_fps.setStyleSheet("background-color: #f2f2f7; color: #1c1c1e; border: 1px solid #d1d1d6; font-size: 12px;")
+        btn_select_by_fps.setToolTip("筛选帧率不一致的视频，便于统一转换")
+        query_ctrl.addWidget(btn_check_resolution, 2)
+        query_ctrl.addWidget(btn_select_by_resolution, 1)
+        query_ctrl.addWidget(btn_select_by_fps, 1)
         left_panel.addLayout(query_ctrl)
         
-        # 分辨率查询结果显示区
+        # 分辨率与帧率查询结果显示区
         resolution_result_box = QFrame(); resolution_result_box.setObjectName("ControlPanel")
-        resolution_result_box.setFixedHeight(120)
+        resolution_result_box.setFixedHeight(130)
         result_layout = QVBoxLayout(resolution_result_box)
-        result_title = QLabel("<b>📊 分辨率统计:</b>"); result_title.setStyleSheet("font-size: 12px; color: #1c1c1e;")
+        result_layout.setSpacing(4)
+        result_title = QLabel("📊 分辨率与帧率统计"); result_title.setStyleSheet("font-size: 12px; font-weight: bold; color: #1c1c1e;")
         resolution_result_label = QLabel("请先导入视频并点击查询")
         resolution_result_label.setWordWrap(True)
-        resolution_result_label.setStyleSheet("font-size: 11px; color: #48484a; padding: 5px;")
+        resolution_result_label.setStyleSheet("font-size: 12px; color: #48484a; padding: 4px 0; line-height: 1.4;")
         result_layout.addWidget(result_title)
         result_layout.addWidget(resolution_result_label)
         result_layout.addStretch()
@@ -695,35 +777,21 @@ class MainWindow(QMainWindow):
         
         layout.addLayout(mid_panel, 2)
         
-        right_panel = QVBoxLayout(); right_panel.addWidget(QLabel("⚡️ <b>分辨率设置</b>"))
-        group = QGroupBox("🎬 目标分辨率"); lay = QVBoxLayout(group)
+        right_panel = QVBoxLayout()
+        group = QGroupBox("输出设置"); lay = QVBoxLayout(group)
         
-        # 预设分辨率选择
+        # 预设分辨率选择（默认 720x1280 与快速选择一致）
         preset_layout = QHBoxLayout()
         preset_layout.addWidget(QLabel("快速选择:"))
         preset_combo = QComboBox()
         preset_combo.addItems(["720x1280 (竖屏720P)", "1080x1920 (竖屏1080P)", "1280x720 (横屏720P)", "1920x1080 (横屏1080P)", "自定义"])
+        preset_combo.setCurrentIndex(0)
         preset_layout.addWidget(preset_combo)
         lay.addLayout(preset_layout)
         
-        # 自定义宽高输入
-        custom_layout = QVBoxLayout()
-        width_layout = QHBoxLayout()
-        width_layout.addWidget(QLabel("宽度 (Width):"))
-        width_spin = QSpinBox(); width_spin.setRange(128, 7680); width_spin.setValue(1080)
-        width_spin.setAlignment(Qt.AlignmentFlag.AlignCenter); width_spin.setFixedSize(100, 35)
-        width_layout.addWidget(width_spin); width_layout.addStretch()
-        custom_layout.addLayout(width_layout)
+        width_spin = QSpinBox(); width_spin.setRange(128, 7680); width_spin.setValue(720)
+        height_spin = QSpinBox(); height_spin.setRange(128, 7680); height_spin.setValue(1280)
         
-        height_layout = QHBoxLayout()
-        height_layout.addWidget(QLabel("高度 (Height):"))
-        height_spin = QSpinBox(); height_spin.setRange(128, 7680); height_spin.setValue(1920)
-        height_spin.setAlignment(Qt.AlignmentFlag.AlignCenter); height_spin.setFixedSize(100, 35)
-        height_layout.addWidget(height_spin); height_layout.addStretch()
-        custom_layout.addLayout(height_layout)
-        lay.addLayout(custom_layout)
-        
-        # 预设选择器回调
         def on_preset_changed(text):
             if "720x1280" in text: width_spin.setValue(720); height_spin.setValue(1280)
             elif "1080x1920" in text: width_spin.setValue(1080); height_spin.setValue(1920)
@@ -731,22 +799,50 @@ class MainWindow(QMainWindow):
             elif "1920x1080" in text: width_spin.setValue(1920); height_spin.setValue(1080)
         preset_combo.currentTextChanged.connect(on_preset_changed)
         
-        # 码率设置
+        custom_layout = QVBoxLayout()
+        for lbl, spin in [("宽度", width_spin), ("高度", height_spin)]:
+            row = QHBoxLayout()
+            row.addWidget(QLabel(f"{lbl}:"))
+            spin.setAlignment(Qt.AlignmentFlag.AlignCenter); spin.setFixedSize(90, 32)
+            row.addWidget(spin); row.addStretch()
+            custom_layout.addLayout(row)
+        lay.addLayout(custom_layout)
+        
         bitrate_layout = QHBoxLayout()
-        bitrate_layout.addWidget(QLabel("视频码率 (Mbps):"))
-        bitrate_spin = QDoubleSpinBox(); bitrate_spin.setRange(0.5, 20.0); bitrate_spin.setValue(2.0)
-        bitrate_spin.setAlignment(Qt.AlignmentFlag.AlignCenter); bitrate_spin.setFixedSize(100, 35)
+        bitrate_layout.addWidget(QLabel("码率 (Mbps):"))
+        bitrate_spin = QDoubleSpinBox(); bitrate_spin.setRange(0.5, 20.0); bitrate_spin.setValue(1.5)
+        bitrate_spin.setAlignment(Qt.AlignmentFlag.AlignCenter); bitrate_spin.setFixedSize(90, 32)
         bitrate_layout.addWidget(bitrate_spin); bitrate_layout.addStretch()
         lay.addLayout(bitrate_layout)
         
+        # 帧率统一（合并前推荐）
+        fps_row = QHBoxLayout()
+        fps_check = QCheckBox("统一帧率")
+        fps_check.setToolTip("合并前推荐开启，解决帧率不一致导致的卡顿")
+        fps_check.setChecked(False)
+        fps_check.setStyleSheet("QCheckBox { font-weight: bold; }")
+        fps_row.addWidget(fps_check)
+        lbl_fps = QLabel("目标帧率:"); lbl_fps.setStyleSheet("color: #1c1c1e; font-size: 13px;")
+        fps_row.addWidget(lbl_fps)
+        fps_combo = QComboBox()
+        fps_combo.addItems(["25 fps", "30 fps"])
+        fps_combo.setFixedWidth(100)
+        fps_row.addWidget(fps_combo)
+        fps_row.addStretch()
+        lay.addLayout(fps_row)
+        
         right_panel.addWidget(group)
         
-        info_box = QFrame(); info_box.setObjectName("ControlPanel"); info_layout = QVBoxLayout(info_box)
-        info_layout.addWidget(QLabel(f"<b style='color: #007aff; font-size: 13px;'>💡 提示：调整分辨率会重新编码视频<br>建议码率：720P=1.5M，1080P=2.5M</b>"))
-        right_panel.addWidget(info_box)
+        # 简洁提示（与分组风格统一）
+        hint_label = QLabel("调整分辨率会重新编码，建议码率 720P=1.5M、1080P=2.5M")
+        hint_label.setStyleSheet("font-size: 11px; color: #8e8e93; padding: 8px 0;")
+        hint_label.setWordWrap(True)
+        right_panel.addWidget(hint_label)
         right_panel.addStretch()
         
-        btn_go = QPushButton(f"🚀 批量启动\n分辨率转换"); btn_go.setFixedHeight(120); btn_go.setStyleSheet("font-size: 18px; font-weight: bold; background-color: #007aff;")
+        btn_go = QPushButton("🚀 批量启动 分辨率转换")
+        btn_go.setFixedHeight(56)
+        btn_go.setStyleSheet("font-size: 16px; font-weight: bold; background-color: #0071e3; color: white; border-radius: 10px;")
         right_panel.addWidget(btn_go); layout.addLayout(right_panel, 1)
         
         local_task_list = QListWidget(); local_task_list.setStyleSheet("border: none;")
@@ -756,13 +852,16 @@ class MainWindow(QMainWindow):
             "list": file_list, "width": width_spin, "height": height_spin, "bitrate": bitrate_spin, 
             "task_list": local_task_list, "resolution_result": resolution_result_label,
             "file_resolution_map": {},  # 存储文件路径到分辨率的映射
-            "filename_label": filename_label_scale  # 文件名显示标签
+            "file_fps_map": {},  # 存储文件路径到帧率的映射
+            "filename_label": filename_label_scale,  # 文件名显示标签
+            "fps_check": fps_check, "fps_combo": fps_combo
         }
         btn_import.clicked.connect(lambda: self.import_videos(file_list))
         btn_all.clicked.connect(lambda: self.set_selection(file_list, True))
         btn_clear.clicked.connect(lambda: self.clear_all_items(file_list, index))
-        btn_check_resolution.clicked.connect(lambda: self.check_resolution_consistency(index))
+        btn_check_resolution.clicked.connect(lambda: self.check_resolution_and_fps(index))
         btn_select_by_resolution.clicked.connect(lambda: self.select_by_resolution(index))
+        btn_select_by_fps.clicked.connect(lambda: self.select_by_fps(index))
         file_list.itemClicked.connect(lambda item: self.load_preview(item, index))
         slider.valueChanged.connect(lambda val: self.seek_preview(val, index))
         btn_go.clicked.connect(lambda: self.dispatch_batch_tasks("调分辨率", index))
@@ -865,6 +964,19 @@ class MainWindow(QMainWindow):
             # 提取字幕模式：显示简化的操作按钮
             info_box = QFrame(); info_box.setObjectName("ControlPanel"); info_layout = QVBoxLayout(info_box)
             info_layout.addWidget(QLabel(f"<b style='color: #ff4d4f; font-size: 13px;'>请划定【提取字幕】的红框区域</b>"))
+            offset_row = QHBoxLayout()
+            offset_row.addWidget(QLabel("字幕时间偏移 (秒):"))
+            subtitle_offset_spin = QDoubleSpinBox()
+            subtitle_offset_spin.setRange(-0.5, 0.5)
+            subtitle_offset_spin.setSingleStep(0.05)
+            subtitle_offset_spin.setValue(0)
+            subtitle_offset_spin.setDecimals(2)
+            subtitle_offset_spin.setToolTip("负值=提前，正值=延后；调整后立即生效，无需重新提取")
+            subtitle_offset_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            subtitle_offset_spin.setFixedSize(90, 32)
+            offset_row.addWidget(subtitle_offset_spin)
+            offset_row.addStretch()
+            info_layout.addLayout(offset_row)
             right_panel.addWidget(info_box)
             right_panel.addStretch()
             btn_go = QPushButton(f"🚀 批量启动\n{name}"); btn_go.setFixedHeight(120); btn_go.setStyleSheet("font-size: 18px; font-weight: bold;"); right_panel.addWidget(btn_go)
@@ -872,7 +984,7 @@ class MainWindow(QMainWindow):
         
         local_task_list = QListWidget(); local_task_list.setStyleSheet("border: none;")
         self.task_stack.addWidget(local_task_list)
-        self.tab_widgets[index] = {
+        ocr_widgets = {
             "preview": preview, "slider": slider, "time": time_label, "btn_play": btn_play, 
             "list": file_list, "bitrate": bitrate_spin, "task_list": local_task_list,
             "erase_count_label": erase_count_label,  # 保存擦除计数标签
@@ -880,6 +992,9 @@ class MainWindow(QMainWindow):
             "subtitle_cache": {},  # 缓存提取的字幕数据: {video_path: [(start, end, text), ...]}
             "filename_label": filename_label  # 文件名显示标签
         }
+        if mode == "ocr":
+            ocr_widgets["subtitle_offset_spin"] = subtitle_offset_spin
+        self.tab_widgets[index] = ocr_widgets
         btn_import.clicked.connect(lambda: self.import_videos(file_list))
         btn_all.clicked.connect(lambda: self.set_selection(file_list, True))
         btn_clear.clicked.connect(lambda: self.clear_all_items(file_list, index))
@@ -899,16 +1014,13 @@ class MainWindow(QMainWindow):
             subtitle_editor.exportRequested.connect(lambda path: self.export_subtitle(path, index))
             # 字幕内容变化 → 同步到视频预览
             subtitle_editor.subtitleChanged.connect(lambda: self.on_subtitle_content_changed(index))
+            # 方案4：偏移值变化 → 立即刷新预览
+            subtitle_offset_spin.valueChanged.connect(lambda: self.on_subtitle_offset_changed(index))
         
-        # 画面擦除：连接清空按钮和更新计数器
+        # 画面擦除：连接清空按钮；擦除框变化时通过信号实时更新计数
         if name == "画面擦除" and btn_clear_rects and erase_count_label:
             btn_clear_rects.clicked.connect(lambda: self.clear_erase_rectangles(index))
-            # 每次绘制后更新计数器
-            preview.destroyed.connect(lambda: None)  # 占位，实际通过定时器更新
-            timer = QTimer(self)
-            timer.timeout.connect(lambda: self.update_erase_count(index))
-            timer.start(500)  # 每 500ms 更新一次计数
-            self.tab_widgets[index]["erase_update_timer"] = timer
+            preview.erase_rects_changed.connect(lambda: self.update_erase_count(index))
         
         self.tabs.addTab(page, name)
 
@@ -958,8 +1070,8 @@ class MainWindow(QMainWindow):
             list_widget.addItem(item)
         self.set_selection(list_widget, True)
 
-    def check_resolution_consistency(self, index):
-        """查询列表中所有视频的分辨率并统计"""
+    def check_resolution_and_fps(self, index):
+        """查询列表中所有视频的分辨率和帧率并统计"""
         w = self.tab_widgets[index]
         file_list = w["list"]
         result_label = w["resolution_result"]
@@ -969,13 +1081,15 @@ class MainWindow(QMainWindow):
             result_label.setStyleSheet("font-size: 11px; color: #ff9500; padding: 5px;")
             return
         
-        result_label.setText("🔄 正在扫描分辨率，请稍候...")
+        result_label.setText("🔄 正在扫描分辨率与帧率，请稍候...")
         result_label.setStyleSheet("font-size: 11px; color: #007aff; padding: 5px;")
         QApplication.processEvents()  # 强制刷新界面
         
-        # 统计所有视频的分辨率，并记录每个文件的分辨率
+        # 统计分辨率和帧率
         resolution_map = {}  # {(width, height): [file1, file2, ...]}
-        file_resolution_map = {}  # {file_path: (width, height)}
+        fps_map = {}  # {fps_str: [file1, file2, ...]}
+        file_resolution_map = {}
+        file_fps_map = {}  # {file_path: fps_int}
         
         for i in range(file_list.count()):
             item = file_list.item(i)
@@ -987,7 +1101,10 @@ class MainWindow(QMainWindow):
                 if cap.isOpened():
                     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    fps_raw = cap.get(cv2.CAP_PROP_FPS)
                     cap.release()
+                    fps_int = int(round(fps_raw)) if fps_raw > 0 else 0
+                    fps_str = f"{fps_int}fps" if fps_int > 0 else "?"
                     
                     res_key = (width, height)
                     if res_key not in resolution_map:
@@ -995,59 +1112,62 @@ class MainWindow(QMainWindow):
                     resolution_map[res_key].append(file_name)
                     file_resolution_map[video_path] = res_key
                     
-                    # 🔥 核心：在列表项中直接显示分辨率
-                    display_text = f"{file_name}  📐 {width}x{height}"
+                    if fps_str not in fps_map:
+                        fps_map[fps_str] = []
+                    fps_map[fps_str].append(file_name)
+                    file_fps_map[video_path] = fps_int
+                    
+                    display_text = f"{file_name}  📐 {width}x{height}  ⏱ {fps_str}"
                     item.setText(display_text)
                 else:
                     logger.warning(f"无法打开视频: {video_path}")
                     item.setText(f"{file_name}  ❌ 无法读取")
             except Exception as e:
-                logger.error(f"读取视频分辨率失败 {video_path}: {e}")
+                logger.error(f"读取视频失败 {video_path}: {e}")
                 item.setText(f"{file_name}  ❌ 读取失败")
         
-        # 生成统计报告
         if not resolution_map:
-            result_label.setText("❌ 无法读取任何视频的分辨率")
+            result_label.setText("❌ 无法读取任何视频")
             result_label.setStyleSheet("font-size: 11px; color: #ff3b30; padding: 5px;")
             return
         
         total_files = file_list.count()
         unique_resolutions = len(resolution_map)
+        unique_fps = len(fps_map)
         
+        # 构建统计报告（分辨率 + 帧率）
+        result_lines = []
         if unique_resolutions == 1:
-            # 分辨率一致
             res = list(resolution_map.keys())[0]
-            result_text = f"✅ <b>分辨率一致</b><br>所有 {total_files} 个视频均为: <b style='color: #34c759;'>{res[0]}x{res[1]}</b><br>💡 无需调整分辨率"
-            result_label.setText(result_text)
-            result_label.setStyleSheet("font-size: 11px; color: #1c1c1e; padding: 5px;")
-            
-            # 自动将一致的分辨率填入输入框
+            result_lines.append(f"✅ <b>分辨率一致</b> 所有 {total_files} 个视频: <b style='color: #34c759;'>{res[0]}x{res[1]}</b>")
             w["width"].setValue(res[0])
             w["height"].setValue(res[1])
         else:
-            # 分辨率不一致 - 生成详细报告
-            result_lines = [f"⚠️ <b>发现 {unique_resolutions} 种不同分辨率:</b>"]
-            
-            # 按数量从多到少排序
-            sorted_resolutions = sorted(resolution_map.items(), key=lambda x: len(x[1]), reverse=True)
-            for res, files in sorted_resolutions:
-                result_lines.append(f"• <b style='color: #ff9500;'>{res[0]}x{res[1]}</b>: {len(files)}个文件")
-            
-            result_lines.append("<br>💡 <b>左侧列表已显示每个视频的分辨率</b>")
-            result_lines.append("🔧 <b>可针对性选择需要调整的视频</b>")
-            
-            result_text = "<br>".join(result_lines)
-            result_label.setText(result_text)
-            result_label.setStyleSheet("font-size: 11px; color: #ff9500; padding: 5px;")
-            
-            # 将最常见的分辨率作为默认目标分辨率
-            most_common_res = sorted_resolutions[0][0]
+            result_lines.append(f"⚠️ <b>分辨率</b> 发现 {unique_resolutions} 种:")
+            for res, files in sorted(resolution_map.items(), key=lambda x: -len(x[1])):
+                result_lines.append(f"  • {res[0]}x{res[1]}: {len(files)}个")
+            most_common_res = max(resolution_map.items(), key=lambda x: len(x[1]))[0]
             w["width"].setValue(most_common_res[0])
             w["height"].setValue(most_common_res[1])
         
-        # 将文件分辨率映射保存到 tab_widgets，供后续筛选使用
+        if unique_fps == 1:
+            fps_val = list(fps_map.keys())[0]
+            result_lines.append(f"✅ <b>帧率一致</b> 均为 <b style='color: #34c759;'>{fps_val}</b>")
+        else:
+            result_lines.append(f"⚠️ <b>帧率</b> 发现 {unique_fps} 种（合并前建议统一）:")
+            for fps_val, files in sorted(fps_map.items(), key=lambda x: -len(x[1])):
+                result_lines.append(f"  • {fps_val}: {len(files)}个")
+        
+        result_lines.append("💡 左侧列表已显示每集分辨率与帧率")
+        result_text = "<br>".join(result_lines)
+        result_label.setText(result_text)
+        result_label.setStyleSheet("font-size: 11px; color: #1c1c1e; padding: 5px;")
+        if unique_resolutions > 1 or unique_fps > 1:
+            result_label.setStyleSheet("font-size: 11px; color: #ff9500; padding: 5px;")
+        
         w["file_resolution_map"] = file_resolution_map
-        logger.info(f"分辨率统计完成: {unique_resolutions} 种分辨率，共 {total_files} 个文件")
+        w["file_fps_map"] = file_fps_map
+        logger.info(f"分辨率与帧率统计完成: {unique_resolutions} 种分辨率, {unique_fps} 种帧率, 共 {total_files} 个文件")
     
     def select_by_resolution(self, index):
         """按分辨率筛选视频（支持多选）"""
@@ -1056,7 +1176,7 @@ class MainWindow(QMainWindow):
         file_resolution_map = w.get("file_resolution_map", {})
         
         if not file_resolution_map:
-            QMessageBox.information(self, "提示", "请先点击「🔍 查询分辨率」按钮获取分辨率信息")
+            QMessageBox.information(self, "提示", "请先点击「🔍 查询分辨率与帧率」按钮获取信息")
             return
         
         # 获取所有不同的分辨率
@@ -1202,12 +1322,73 @@ class MainWindow(QMainWindow):
             
             logger.info(f"按分辨率筛选: {res_text}, 选中 {selected_count} 个文件")
 
+    def select_by_fps(self, index):
+        """按帧率筛选视频（支持多选）"""
+        w = self.tab_widgets[index]
+        file_list = w["list"]
+        file_fps_map = w.get("file_fps_map", {})
+        
+        if not file_fps_map:
+            QMessageBox.information(self, "提示", "请先点击「🔍 查询分辨率与帧率」按钮获取信息")
+            return
+        
+        unique_fps = list(set(file_fps_map.values()))
+        unique_fps = [f for f in unique_fps if f > 0]
+        if len(unique_fps) <= 1:
+            QMessageBox.information(self, "提示", f"所有视频帧率一致 ({unique_fps[0] if unique_fps else '?'}fps)，无需筛选")
+            return
+        
+        fps_count = {}
+        for fps in unique_fps:
+            fps_count[fps] = sum(1 for v in file_fps_map.values() if v == fps)
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("选择要筛选的帧率")
+        dialog.setMinimumWidth(400)
+        dialog.setStyleSheet("""
+            QDialog { background-color: #2b2b2b; }
+            QLabel { color: #ffffff; font-size: 14px; padding: 10px; }
+            QCheckBox { color: #ffffff; font-size: 14px; padding: 8px; spacing: 10px; }
+            QCheckBox::indicator { width: 20px; height: 20px; border: 2px solid #0071e3; border-radius: 4px; background: #1a1a1a; }
+            QCheckBox::indicator:checked { background: #0071e3; border: 2px solid #007aff; }
+            QPushButton { background-color: #0071e3; color: white; border: none; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: bold; min-width: 80px; }
+        """)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel("⏱ <b>请选择要筛选的帧率（支持多选）：</b>"))
+        checkboxes = {}
+        for fps in sorted(fps_count.keys(), key=lambda x: -fps_count[x]):
+            cb = QCheckBox(f"{fps} fps ({fps_count[fps]}个文件)")
+            checkboxes[cb] = fps
+            layout.addWidget(cb)
+        if len(fps_count) > 1:
+            list(checkboxes.keys())[-1].setChecked(True)  # 默认选中数量最少的
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btn_box.accepted.connect(dialog.accept)
+        btn_box.rejected.connect(dialog.reject)
+        layout.addWidget(btn_box)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected_fps = [checkboxes[cb] for cb in checkboxes if cb.isChecked()]
+            if not selected_fps:
+                QMessageBox.warning(self, "提示", "请至少选择一个帧率")
+                return
+            file_list.clearSelection()
+            selected_count = 0
+            for i in range(file_list.count()):
+                item = file_list.item(i)
+                video_path = item.data(Qt.ItemDataRole.UserRole)
+                if file_fps_map.get(video_path) in selected_fps:
+                    item.setSelected(True)
+                    selected_count += 1
+            fps_text = "、".join([f"{f}fps" for f in selected_fps])
+            QMessageBox.information(self, "筛选完成", f"已选中 {selected_count} 个视频\n帧率: {fps_text}\n\n💡 可勾选「统一帧率」后批量转换")
+            logger.info(f"按帧率筛选: {fps_text}, 选中 {selected_count} 个文件")
+
     def clear_erase_rectangles(self, index):
         """清空所有擦除框"""
         w = self.tab_widgets[index]
         if "preview" in w:
-            w["preview"].clear_erase_rects()
-            self.update_erase_count(index)
+            w["preview"].clear_erase_rects()  # 内部会 emit erase_rects_changed，自动更新计数
     
     def update_erase_count(self, index):
         """更新擦除区域计数显示"""
@@ -1255,6 +1436,9 @@ class MainWindow(QMainWindow):
         # 将字幕数据加载到 VideoPreview 用于叠加显示
         if preview and subtitle_data:
             preview.load_ocr_subtitles(subtitle_data)
+            _off = w.get('subtitle_offset_spin')
+            if _off is not None:
+                preview.set_ocr_subtitle_offset(_off.value())
         elif preview:
             preview.load_ocr_subtitles([])
     
@@ -1271,9 +1455,10 @@ class MainWindow(QMainWindow):
                 fps = 25.0
             
             current_time = frame_idx / fps
+            offset = w.get('subtitle_offset_spin').value() if w.get('subtitle_offset_spin') else 0
             
-            # 高亮字幕编辑器中的当前字幕
-            subtitle_editor.highlight_subtitle_at_time(current_time)
+            # 高亮字幕编辑器中的当前字幕（传入偏移）
+            subtitle_editor.highlight_subtitle_at_time(current_time, offset)
             
             # 在视频预览中显示当前字幕
             if hasattr(preview, 'set_current_subtitle_time'):
@@ -1281,19 +1466,30 @@ class MainWindow(QMainWindow):
                 preview.update()
                 logger.info(f"[字幕同步] 当前时间: {current_time:.3f}s (帧 {frame_idx}), 已更新预览")
     
+    def on_subtitle_offset_changed(self, index):
+        """方案4：偏移值变化时立即刷新预览"""
+        w = self.tab_widgets[index]
+        preview = w.get("preview")
+        _off = w.get("subtitle_offset_spin")
+        if preview and _off is not None:
+            preview.set_ocr_subtitle_offset(_off.value())
+            preview.update()
+    
     def on_subtitle_clicked(self, start_time, index):
-        """点击字幕：视频跳转到该时间点"""
+        """点击字幕：视频跳转到该时间点（应用偏移后的有效时间）"""
         w = self.tab_widgets[index]
         slider = w.get("slider")
         preview = w.get("preview")
+        offset = w.get("subtitle_offset_spin").value() if w.get("subtitle_offset_spin") else 0
+        seek_time = start_time + offset
         
-        logger.info(f"[字幕点击] 跳转到时间: {start_time:.2f}s")
+        logger.info(f"[字幕点击] 跳转到时间: {seek_time:.2f}s (原始 {start_time:.2f}s + 偏移 {offset:+.2f}s)")
         
         if slider and preview:
             fps = preview.property("fps") or 25.0
-            frame_idx = int(start_time * fps)
+            frame_idx = int(max(0, seek_time * fps))
             slider.setValue(frame_idx)
-            logger.debug(f"跳转到字幕时间: {start_time:.2f}s (frame {frame_idx})")
+            logger.debug(f"跳转到字幕时间: {seek_time:.2f}s (frame {frame_idx})")
     
     def on_subtitle_content_changed(self, index):
         """字幕内容变化：同步到视频预览区"""
@@ -1310,6 +1506,9 @@ class MainWindow(QMainWindow):
         
         # 更新 VideoPreview 的字幕数据
         preview.load_ocr_subtitles(updated_subtitle_data)
+        _off = w.get('subtitle_offset_spin')
+        if _off is not None:
+            preview.set_ocr_subtitle_offset(_off.value())
         
         # 强制刷新当前帧，立即显示更新后的字幕
         preview.update()
@@ -1332,13 +1531,18 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "没有可导出的字幕数据")
             return
         
+        # 方案4：导出时应用当前偏移，使导出的 SRT 与预览一致
+        offset = w.get("subtitle_offset_spin").value() if w.get("subtitle_offset_spin") else 0
+        
         # 生成 SRT 内容（标准格式）
         srt_lines = []
         for i, (start, end, text) in enumerate(subtitle_data, 1):
-            logger.debug(f"[导出字幕] 处理第 {i} 条: {start:.2f}s -> {end:.2f}s, 文本: {text[:30]}...")
+            s_eff = max(0, start + offset)
+            e_eff = max(s_eff, end + offset)
+            logger.debug(f"[导出字幕] 处理第 {i} 条: {s_eff:.2f}s -> {e_eff:.2f}s (偏移 {offset:+.2f}s), 文本: {text[:30]}...")
             # 标准 SRT 格式：序号、时间轴、文本、空行
             srt_lines.append(f"{i}")
-            srt_lines.append(f"{self.format_time_srt(start)} --> {self.format_time_srt(end)}")
+            srt_lines.append(f"{self.format_time_srt(s_eff)} --> {self.format_time_srt(e_eff)}")
             srt_lines.append(text)
             srt_lines.append("")  # 空行分隔
         
@@ -1414,7 +1618,11 @@ class MainWindow(QMainWindow):
             fps = cap.get(cv2.CAP_PROP_FPS) or 25.0; total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             w["preview"].setProperty("fps", fps); w["slider"].setRange(0, total - 1); w["slider"].setValue(0); self.update_frame_by_index(index, 0)
         cap.release()
-        if self.tabs.tabText(index) == "字幕压制": self.auto_match_srt(path, index)
+        if self.tabs.tabText(index) == "字幕压制":
+            self.auto_match_srt(path, index)
+            _off = w.get('subtitle_offset_spin')
+            if _off is not None:
+                w["preview"].set_ocr_subtitle_offset(_off.value())
 
     def auto_match_srt(self, video_path, index, silent=False):
         w = self.tab_widgets[index]; v_name = os.path.basename(video_path)
@@ -1434,11 +1642,19 @@ class MainWindow(QMainWindow):
                 break
         
         # 2. 如果列表没找到，再从文件系统寻找完全同名的 .srt
+        # 查找顺序：同目录、同目录下 OCR_Result/Translated_SRT、父级 OCR_Result/Translated_SRT
         if not srt_path:
             v_dir = os.path.dirname(video_path)
-            for d in [v_dir, os.path.join(v_dir, "OCR_Result"), os.path.join(v_dir, "Translated_SRT")]:
+            parent_dir = os.path.dirname(v_dir)
+            search_dirs = [
+                v_dir,
+                os.path.join(v_dir, "OCR_Result"),
+                os.path.join(v_dir, "Translated_SRT"),
+                os.path.join(parent_dir, "OCR_Result"),
+                os.path.join(parent_dir, "Translated_SRT"),
+            ]
+            for d in search_dirs:
                 if not os.path.exists(d): continue
-                # 寻找 video_base_name + ".srt"
                 p = os.path.join(d, f"{video_base_name}.srt")
                 if os.path.exists(p): srt_path = p; break
         
@@ -1504,10 +1720,11 @@ class MainWindow(QMainWindow):
         w["preview"].set_current_time(current_time)
         w["preview"].set_current_subtitle_time(current_time)  # OCR字幕时间
         
-        # 如果是 OCR 模式且有字幕编辑器，同步高亮当前字幕
+        # 如果是 OCR 模式且有字幕编辑器，同步高亮当前字幕（传入偏移）
         subtitle_editor = w.get("subtitle_editor")
         if subtitle_editor:
-            subtitle_editor.highlight_subtitle_at_time(current_time)
+            offset = w.get("subtitle_offset_spin").value() if w.get("subtitle_offset_spin") else 0
+            subtitle_editor.highlight_subtitle_at_time(current_time, offset)
         
         if self.current_cap_path != path:
             if self.current_cap: self.current_cap.release()
@@ -1656,12 +1873,19 @@ class MainWindow(QMainWindow):
             'temp_folder': self.temp_folder, 'parallel_count': parallel_count,
             'bitrate': f"{w['bitrate'].value():.1f}M" if w.get('bitrate') else "1.3M",
             'ocr_rect': m_ocr, 'erase_rects': m_erase_rects, 'blue_rect': m_burn,
-            'font_size': preview.font_config.get("size", 18) if preview else 18,
+            'font_size': preview.font_config.get("size", 36) if preview else 36,
             'font_color': preview.font_config.get("color", "白色") if preview else "白色",
             'video_srt_map': self.video_srt_map,
             'target_width': w.get('width').value() if w.get('width') else 1080,
-            'target_height': w.get('height').value() if w.get('height') else 1920
+            'target_height': w.get('height').value() if w.get('height') else 1920,
+            'target_fps': w.get('fps_combo').currentText().replace(' fps', '') if w.get('fps_check') and w.get('fps_check').isChecked() and w.get('fps_combo') else None
         }
+        # 方案4：字幕时间偏移在预览/压制时应用；压制 Tab 和提取 Tab 均有控件，压制时优先用当前 Tab
+        if task_type == "字幕压制":
+            if w.get('subtitle_offset_spin') is not None:
+                config['subtitle_time_offset'] = w['subtitle_offset_spin'].value()
+            elif len(self.tab_widgets) > 1 and self.tab_widgets[1].get('subtitle_offset_spin') is not None:
+                config['subtitle_time_offset'] = self.tab_widgets[1]['subtitle_offset_spin'].value()
         
         first_path = items[0].data(Qt.ItemDataRole.UserRole)
         batch_name = f"【{os.path.basename(os.path.dirname(first_path))}】批量任务 ({len(items)}个文件)"
@@ -1702,6 +1926,9 @@ class MainWindow(QMainWindow):
             logger.info(f"[字幕提取] 自动加载刚提取的字幕到预览区: {os.path.basename(video_path)}")
             if preview:
                 preview.load_ocr_subtitles(subtitle_data)
+                _off = w.get('subtitle_offset_spin')
+                if _off is not None:
+                    preview.set_ocr_subtitle_offset(_off.value())
             if subtitle_editor:
                 subtitle_editor.load_subtitles(video_path, subtitle_data)
                 logger.info(f"[字幕提取] 字幕已加载到编辑器，共 {len(subtitle_data)} 条")
@@ -1818,22 +2045,44 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提醒", "输入文件夹中没有视频文件")
             return
         
-        # 确认对话框
-        reply = QMessageBox.question(
-            self,
-            "确认合并",
-            f"<b>准备合并 {self.merge_file_list.count()} 个视频文件</b><br><br>"
-            f"输入文件夹: {input_folder}<br>"
-            f"输出文件夹: {output_folder}<br><br>"
-            f"<b>参数设置：</b><br>"
-            f"• 检测时长: {self.merge_tail_seconds.value()} 秒<br>"
-            f"• 亮度阈值: {self.merge_brightness.value()}<br>"
-            f"• 亮度跳变: {self.merge_delta.value()}<br>"
-            f"• 并发核心数: {self.merge_workers.value()}<br><br>"
-            f"是否开始合并？",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes
+        trim_mode = self.merge_trim_mode.currentText()
+        if trim_mode == "固定秒数裁剪":
+            param_str = f"• 裁剪模式: 固定秒数裁剪<br>• 每集切除: {self.merge_fixed_trim_seconds.value()} 秒<br>• 最后一集保留片尾: {'是' if self.merge_skip_last_episode.isChecked() else '否'}<br>"
+        else:
+            param_str = f"• 裁剪模式: 智能亮度检测<br>• 检测时长: {self.merge_tail_seconds.value()} 秒<br>• 亮度阈值: {self.merge_brightness.value()}<br>• 亮度跳变: {self.merge_delta.value()}<br>"
+        param_str += f"• 高兼容合并: {'是' if self.merge_compatible_mode.isChecked() else '否'}<br>"
+        
+        # 未勾选高兼容合并时，提示可能出现的播放卡顿风险
+        warn_html = ""
+        if not self.merge_compatible_mode.isChecked():
+            warn_html = (
+                "<br><span style='color: #ff9500;'>⚠️ 提示：未勾选「高兼容合并」时，合并后的视频可能在片段交界处出现播放卡顿。"
+                "若曾遇到此类问题，建议勾选该选项后重新合并。</span><br><br>"
+            )
+        
+        _confirm_style = """
+            QMessageBox { background-color: #2b2b2b; }
+            QMessageBox QLabel { color: #ffffff; font-size: 13px; }
+            QPushButton { background-color: #0071e3; color: white; border-radius: 6px; padding: 8px 20px; min-width: 80px; }
+        """
+        msg = QMessageBox(self)
+        msg.setWindowTitle("确认合并")
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setText("<b style='color: #34c759;'>准备合并 {} 个视频文件</b>".format(self.merge_file_list.count()))
+        msg.setInformativeText(
+            f"<span style='color: #e5e5ea;'>输入文件夹: </span><span style='color: #ffffff;'>{input_folder}</span><br>"
+            f"<span style='color: #e5e5ea;'>输出文件夹: </span><span style='color: #ffffff;'>{output_folder}</span><br><br>"
+            f"<span style='color: #e5e5ea;'><b>参数设置：</b></span><br>"
+            f"<span style='color: #ffffff;'>{param_str}• 并发核心数: {self.merge_workers.value()}</span>"
+            f"{warn_html}"
+            f"<span style='color: #e5e5ea;'>是否开始合并？</span>"
         )
+        msg.setStyleSheet(_confirm_style)
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg.setDefaultButton(QMessageBox.StandardButton.Yes)
+        msg.button(QMessageBox.StandardButton.Yes).setText("是")
+        msg.button(QMessageBox.StandardButton.No).setText("否")
+        reply = msg.exec()
         
         if reply == QMessageBox.StandardButton.No:
             return
@@ -1850,9 +2099,13 @@ class MainWindow(QMainWindow):
         config = {
             'input_folder': input_folder,
             'output_folder': output_folder,
+            'trim_mode': 'brightness' if trim_mode == '智能亮度检测' else 'fixed_seconds',
+            'compatible_merge': self.merge_compatible_mode.isChecked(),
             'check_seconds': self.merge_tail_seconds.value(),
             'brightness_threshold': self.merge_brightness.value(),
             'delta_threshold': self.merge_delta.value(),
+            'fixed_trim_seconds': self.merge_fixed_trim_seconds.value(),
+            'skip_last_episode_trim': self.merge_skip_last_episode.isChecked(),
             'max_workers': self.merge_workers.value()
         }
         
@@ -1874,28 +2127,32 @@ class MainWindow(QMainWindow):
     
     def on_merge_finished(self, success, output_file):
         """合并完成"""
+        _msg_style = """
+            QMessageBox { background-color: #2b2b2b; }
+            QMessageBox QLabel { color: #ffffff; font-size: 14px; }
+            QPushButton { background-color: #0071e3; color: white; border-radius: 6px; padding: 8px 20px; min-width: 80px; }
+        """
         if success:
             self.merge_log_text.append("=" * 50)
             self.merge_log_text.append(f"✨ 【全链路处理成功】")
             self.merge_log_text.append(f"📁 最终文件: {output_file}")
             self.merge_log_text.append("=" * 50)
             
-            QMessageBox.information(
-                self,
-                "合并完成",
-                f"✅ 视频合并成功！<br><br>"
-                f"输出文件：<br>{output_file}<br><br>"
-                f"是否打开输出文件夹？",
+            msg = QMessageBox(self)
+            msg.setWindowTitle("合并完成")
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.setText("<b style='color: #34c759;'>✅ 视频合并成功！</b>")
+            msg.setInformativeText(
+                f"<span style='color: #e5e5ea;'>输出文件：</span><br>"
+                f"<span style='color: #ffffff;'>{output_file}</span><br><br>"
+                f"<span style='color: #e5e5ea;'>是否打开输出文件夹？</span>"
             )
-            
-            # 询问是否打开文件夹
-            reply = QMessageBox.question(
-                self,
-                "打开文件夹",
-                "是否打开输出文件夹？",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes
-            )
+            msg.setStyleSheet(_msg_style)
+            msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg.setDefaultButton(QMessageBox.StandardButton.Yes)
+            msg.button(QMessageBox.StandardButton.Yes).setText("是")
+            msg.button(QMessageBox.StandardButton.No).setText("否")
+            reply = msg.exec()
             
             if reply == QMessageBox.StandardButton.Yes:
                 import subprocess
@@ -1906,11 +2163,13 @@ class MainWindow(QMainWindow):
             self.merge_log_text.append("❌ 合并失败，请查看日志")
             self.merge_log_text.append("=" * 50)
             
-            QMessageBox.critical(
-                self,
-                "合并失败",
-                "视频合并失败，请检查日志信息"
-            )
+            msg = QMessageBox(self)
+            msg.setWindowTitle("合并失败")
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.setText("<b style='color: #ff3b30;'>视频合并失败</b>")
+            msg.setInformativeText("<span style='color: #e5e5ea;'>请检查日志信息</span>")
+            msg.setStyleSheet(_msg_style)
+            msg.exec()
 
     def map_rect_to_video(self, rect, preview):
         if not hasattr(preview, 'video_size') or preview.video_size.isEmpty() or rect.isNull(): return None
