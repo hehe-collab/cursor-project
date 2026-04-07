@@ -1,12 +1,10 @@
 package com.drama.service;
 
 import com.drama.dto.DramaStatsRow;
-import com.drama.entity.Category;
 import com.drama.entity.Drama;
 import com.drama.entity.DramaEpisode;
 import com.drama.entity.DramaTag;
 import com.drama.exception.BusinessException;
-import com.drama.mapper.CategoryMapper;
 import com.drama.mapper.DramaEpisodeMapper;
 import com.drama.mapper.DramaMapper;
 import com.drama.mapper.DramaTagMapper;
@@ -19,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import com.drama.service.cache.DramaCacheSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +32,7 @@ public class DramaService {
     private static final String DRAMA_PUBLIC_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     private final DramaMapper dramaMapper;
-    private final CategoryMapper categoryMapper;
+    private final DramaCacheSupport dramaCacheSupport;
     private final DramaEpisodeMapper dramaEpisodeMapper;
     private final DramaTagMapper dramaTagMapper;
     private final TagMapper tagMapper;
@@ -75,17 +74,11 @@ public class DramaService {
     }
 
     public Map<String, Object> getById(int id) {
-        Drama d = dramaMapper.selectById(id);
+        Drama d = dramaCacheSupport.fetchWithCategory(id);
         if (d == null) {
             throw new BusinessException(404, "短剧不存在");
         }
-        String categoryName = "";
-        if (d.getCategoryId() != null) {
-            Category c = categoryMapper.selectById(d.getCategoryId());
-            if (c != null) {
-                categoryName = c.getName() != null ? c.getName() : "";
-            }
-        }
+        String categoryName = d.getCategoryName() != null ? d.getCategoryName() : "";
         List<String> tagNames = tagMapper.selectNamesByDramaId(id);
         List<DramaEpisode> eps = dramaEpisodeMapper.selectByDramaId(id);
         List<Map<String, Object>> epList =
@@ -306,6 +299,7 @@ public class DramaService {
             }
         }
         dramaMapper.update(existing);
+        dramaCacheSupport.evictById(id);
         if (body.containsKey("tag_ids")) {
             dramaTagMapper.deleteByDramaId(id);
             List<Integer> tagIds = intList(body.get("tag_ids"));
@@ -329,6 +323,7 @@ public class DramaService {
         if (existing == null) {
             throw new BusinessException(404, "短剧不存在");
         }
+        dramaCacheSupport.evictById(id);
         dramaMapper.deleteById(id);
     }
 

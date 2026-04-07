@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-container">
-    <el-card class="filter-card" shadow="never">
+    <el-card v-show="activeTab === 'overview'" class="filter-card" shadow="never">
       <el-form
         :model="filterForm"
         class="filter-form"
@@ -111,137 +111,7 @@
               推广明细
             </span>
           </template>
-
-          <el-table
-            :data="promotionData"
-            v-loading="promotionLoading"
-            element-loading-text="加载中..."
-            border
-            stripe
-            height="calc(100vh - 288px)"
-            style="width: 100%"
-            :default-sort="{ prop: 'date', order: 'descending' }"
-            :header-cell-style="tableHeaderStyle"
-          >
-            <el-table-column type="index" label="序号" width="58" fixed="left" align="center" />
-            <el-table-column prop="date" label="日期" width="118" sortable fixed="left" align="center">
-              <template #default="{ row }">
-                <el-tag type="info" size="small">{{ row.date }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="promotion_name"
-              label="推广名称"
-              min-width="200"
-              show-overflow-tooltip
-              fixed="left"
-            />
-            <el-table-column prop="drama_id" label="剧ID" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag type="primary" size="small">{{ row.drama_id }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="drama_name"
-              label="剧名"
-              min-width="140"
-              show-overflow-tooltip
-            />
-            <el-table-column prop="account" label="账户" width="100" align="center" />
-            <el-table-column prop="country" label="国家" width="88" align="center">
-              <template #default="{ row }">
-                <el-tag size="small">{{ formatAccountCountryLabel(row.country) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="promotion_id" label="推广ID" width="126" align="center" />
-            <el-table-column prop="cost" label="消耗" width="108" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-cost">¥{{ formatMoney(row.cost) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="cpm" label="千次曝光" width="100" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-muted">{{ formatMoney(row.cpm) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="clicks" label="点击" width="88" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-blue">{{ row.clicks ?? 0 }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="registrations" label="注册" width="88" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-warn">{{ row.registrations ?? 0 }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="recharge_users" label="充值人数" width="100" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-ok-strong">{{ row.recharge_users ?? 0 }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="recharge_amount" label="充值金额" width="118" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-ok-strong">¥{{ formatMoney(row.recharge_amount) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="roi" label="ROI" width="100" sortable align="center">
-              <template #default="{ row }">
-                <el-tag :type="Number(row.roi) >= 1 ? 'success' : 'danger'" size="small" effect="dark">
-                  {{ formatMoney(row.roi) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="user_count" label="用户数" width="90" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-plain">{{ row.user_count ?? 0 }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="order_count" label="订单数" width="90" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-plain">{{ row.order_count ?? 0 }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="paid_users" label="有充数" width="90" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-ok">{{ row.paid_users ?? 0 }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="profit" label="利润" width="108" sortable align="right">
-              <template #default="{ row }">
-                <span
-                  :class="Number(row.profit) >= 0 ? 'profit-pos' : 'profit-neg'"
-                >
-                  {{ Number(row.profit) >= 0 ? '+' : '' }}¥{{ formatMoney(row.profit) }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="avg_cost_per_user" label="人均消耗" width="100" sortable align="right">
-              <template #default="{ row }">
-                <span class="num-muted">¥{{ formatMoney(row.avg_cost_per_user) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right" align="center">
-              <template #default="{ row }">
-                <el-button type="primary" size="small" link @click="viewDetail(row)">
-                  <el-icon class="el-icon--left"><View /></el-icon>
-                  详情
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <div class="pagination-container">
-            <el-pagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.pageSize"
-              :total="pagination.total"
-              :page-sizes="[20, 50, 100, 200]"
-              layout="total, sizes, prev, pager, next, jumper"
-              background
-              @size-change="handlePageSizeChange"
-              @current-change="handlePageChange"
-            />
-          </div>
+          <PromotionDetails />
         </el-tab-pane>
 
         <el-tab-pane name="overview" lazy>
@@ -294,7 +164,7 @@
     </el-card>
 
     <p class="hint hint--footer">
-      推广明细为 Java 演示数据（<code>drama_id</code> 如 <code>D10000</code>）；数据概览与
+      推广明细 Tab 对接 <code>/api/promotion-details</code>（<code>schema-promotion.sql</code>）；数据概览与
       <code>/api/dashboard/stats</code> 一致。
     </p>
   </div>
@@ -310,26 +180,18 @@ import {
   PieChart,
   Histogram,
   TrendCharts,
-  View,
 } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 import { useCountries } from '@/composables/useCountries'
+import PromotionDetails from './dashboard/PromotionDetails.vue'
 
 const { countries, countryMultiOptions, formatAccountCountryLabel } = useCountries()
-
-const tableHeaderStyle = {
-  background: '#f5f7fa',
-  color: '#606266',
-  fontWeight: 'bold',
-  fontSize: '14px',
-}
 
 const activeTab = ref('promotion')
 const dateRange = ref([])
 const statsLoading = ref(false)
-const promotionLoading = ref(false)
 const filterSubmitting = ref(false)
 
 const filterForm = ref({
@@ -349,13 +211,6 @@ const statsData = ref({
   today_users: 0,
   recharge_status_dist: { success: 0, pending: 0, failed: 0 },
   chart_data: { dates: [], users: [], recharge: [], amount: [] },
-})
-
-const promotionData = ref([])
-const pagination = ref({
-  page: 1,
-  pageSize: 20,
-  total: 0,
 })
 
 const rechargeStatusChartRef = ref(null)
@@ -380,29 +235,6 @@ function daysAgoStr(n) {
   const d = new Date()
   d.setDate(d.getDate() - n)
   return d.toISOString().slice(0, 10)
-}
-
-function buildPromotionParams() {
-  const params = {
-    page: pagination.value.page,
-    pageSize: pagination.value.pageSize,
-    promotion_id: filterForm.value.promotion_id || undefined,
-    promotion_name: filterForm.value.promotion_name || undefined,
-    drama_id: filterForm.value.drama_id || undefined,
-    drama_name: filterForm.value.drama_name || undefined,
-    account: filterForm.value.account || undefined,
-  }
-  if (dateRange.value && dateRange.value.length === 2) {
-    params.start_date = dateRange.value[0]
-    params.end_date = dateRange.value[1]
-  }
-  if (filterForm.value.media && filterForm.value.media.length > 0) {
-    params.media = filterForm.value.media.join(',')
-  }
-  if (filterForm.value.country && filterForm.value.country.length > 0) {
-    params.country = filterForm.value.country.join(',')
-  }
-  return params
 }
 
 async function fetchStats() {
@@ -442,23 +274,6 @@ async function fetchStats() {
     console.error(e)
   } finally {
     statsLoading.value = false
-  }
-}
-
-async function fetchPromotionData() {
-  if (!dateRange.value || dateRange.value.length !== 2) return
-  promotionLoading.value = true
-  try {
-    const res = await request.get('/dashboard/promotion-details', {
-      params: buildPromotionParams(),
-    })
-    const d = res.data || {}
-    promotionData.value = d.list || []
-    pagination.value.total = Number(d.total ?? 0)
-  } catch (e) {
-    console.error(e)
-  } finally {
-    promotionLoading.value = false
   }
 }
 
@@ -560,19 +375,12 @@ async function handleTabChange(name) {
     resizeCharts()
   } else {
     disposeCharts()
-    if (name === 'promotion') {
-      pagination.value.page = 1
-      await fetchPromotionData()
-    }
   }
 }
 
 async function handleDateChange() {
   await fetchStats()
-  pagination.value.page = 1
-  if (activeTab.value === 'promotion') {
-    await fetchPromotionData()
-  } else {
+  if (activeTab.value === 'overview') {
     disposeCharts()
     await nextTick()
     initAllCharts()
@@ -582,15 +390,10 @@ async function handleDateChange() {
 async function handleFilter() {
   filterSubmitting.value = true
   try {
-    pagination.value.page = 1
     await fetchStats()
-    if (activeTab.value === 'promotion') {
-      await fetchPromotionData()
-    } else {
-      disposeCharts()
-      await nextTick()
-      initAllCharts()
-    }
+    disposeCharts()
+    await nextTick()
+    initAllCharts()
   } finally {
     filterSubmitting.value = false
   }
@@ -610,7 +413,6 @@ async function handleReset() {
   const start = new Date()
   start.setDate(start.getDate() - 6)
   dateRange.value = [start.toISOString().split('T')[0], end.toISOString().split('T')[0]]
-  pagination.value.page = 1
   await handleFilter()
 }
 
@@ -618,22 +420,9 @@ function handleExport() {
   ElMessage.success('导出功能开发中…')
 }
 
-function handlePageSizeChange() {
-  fetchPromotionData()
-}
-
-function handlePageChange() {
-  fetchPromotionData()
-}
-
-function viewDetail(row) {
-  ElMessage.info(`查看推广详情：${row.promotion_name || ''}`)
-}
-
 onMounted(async () => {
   dateRange.value = [daysAgoStr(6), todayStr()]
   await fetchStats()
-  await fetchPromotionData()
   window.addEventListener('resize', resizeCharts)
 })
 

@@ -43,6 +43,12 @@ info:
     description: 短剧管理系统后端（Java）
     version: 1.0.0
 
+# 推广明细定时任务（#079，Spring 6 域 cron：秒 分 时 日 月 周）
+app:
+  promotion:
+    tiktok-sync-cron: "${PROMOTION_TIKTOK_SYNC_CRON:0 */10 * * * *}"
+    daily-rollup-cron: "${PROMOTION_DAILY_ROLLUP_CRON:0 0 1 * * *}"
+
 # 业务自定义（密钥请用环境变量覆盖，勿提交真实 Token）
 drama:
   pixel:

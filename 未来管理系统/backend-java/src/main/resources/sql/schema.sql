@@ -4,6 +4,9 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+-- #087：库默认排序规则与下列表一致，避免与 MySQL 8 默认 utf8mb4_0900_ai_ci 混用导致 JOIN 报错
+ALTER DATABASE `drama_system` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- 1. 管理员
 DROP TABLE IF EXISTS `admins`;
 CREATE TABLE `admins` (

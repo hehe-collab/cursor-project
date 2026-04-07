@@ -103,7 +103,9 @@
         </div>
       </div>
       <el-main class="main">
-        <router-view />
+        <div class="main-router-host">
+          <router-view />
+        </div>
       </el-main>
     </el-container>
   </el-container>
@@ -290,7 +292,13 @@ function logout() {
 .aside :deep(.el-menu-item:hover),
 .aside :deep(.el-sub-menu__title:hover) { background: rgba(255,255,255,0.08) !important; }
 .aside :deep(.el-menu-item.is-active) { background: rgba(64,158,255,0.2) !important; color: #66b1ff; }
-.right-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.right-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
 .header {
   background: #fff;
   height: 48px;
@@ -347,7 +355,12 @@ function logout() {
 .main {
   background: #f0f2f5;
   padding: var(--page-padding, 12px);
-  overflow-y: auto;
+  /* 与顶部 header、tabs-bar 同列 flex 时，必须占满剩余高度；否则 el-main 高度为 0 → 主内容区白屏 */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .nav-toggle {
@@ -359,5 +372,15 @@ function logout() {
   font-size: 13px;
   letter-spacing: 0;
   padding: 0 6px;
+}
+.main-router-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.main-router-host > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 </style>

@@ -12,7 +12,7 @@
       >
         <el-form-item label="剧ID" label-width="50px">
           <div class="filter-item-xs">
-            <el-input v-model="filterForm.dramaId" placeholder="数字ID或15位业务ID" clearable />
+            <el-input v-model="filterForm.dramaId" clearable />
           </div>
         </el-form-item>
         <el-form-item label="剧名" label-width="50px">
@@ -79,7 +79,9 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
+      <SkeletonTable v-if="loading && tableData.length === 0" :rows="10" :columns="8" />
       <el-table
+        v-else
         v-loading="loading"
         element-loading-text="加载中..."
         :data="tableData"
@@ -107,16 +109,53 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="剧ID" width="168" align="center" show-overflow-tooltip>
+        <el-table-column label="剧ID" width="200" align="left" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.public_id || row.id }}
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制剧ID"
+                @click="copyToClipboard(dramaListDisplayId(row), '剧ID')"
+              />
+              <span class="id-copy-row__text">{{ dramaListDisplayId(row) }}</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="title" label="剧名" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">{{ row.title || row.name }}</template>
         </el-table-column>
-        <el-table-column prop="category_name" label="分类" width="100" show-overflow-tooltip />
-        <el-table-column prop="display_name" label="展示名" width="150" show-overflow-tooltip />
+        <el-table-column label="封面" width="88" align="center">
+          <template #default="{ row }">
+            <el-image
+              v-if="dramaCoverUrl(row)"
+              :src="dramaCoverUrl(row)"
+              lazy
+              fit="cover"
+              class="drama-cover-thumb"
+              :preview-src-list="[dramaCoverUrl(row)]"
+              preview-teleported
+              :hide-on-click-modal="true"
+            >
+              <template #placeholder>
+                <div class="drama-cover-placeholder">…</div>
+              </template>
+              <template #error>
+                <div class="drama-cover-placeholder">
+                  <el-icon><Picture /></el-icon>
+                </div>
+              </template>
+            </el-image>
+            <span v-else class="drama-cover-empty">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="总集数" width="100" align="center">
+          <template #default="{ row }">{{ dramaTotalEpisodes(row) }}集</template>
+        </el-table-column>
+        <el-table-column label="免费集数" width="100" align="center">
+          <template #default="{ row }">{{ dramaFreeEpisodes(row) }}集</template>
+        </el-table-column>
         <el-table-column label="任务状态" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="getTaskStatusType(row.task_status)" effect="plain">
@@ -211,6 +250,16 @@
 
     <el-dialog title="剧详细" v-model="detailDialogVisible" width="600px">
       <el-descriptions :column="1" border>
+        <el-descriptions-item v-if="detailCoverUrl" label="封面">
+          <el-image
+            :src="detailCoverUrl"
+            lazy
+            fit="contain"
+            class="drama-cover-detail"
+            :preview-src-list="[detailCoverUrl]"
+            preview-teleported
+          />
+        </el-descriptions-item>
         <el-descriptions-item label="业务剧ID">{{ detailData.public_id || detailData.id || '—' }}</el-descriptions-item>
         <el-descriptions-item label="内部ID">{{ detailData.id != null ? detailData.id : '—' }}</el-descriptions-item>
         <el-descriptions-item label="剧名">{{ detailData.name }}</el-descriptions-item>
@@ -237,9 +286,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, RefreshLeft, Plus, Edit, Delete, ArrowDown, Download } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, Plus, Edit, Delete, ArrowDown, Download, DocumentCopy, Picture } from '@element-plus/icons-vue'
 import request from '../api/request'
+import { getDramaDetail, getDramaList, invalidateDramaCaches } from '@/api/drama'
+import SkeletonTable from '@/components/SkeletonTable.vue'
 import { exportJsonToXlsx } from '../utils/excelExport'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const filterForm = ref({
   dramaId: '',
@@ -296,6 +348,32 @@ const detailDialogVisible = ref(false)
 const detailData = ref({})
 
 let pollingTimer = null
+
+function dramaListDisplayId(row) {
+  if (!row) return ''
+  return row.public_id ?? row.publicId ?? row.id ?? ''
+}
+
+function dramaTotalEpisodes(row) {
+  const n = Number(row?.total_episodes ?? row?.totalEpisodes ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+function dramaFreeEpisodes(row) {
+  const n = Number(row?.free_episodes ?? row?.freeEpisodes ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+function dramaCoverUrl(row) {
+  if (!row) return ''
+  const u = row.cover_image || row.coverImage || row.cover || ''
+  return typeof u === 'string' ? u.trim() : ''
+}
+
+const detailCoverUrl = computed(() => {
+  const d = detailData.value || {}
+  return (d.cover_image || d.cover || '').trim() || ''
+})
 
 function getTaskStatusText(status) {
   const map = {
@@ -367,7 +445,7 @@ const handleQuery = async () => {
       ...buildDramaFilterParams(),
     }
 
-    const res = await request.get('/dramas', { params })
+    const res = await getDramaList(params)
     if (res.code === 0) {
       tableData.value = res.data?.list || []
       pagination.value.total = res.data?.total ?? 0
@@ -397,6 +475,7 @@ const handleToggleOnline = async (row) => {
   try {
     const res = await request.put(`/dramas/${row.id}`, { is_online: row.is_online })
     if (res.code === 0) {
+      invalidateDramaCaches()
       ElMessage.success(row.is_online === 1 ? '已上架' : '已下架')
       handleQuery()
     } else {
@@ -500,6 +579,7 @@ const handleSubmit = async () => {
     if (formData.value.id) {
       const res = await request.put(`/dramas/${formData.value.id}`, payload)
       if (res.code === 0) {
+        invalidateDramaCaches()
         ElMessage.success('修改成功')
         dialogVisible.value = false
         handleQuery()
@@ -507,6 +587,7 @@ const handleSubmit = async () => {
     } else {
       const res = await request.post('/dramas', payload)
       if (res.code === 0) {
+        invalidateDramaCaches()
         ElMessage.success('新增成功')
         dialogVisible.value = false
         handleQuery()
@@ -528,13 +609,14 @@ const handleDialogClosed = () => {
 
 const handleViewDetail = async (row) => {
   try {
-    const res = await request.get(`/dramas/${row.id}`)
+    const res = await getDramaDetail(row.id)
     if (res.code === 0) {
       const d = res.data || {}
       detailData.value = {
         id: d.id,
         public_id: d.public_id,
         name: d.name || d.title,
+        cover_image: d.cover_image || d.cover || '',
         display_name: d.display_name,
         display_text: d.display_text || d.description,
         beans_per_episode: d.beans_per_episode,
@@ -561,6 +643,7 @@ const handleDeleteRow = async (row) => {
     await ElMessageBox.confirm('确定要删除这部剧吗？', '提示', { type: 'warning' })
     const res = await request.delete(`/dramas/${row.id}`)
     if (res.code === 0) {
+      invalidateDramaCaches()
       ElMessage.success('删除成功')
       handleQuery()
     }
@@ -603,6 +686,7 @@ const handleBatchStatus = async (status) => {
     if (ok === selectedRows.value.length) ElMessage.success('批量更新成功')
     else if (ok > 0) ElMessage.warning(`部分成功：${ok}/${selectedRows.value.length}`)
     else ElMessage.error('批量更新失败')
+    if (ok > 0) invalidateDramaCaches()
     handleQuery()
   } catch (e) {
     if (e !== 'cancel') {
@@ -640,9 +724,9 @@ const handleExportExcel = async () => {
     const rows = all.map((row) => ({
       剧ID: row.public_id || row.id,
       剧名: row.title || row.name || '',
-      分类: row.category_name || '',
+      总集数: dramaTotalEpisodes(row),
+      免费集数: dramaFreeEpisodes(row),
       状态: dramaStatusLabel(row.status),
-      总集数: row.total_episodes ?? 0,
       观看次数: row.view_count ?? 0,
       创建时间: row.created_at || '',
     }))
@@ -675,6 +759,7 @@ const handleBatchDelete = async () => {
     if (ok === ids.length) ElMessage.success('删除成功')
     else if (ok > 0) ElMessage.warning(`部分成功：已删除 ${ok}/${ids.length} 条`)
     else ElMessage.error('删除失败（Java 后端无批量接口时逐条删除）')
+    if (ok > 0) invalidateDramaCaches()
     handleQuery()
   } catch (error) {
     if (error !== 'cancel') {
@@ -729,6 +814,33 @@ onUnmounted(() => {
   color: #909399;
   font-size: 12px;
   margin-top: 5px;
+}
+
+.drama-cover-thumb {
+  width: 56px;
+  height: 72px;
+  border-radius: 4px;
+}
+.drama-cover-thumb :deep(.el-image__inner) {
+  object-fit: cover;
+}
+.drama-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 72px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.drama-cover-empty {
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
+}
+.drama-cover-detail {
+  max-height: 140px;
+  max-width: 100%;
 }
 
 </style>

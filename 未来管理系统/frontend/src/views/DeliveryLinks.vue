@@ -34,7 +34,7 @@
           <div class="filter-item-s">
             <el-select
               v-model="filterForm.country"
-              :placeholder="countries.length ? '全部' : '请先在账户管理维护广告账户国家'"
+              :placeholder="countryMultiOptions.length ? '全部' : '请先在账户管理维护广告账户国家'"
               clearable
             >
               <el-option
@@ -118,14 +118,40 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="promo_id" label="推广ID" width="150" align="center" />
-        <el-table-column label="剧的ID" width="168" align="center" show-overflow-tooltip>
+        <el-table-column label="推广ID" width="190" align="left" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.drama_public_id || row.drama_id }}
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制推广ID"
+                @click="copyToClipboard(row.promo_id ?? row.promoId, '推广ID')"
+              />
+              <span class="id-copy-row__text">{{ (row.promo_id ?? row.promoId) || '—' }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="剧的ID" width="200" align="left" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制剧ID"
+                @click="copyToClipboard(row.drama_public_id ?? row.dramaPublicId ?? row.drama_id ?? row.dramaId, '剧ID')"
+              />
+              <span class="id-copy-row__text">{{ row.drama_public_id || row.drama_id || '—' }}</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="media" label="投放媒体" width="120" align="center" />
-        <el-table-column prop="country" label="国家/地区" width="120" align="center" />
+        <el-table-column label="国家/地区" width="120" align="center" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ formatAccountCountryLabel(row.country) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="promo_name" label="推广名称" min-width="200" show-overflow-tooltip />
         <el-table-column prop="drama_name" label="剧名" width="150" show-overflow-tooltip />
         <el-table-column prop="plan_group_id" label="方案组ID" width="180" show-overflow-tooltip />
@@ -133,12 +159,14 @@
         <el-table-column prop="free_episodes" label="免费集数" width="100" align="center" />
         <el-table-column prop="created_by" label="创建人" width="120" align="center" />
         <el-table-column prop="created_at" label="创建时间" width="180" align="center" />
-        <el-table-column label="操作" width="300" align="center" fixed="right">
+        <el-table-column label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleCopyLink(row)">复制链接</el-button>
-            <el-button type="primary" link @click="handleCopy(row)">复制</el-button>
-            <el-button type="primary" link @click="handleEditRow(row)">修改</el-button>
-            <el-button type="danger" link @click="handleDeleteRow(row)">删除</el-button>
+            <div class="delivery-link-row-actions">
+              <el-button size="small" @click="handleCopyLink(row)">复制链接</el-button>
+              <el-button size="small" @click="handleCopy(row)">复制</el-button>
+              <el-button size="small" @click="handleEditRow(row)">修改</el-button>
+              <el-button size="small" type="danger" @click="handleDeleteRow(row)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -157,7 +185,13 @@
     </el-card>
 
     <el-dialog :title="dialogTitle" v-model="dialogVisible" width="600px" @closed="handleDialogClosed">
-      <el-form ref="formRef" :model="formData" :rules="rules" label-width="90px">
+      <el-form
+        ref="formRef"
+        class="delivery-link-dialog-form"
+        :model="formData"
+        :rules="rules"
+        label-width="118px"
+      >
         <el-form-item label="推广名称" prop="promo_name">
           <el-input v-model="formData.promo_name" placeholder="请输入推广名称" />
         </el-form-item>
@@ -236,10 +270,7 @@
       <el-form label-width="140px">
         <el-form-item label="推广链接名称">
           <el-input v-model="copyForm.names" type="textarea" :rows="5" placeholder="输入推广链接名称，换行符相隔" />
-          <div class="form-tip">提示：可输入多个名称，每行一个</div>
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="copyForm.copyCallback">同时复制回传配置</el-checkbox>
+          <div class="form-tip">提示：可输入多个名称，每行一个；复制后将自动带上原链接的回传配置</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -253,11 +284,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, RefreshLeft, Plus, Edit, Delete, Download } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, Plus, Edit, Delete, Download, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
+import { copyToClipboard } from '@/utils/clipboard'
 import { useCountries } from '@/composables/useCountries'
 
-const { countries, countryFilterOptions, countryMultiOptions } = useCountries()
+const { countryFilterOptions, countryMultiOptions, formatAccountCountryLabel } = useCountries()
 
 const filterForm = ref({
   promoId: '',
@@ -317,7 +349,6 @@ const copyDialogVisible = ref(false)
 const copyLoading = ref(false)
 const copyForm = ref({
   names: '',
-  copyCallback: false,
 })
 const currentCopyRow = ref(null)
 
@@ -328,9 +359,63 @@ function dramaLabel(drama) {
 }
 
 function onDramaChange(id) {
-  const d = dramaOptions.value.find((x) => x.id === id)
+  const d = dramaOptions.value.find((x) => x.id === id || String(x.id) === String(id))
   if (d) {
     formData.value.drama_name = d.title || d.name || ''
+  }
+}
+
+function normalizeFormId(v) {
+  if (v == null || v === '') return ''
+  const n = Number(v)
+  return Number.isFinite(n) && String(n) === String(v).trim() ? n : v
+}
+
+/** 编辑弹窗打开前拉满下拉数据，并补一条与当前行一致的 option，避免只显示数字 ID */
+function ensureDramaOptionForRow(row, dramaId) {
+  if (dramaId === '' || dramaId == null) return
+  const hit = dramaOptions.value.some((d) => d.id === dramaId || String(d.id) === String(dramaId))
+  if (hit) return
+  const title = row.drama_name || ''
+  dramaOptions.value = [
+    {
+      id: dramaId,
+      title,
+      name: title,
+      public_id: row.drama_public_id,
+    },
+    ...dramaOptions.value,
+  ]
+}
+
+function ensurePlanGroupOptionForRow(row, planGroupId) {
+  if (planGroupId === '' || planGroupId == null) return
+  const hit = planGroupOptions.value.some(
+    (g) => g.id === planGroupId || String(g.id) === String(planGroupId),
+  )
+  if (hit) return
+  const name = row.plan_group_name || row.group_name || ''
+  planGroupOptions.value = [
+    { id: planGroupId, name: name || `方案组 #${planGroupId}` },
+    ...planGroupOptions.value,
+  ]
+}
+
+/** 编辑/新增弹窗内下拉需展示名称：打开编辑前强制拉取最新列表（与 @focus 缓存策略独立） */
+async function ensureFormSelectOptions() {
+  try {
+    const [dRes, gRes] = await Promise.all([
+      request.get('/dramas', { params: { page: 1, pageSize: 1000 } }),
+      request.get('/recharge-groups', { params: { page: 1, pageSize: 1000 } }),
+    ])
+    if (dRes.code === 0) {
+      dramaOptions.value = dRes.data?.list || []
+    }
+    if (gRes.code === 0) {
+      planGroupOptions.value = gRes.data?.list || []
+    }
+  } catch (e) {
+    console.error(e)
   }
 }
 
@@ -391,17 +476,22 @@ const handleEdit = () => {
     ElMessage.warning('请选择一条记录进行修改')
     return
   }
-  handleEditRow(selectedRows.value[0])
+  void handleEditRow(selectedRows.value[0])
 }
 
-const handleEditRow = (row) => {
+const handleEditRow = async (row) => {
+  await ensureFormSelectOptions()
+  const dramaId = normalizeFormId(row.drama_id)
+  const planGroupId = normalizeFormId(row.plan_group_id)
+  ensureDramaOptionForRow(row, dramaId)
+  ensurePlanGroupOptionForRow(row, planGroupId)
   formData.value = {
     id: row.id,
     promo_name: row.promo_name || '',
     media: row.media || 'tiktok',
     country: row.country || '',
-    drama_id: row.drama_id,
-    plan_group_id: row.plan_group_id,
+    drama_id: dramaId,
+    plan_group_id: planGroupId,
     beans_per_episode: row.beans_per_episode ?? 5,
     free_episodes: row.free_episodes ?? 11,
     preview_episodes: row.preview_episodes ?? 11,
@@ -582,7 +672,7 @@ const handleCopyLink = (row) => {
 
 const handleCopy = (row) => {
   currentCopyRow.value = row
-  copyForm.value = { names: '', copyCallback: false }
+  copyForm.value = { names: '' }
   copyDialogVisible.value = true
 }
 
@@ -596,9 +686,6 @@ const handleConfirmCopy = async () => {
     ElMessage.warning('请输入至少一个推广链接名称')
     return
   }
-  if (copyForm.value.copyCallback) {
-    ElMessage.info('回传配置复制尚未接入，已仅复制推广链接配置')
-  }
   copyLoading.value = true
   try {
     let successCount = 0
@@ -606,7 +693,6 @@ const handleConfirmCopy = async () => {
       const res = await request.post('/delivery-links/copy', {
         source_id: currentCopyRow.value.id,
         new_name: name,
-        copy_callback: copyForm.value.copyCallback,
       })
       if (res.code === 0) successCount += 1
     }
@@ -672,5 +758,21 @@ onMounted(() => {
   color: #909399;
   font-size: 12px;
   margin-top: 5px;
+}
+.delivery-link-dialog-form :deep(.el-form-item__label) {
+  white-space: nowrap;
+}
+/* 操作列：单行排列，避免缩列后换行 */
+.delivery-link-row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  white-space: nowrap;
+}
+.delivery-link-row-actions :deep(.el-button) {
+  flex-shrink: 0;
+  margin: 0;
 }
 </style>

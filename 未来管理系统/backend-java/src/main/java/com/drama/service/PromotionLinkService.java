@@ -1,10 +1,12 @@
 package com.drama.service;
 
 import com.drama.entity.Admin;
+import com.drama.entity.CallbackConfig;
 import com.drama.entity.Drama;
 import com.drama.entity.PromotionLink;
 import com.drama.exception.BusinessException;
 import com.drama.mapper.AdminMapper;
+import com.drama.mapper.CallbackConfigMapper;
 import com.drama.mapper.DramaMapper;
 import com.drama.mapper.PromotionLinkMapper;
 import com.drama.util.ExcelExportUtil;
@@ -14,7 +16,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,9 +26,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PromotionLinkService {
@@ -32,11 +38,14 @@ public class PromotionLinkService {
     private static final ZoneId CN = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter EXPORT_DT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(CN);
-    private static final String PROMO_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+    /** 新建推广链接业务 ID：16 位，数字 + 大小写字母（62 字符集） */
+    private static final String PROMO_CHARS =
+            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     private final PromotionLinkMapper promotionLinkMapper;
     private final AdminMapper adminMapper;
     private final DramaMapper dramaMapper;
+    private final CallbackConfigMapper callbackConfigMapper;
     private final SecureRandom random = new SecureRandom();
 
     public Map<String, Object> listPage(
@@ -49,7 +58,7 @@ public class PromotionLinkService {
             String promoteName,
             String promoDomain) {
         List<PromotionLink> filtered =
-                filterLinks(promotionLinkMapper.selectAllOrderByIdDesc(), promoId, dramaId, media, country, promoteName, promoDomain);
+                filterLinks(promotionLinkMapper.selectAllWithDramaJoinOrderByIdDesc(), promoId, dramaId, media, country, promoteName, promoDomain);
         int total = filtered.size();
         int from = Math.max(0, (page - 1) * pageSize);
         int to = Math.min(from + pageSize, total);
@@ -78,7 +87,7 @@ public class PromotionLinkService {
     public List<Map<String, Object>> searchOptions(String keyword, int limit) {
         String k = keyword != null ? keyword.trim().toLowerCase() : "";
         int lim = limit <= 0 ? 30 : Math.min(limit, 100);
-        List<PromotionLink> all = promotionLinkMapper.selectAllOrderByIdDesc();
+        List<PromotionLink> all = promotionLinkMapper.selectAllWithDramaJoinOrderByIdDesc();
         return all.stream()
                 .filter(r -> k.isEmpty() || linkMatchesKeyword(r, k))
                 .limit(lim)
@@ -95,7 +104,7 @@ public class PromotionLinkService {
             String promoDomain)
             throws java.io.IOException {
         List<PromotionLink> filtered =
-                filterLinks(promotionLinkMapper.selectAllOrderByIdDesc(), promoId, dramaId, media, country, promoteName, promoDomain);
+                filterLinks(promotionLinkMapper.selectAllWithDramaJoinOrderByIdDesc(), promoId, dramaId, media, country, promoteName, promoDomain);
         filtered.sort(Comparator.comparing(PromotionLink::getCreatedAt, Comparator.nullsFirst(Comparator.naturalOrder()))
                 .reversed());
         Map<Integer, String> dramaPublicMap = dramaPublicMapForLinks(filtered);
@@ -180,7 +189,68 @@ public class PromotionLinkService {
         row.setStatus("active");
         promotionLinkMapper.insert(row);
         PromotionLink saved = promotionLinkMapper.selectById(row.getId());
+        if (saved != null) {
+            cloneCallbackConfigsForNewLink(source, saved, creator);
+        }
         return saved != null ? toClientRow(saved, dramaPublicMapForLinks(List.of(saved))) : Map.of("id", row.getId());
+    }
+
+    /** 复制投放链接时同步克隆回传配置（link_id 为业务 promote_id 或历史数字主键）。 */
+    private void cloneCallbackConfigsForNewLink(PromotionLink source, PromotionLink newRow, String creator) {
+        if (source.getId() == null) {
+            log.warn("cloneCallbackConfigsForNewLink: source link has null id, skip");
+            return;
+        }
+        LinkedHashSet<String> keySet = new LinkedHashSet<>();
+        keySet.add(String.valueOf(source.getId()));
+        String promoteId = source.getPromoteId() != null ? source.getPromoteId().trim() : "";
+        if (!promoteId.isEmpty()) {
+            keySet.add(promoteId);
+        }
+        List<String> keys =
+                keySet.stream().filter(k -> k != null && !k.isBlank()).collect(Collectors.toList());
+        if (keys.isEmpty()) {
+            log.warn("cloneCallbackConfigsForNewLink: no lookup keys after filter, skip");
+            return;
+        }
+        List<CallbackConfig> templates = callbackConfigMapper.selectForPromotionLinkCloneByKeys(keys);
+        int found = templates == null ? 0 : templates.size();
+        log.info(
+                "cloneCallbackConfigsForNewLink: sourceId={}, promoteIdKeys={}, templates={}",
+                source.getId(),
+                keys,
+                found);
+        if (templates == null || templates.isEmpty()) {
+            return;
+        }
+        String newLinkId =
+                newRow.getPromoteId() != null && !newRow.getPromoteId().isBlank()
+                        ? newRow.getPromoteId().trim()
+                        : "";
+        if (newLinkId.isEmpty()) {
+            log.warn("cloneCallbackConfigsForNewLink: new row has empty promote_id, skip insert");
+            return;
+        }
+        Set<Integer> seenIds = new HashSet<>();
+        for (CallbackConfig t : templates) {
+            if (t.getId() != null && !seenIds.add(t.getId())) {
+                continue;
+            }
+            CallbackConfig n = new CallbackConfig();
+            n.setLinkId(newLinkId);
+            n.setPlatform(t.getPlatform() != null ? t.getPlatform() : "");
+            n.setColdStartCount(t.getColdStartCount() != null ? t.getColdStartCount() : 0);
+            n.setMinPriceLimit(t.getMinPriceLimit() != null ? t.getMinPriceLimit() : 0);
+            n.setReplenishCallbackEnabled(
+                    t.getReplenishCallbackEnabled() != null ? t.getReplenishCallbackEnabled() : true);
+            n.setConfigJson(t.getConfigJson());
+            n.setCreator(creator != null && !creator.isBlank() ? creator : "admin");
+            callbackConfigMapper.insert(n);
+            log.info(
+                    "cloneCallbackConfigsForNewLink: inserted callback_config for new promote_id={}, platform={}",
+                    newLinkId,
+                    n.getPlatform());
+        }
     }
 
     private void copyFieldsForDuplicate(PromotionLink src, PromotionLink dst) {
@@ -381,7 +451,15 @@ public class PromotionLinkService {
 
     private Map<Integer, String> dramaPublicMapForLinks(List<PromotionLink> links) {
         List<Integer> ids =
-                links.stream().map(PromotionLink::getDramaId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+                links.stream()
+                        .filter(
+                                r ->
+                                        r.getDramaId() != null
+                                                && (r.getJoinedDramaPublicId() == null
+                                                        || r.getJoinedDramaPublicId().isBlank()))
+                        .map(PromotionLink::getDramaId)
+                        .distinct()
+                        .collect(Collectors.toList());
         if (ids.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -412,7 +490,9 @@ public class PromotionLinkService {
         m.put("promo_id", r.getPromoteId() != null ? r.getPromoteId() : "");
         m.put("drama_id", r.getDramaId());
         String dramaPub = "";
-        if (r.getDramaId() != null && dramaPublicIds != null) {
+        if (r.getJoinedDramaPublicId() != null && !r.getJoinedDramaPublicId().isBlank()) {
+            dramaPub = r.getJoinedDramaPublicId();
+        } else if (r.getDramaId() != null && dramaPublicIds != null) {
             dramaPub = dramaPublicIds.getOrDefault(r.getDramaId(), "");
         }
         m.put("drama_public_id", dramaPub);
@@ -456,7 +536,7 @@ public class PromotionLinkService {
     }
 
     private String generateUniquePromoId() {
-        List<PromotionLink> all = promotionLinkMapper.selectAllOrderByIdDesc();
+        List<PromotionLink> all = promotionLinkMapper.selectAllWithDramaJoinOrderByIdDesc();
         Set<String> ids = all.stream().map(PromotionLink::getPromoteId).filter(Objects::nonNull).collect(Collectors.toSet());
         for (int i = 0; i < 20; i++) {
             String pid = randomPromoId();
@@ -468,8 +548,8 @@ public class PromotionLinkService {
     }
 
     private String randomPromoId() {
-        StringBuilder sb = new StringBuilder(10);
-        for (int i = 0; i < 10; i++) {
+        StringBuilder sb = new StringBuilder(16);
+        for (int i = 0; i < 16; i++) {
             sb.append(PROMO_CHARS.charAt(random.nextInt(PROMO_CHARS.length())));
         }
         return sb.toString();

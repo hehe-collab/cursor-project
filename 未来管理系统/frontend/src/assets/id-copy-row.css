@@ -1,0 +1,22 @@
+/* 指令 #072：列表内「复制 + ID」统一左对齐，避免长文本挤压按钮 */
+.id-copy-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.id-copy-row .id-copy-row__text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.id-copy-row .el-button.is-text {
+  flex-shrink: 0;
+  padding: 4px;
+}

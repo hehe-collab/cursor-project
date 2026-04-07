@@ -32,6 +32,14 @@
     SELECT * FROM dramas WHERE id = #{id}
   </select>
 
+  <!-- 详情：一次查剧 + 分类名（避免再查 categories） -->
+  <select id="selectByIdWithCategory" resultType="com.drama.entity.Drama">
+    SELECT d.*, c.name AS category_name
+    FROM dramas d
+    LEFT JOIN categories c ON d.category_id = c.id
+    WHERE d.id = #{id}
+  </select>
+
   <select id="selectPublicIdPairsByIds" resultType="com.drama.entity.Drama">
     SELECT id, public_id FROM dramas
     WHERE id IN

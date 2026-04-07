@@ -1,7 +1,9 @@
 package com.drama.mapper;
 
+import com.drama.dto.PromotionUserNewAggRow;
 import com.drama.dto.UserStatsRow;
 import com.drama.entity.User;
+import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -36,6 +38,8 @@ public interface UserMapper {
 
     User selectById(@Param("id") int id);
 
+    List<User> selectByIds(@Param("ids") List<Integer> ids);
+
     int insert(User row);
 
     int updateById(User row);
@@ -50,4 +54,7 @@ public interface UserMapper {
             @Param("country") String country,
             @Param("startDate") String startDate,
             @Param("endDate") String endDate);
+
+    /** 按 promote_id 统计某日新增用户（users.promote_id 对齐推广） */
+    List<PromotionUserNewAggRow> selectNewUserAggByDate(@Param("date") LocalDate date);
 }

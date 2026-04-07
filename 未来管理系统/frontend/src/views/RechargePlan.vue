@@ -54,12 +54,18 @@
           <el-empty description="暂无充值方案" />
         </template>
         <el-table-column type="selection" width="48" align="center" fixed />
-        <el-table-column label="ID" min-width="200" show-overflow-tooltip>
+        <el-table-column label="ID" min-width="220" align="left" show-overflow-tooltip>
           <template #default="{ row }">
-            <span class="id-cell">
-              <el-icon class="id-icon" color="#409eff"><Document /></el-icon>
-              <span class="id-text">{{ row.display_id || row.uuid || row.id }}</span>
-            </span>
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制方案ID"
+                @click="copyToClipboard(row.display_id || row.uuid || row.id, '方案ID')"
+              />
+              <span class="id-copy-row__text id-text">{{ row.display_id || row.uuid || row.id }}</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="name" label="名称" min-width="120" show-overflow-tooltip />
@@ -201,7 +207,8 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Document } from '@element-plus/icons-vue'
+import { Plus, DocumentCopy } from '@element-plus/icons-vue'
+import { copyToClipboard } from '@/utils/clipboard'
 import {
   getRechargePlans,
   createRechargePlan,

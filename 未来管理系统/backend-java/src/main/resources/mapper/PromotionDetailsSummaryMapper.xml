@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.PromotionDetailsSummaryMapper">
+
+  <insert id="upsert" parameterType="com.drama.entity.PromotionDetailsSummary">
+    INSERT INTO promotion_details_summary (
+      date, promotion_id, promotion_name, platform, country, drama_id, drama_name,
+      account_id, account_name, balance, campaign_name,
+      cost, speed, roi, user_count, recharge_amount, profit,
+      order_count, first_recharge_count, first_recharge_rate,
+      repeat_recharge_count, impressions, cpm, avg_recharge_per_user
+    ) VALUES (
+      #{date}, #{promotionId}, #{promotionName}, #{platform}, #{country}, #{dramaId}, #{dramaName},
+      #{accountId}, #{accountName}, #{balance}, #{campaignName},
+      #{cost}, #{speed}, #{roi}, #{userCount}, #{rechargeAmount}, #{profit},
+      #{orderCount}, #{firstRechargeCount}, #{firstRechargeRate},
+      #{repeatRechargeCount}, #{impressions}, #{cpm}, #{avgRechargePerUser}
+    )
+    ON DUPLICATE KEY UPDATE
+      promotion_name = VALUES(promotion_name),
+      platform = VALUES(platform),
+      country = VALUES(country),
+      drama_id = VALUES(drama_id),
+      drama_name = VALUES(drama_name),
+      account_id = VALUES(account_id),
+      account_name = VALUES(account_name),
+      balance = VALUES(balance),
+      campaign_name = VALUES(campaign_name),
+      cost = VALUES(cost),
+      speed = VALUES(speed),
+      roi = VALUES(roi),
+      user_count = VALUES(user_count),
+      recharge_amount = VALUES(recharge_amount),
+      profit = VALUES(profit),
+      order_count = VALUES(order_count),
+      first_recharge_count = VALUES(first_recharge_count),
+      first_recharge_rate = VALUES(first_recharge_rate),
+      repeat_recharge_count = VALUES(repeat_recharge_count),
+      impressions = VALUES(impressions),
+      cpm = VALUES(cpm),
+      avg_recharge_per_user = VALUES(avg_recharge_per_user),
+      updated_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <update id="update" parameterType="com.drama.entity.PromotionDetailsSummary">
+    UPDATE promotion_details_summary
+    SET
+      promotion_name = #{promotionName},
+      platform = #{platform},
+      country = #{country},
+      drama_id = #{dramaId},
+      drama_name = #{dramaName},
+      account_id = #{accountId},
+      account_name = #{accountName},
+      balance = #{balance},
+      campaign_name = #{campaignName},
+      cost = #{cost},
+      speed = #{speed},
+      roi = #{roi},
+      user_count = #{userCount},
+      recharge_amount = #{rechargeAmount},
+      profit = #{profit},
+      order_count = #{orderCount},
+      first_recharge_count = #{firstRechargeCount},
+      first_recharge_rate = #{firstRechargeRate},
+      repeat_recharge_count = #{repeatRechargeCount},
+      impressions = #{impressions},
+      cpm = #{cpm},
+      avg_recharge_per_user = #{avgRechargePerUser}
+    WHERE date = #{date} AND promotion_id = #{promotionId}
+  </update>
+
+  <select id="selectByDateAndPromotion" resultType="com.drama.entity.PromotionDetailsSummary">
+    SELECT *
+    FROM promotion_details_summary
+    WHERE date = #{date} AND promotion_id = #{promotionId}
+    LIMIT 1
+  </select>
+
+  <sql id="QueryWhere">
+    <where>
+      <if test="startDate != null">
+        AND date &gt;= #{startDate}
+      </if>
+      <if test="endDate != null">
+        AND date &lt;= #{endDate}
+      </if>
+      <if test="promotionId != null and promotionId != ''">
+        AND promotion_id LIKE CONCAT('%', #{promotionId}, '%')
+      </if>
+      <if test="promotionName != null and promotionName != ''">
+        AND promotion_name LIKE CONCAT('%', #{promotionName}, '%')
+      </if>
+      <if test="platform != null and platform != ''">
+        AND platform = #{platform}
+      </if>
+      <if test="dramaId != null and dramaId != ''">
+        AND drama_id = #{dramaId}
+      </if>
+      <if test="dramaName != null and dramaName != ''">
+        AND drama_name LIKE CONCAT('%', #{dramaName}, '%')
+      </if>
+      <if test="country != null and country != ''">
+        AND country = #{country}
+      </if>
+      <if test="accountId != null and accountId != ''">
+        AND account_id = #{accountId}
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectByQuery" resultType="com.drama.entity.PromotionDetailsSummary">
+    SELECT *
+    FROM promotion_details_summary
+    <include refid="QueryWhere"/>
+    ORDER BY date DESC, promotion_id ASC
+    LIMIT #{pageSize} OFFSET #{offset}
+  </select>
+
+  <select id="countByQuery" resultType="long">
+    SELECT COUNT(*)
+    FROM promotion_details_summary
+    <include refid="QueryWhere"/>
+  </select>
+
+  <select id="selectSummaryAggregateByQuery" resultType="com.drama.entity.PromotionDetailsSummary">
+    SELECT
+      COALESCE(SUM(cost), 0) AS cost,
+      COALESCE(AVG(speed), 0) AS speed,
+      COALESCE(SUM(user_count), 0) AS userCount,
+      COALESCE(SUM(recharge_amount), 0) AS rechargeAmount,
+      COALESCE(SUM(profit), 0) AS profit,
+      COALESCE(SUM(order_count), 0) AS orderCount,
+      COALESCE(SUM(first_recharge_count), 0) AS firstRechargeCount,
+      COALESCE(SUM(repeat_recharge_count), 0) AS repeatRechargeCount,
+      COALESCE(SUM(impressions), 0) AS impressions
+    FROM promotion_details_summary
+    <include refid="QueryWhere"/>
+  </select>
+
+  <select id="selectForProfitChart" resultType="com.drama.entity.PromotionDetailsSummary">
+    SELECT date, profit
+    FROM promotion_details_summary
+    WHERE promotion_id = #{promotionId}
+      AND date &gt;= #{startDate}
+      AND date &lt;= #{endDate}
+    ORDER BY date ASC
+  </select>
+
+  <select id="selectAggregatedProfitChartByQuery" resultType="com.drama.dto.ProfitChartDataDTO$ChartPoint">
+    SELECT DATE_FORMAT(`date`, '%m-%d') AS `time`, COALESCE(SUM(profit), 0) AS profit
+    FROM promotion_details_summary
+    <include refid="QueryWhere"/>
+    GROUP BY `date`
+    ORDER BY `date` ASC
+  </select>
+
+  <select id="selectDistinctPromotionIdsByQuery" resultType="java.lang.String">
+    SELECT DISTINCT promotion_id
+    FROM promotion_details_summary
+    <include refid="QueryWhere"/>
+    ORDER BY promotion_id ASC
+  </select>
+</mapper>

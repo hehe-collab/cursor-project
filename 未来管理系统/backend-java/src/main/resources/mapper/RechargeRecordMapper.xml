@@ -60,6 +60,65 @@
     </where>
   </sql>
 
+  <!-- 与 WhereFilter 条件一致，表别名 r（供 JOIN users） -->
+  <sql id="WhereFilterR">
+    <where>
+      <if test="userId != null and userId != ''">
+        AND CAST(r.user_id AS CHAR) LIKE CONCAT('%', #{userId}, '%')
+      </if>
+      <if test="promotionId != null and promotionId != ''">
+        AND (r.promotion_id LIKE CONCAT('%', #{promotionId}, '%') OR r.promote_id LIKE CONCAT('%', #{promotionId}, '%'))
+      </if>
+      <if test="orderKey != null and orderKey != ''">
+        AND (
+          CAST(r.id AS CHAR) LIKE CONCAT('%', #{orderKey}, '%')
+          OR IFNULL(r.order_no,'') LIKE CONCAT('%', #{orderKey}, '%')
+        )
+      </if>
+      <if test="externalKey != null and externalKey != ''">
+        AND (IFNULL(r.external_order_id,'') LIKE CONCAT('%', #{externalKey}, '%')
+          OR IFNULL(r.external_order_no,'') LIKE CONCAT('%', #{externalKey}, '%'))
+      </if>
+      <if test="country != null and country != ''">
+        AND IFNULL(r.country,'') LIKE CONCAT('%', #{country}, '%')
+      </if>
+      <if test="platform != null and platform != ''">
+        AND IFNULL(r.platform,'') LIKE CONCAT('%', #{platform}, '%')
+      </if>
+      <if test="adAccountId != null and adAccountId != ''">
+        AND IFNULL(r.ad_account_id,'') LIKE CONCAT('%', #{adAccountId}, '%')
+      </if>
+      <if test="startDate != null and startDate != ''">
+        AND DATE(COALESCE(r.local_register_time, r.local_time, r.created_at)) &gt;= #{startDate}
+      </if>
+      <if test="endDate != null and endDate != ''">
+        AND DATE(COALESCE(r.local_register_time, r.local_time, r.created_at)) &lt;= #{endDate}
+      </if>
+      <if test="status != null and status != ''">
+        <choose>
+          <when test="status == 'pending'">
+            AND (
+              IFNULL(r.payment_status,'') = 'pending'
+              OR LOWER(IFNULL(r.pay_status,'')) IN ('pending','unpaid')
+            )
+          </when>
+          <when test="status == 'paid'">
+            AND (
+              IFNULL(r.payment_status,'') = 'paid'
+              OR LOWER(IFNULL(r.pay_status,'')) IN ('paid','success')
+            )
+          </when>
+          <when test="status == 'failed'">
+            AND (
+              IFNULL(r.payment_status,'') = 'failed'
+              OR LOWER(IFNULL(r.pay_status,'')) = 'failed'
+            )
+          </when>
+        </choose>
+      </if>
+    </where>
+  </sql>
+
   <select id="selectMaxId" resultType="long">
     SELECT COALESCE(MAX(id), 1000000) FROM recharge_records
   </select>
@@ -151,6 +210,22 @@
     SELECT * FROM recharge_records
     <include refid="WhereFilter"/>
     ORDER BY COALESCE(local_order_time, created_at) DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <!-- 列表：一次查出关联用户展示字段（user_id 为业务字符串，对齐 users.id 或 user_code） -->
+  <select id="selectByParamWithUser" resultType="com.drama.entity.RechargeRecord">
+    SELECT
+      r.*,
+      u.username AS join_username,
+      u.promote_id AS join_user_promote_id,
+      u.country AS join_user_country
+    FROM recharge_records r
+    LEFT JOIN users u
+      ON (r.user_id COLLATE utf8mb4_unicode_ci) = (CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci)
+      OR (u.user_code IS NOT NULL AND (r.user_id COLLATE utf8mb4_unicode_ci) = (u.user_code COLLATE utf8mb4_unicode_ci))
+    <include refid="WhereFilterR"/>
+    ORDER BY COALESCE(r.local_order_time, r.created_at) DESC
     LIMIT #{limit} OFFSET #{offset}
   </select>
 

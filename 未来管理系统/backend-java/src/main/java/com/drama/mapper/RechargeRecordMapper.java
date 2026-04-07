@@ -56,6 +56,20 @@ public interface RechargeRecordMapper {
             @Param("offset") int offset,
             @Param("limit") int limit);
 
+    List<RechargeRecord> selectByParamWithUser(
+            @Param("userId") String userId,
+            @Param("promotionId") String promotionId,
+            @Param("orderKey") String orderKey,
+            @Param("externalKey") String externalKey,
+            @Param("country") String country,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate,
+            @Param("status") String status,
+            @Param("platform") String platform,
+            @Param("adAccountId") String adAccountId,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
+
     RechargeRecord selectById(@Param("id") long id);
 
     long countAll();

@@ -60,7 +60,25 @@
       >
         <el-table-column type="selection" width="55" align="center" />
 
-        <el-table-column prop="link_id" label="推广链接" width="150" show-overflow-tooltip />
+        <el-table-column label="推广链接 ID" min-width="200" align="left" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制推广链接ID"
+                @click="
+                  copyToClipboard(
+                    row.promote_id ?? row.promoteId ?? row.link_id ?? row.linkId,
+                    '推广链接ID',
+                  )
+                "
+              />
+              <span class="id-copy-row__text">{{ rowPromotionLinkId(row) }}</span>
+            </div>
+          </template>
+        </el-table-column>
 
         <el-table-column prop="platform" label="平台类型" width="120" align="center">
           <template #default="{ row }">
@@ -148,9 +166,9 @@
               >
                 <el-option
                   v-for="opt in linkOptions"
-                  :key="opt.id"
+                  :key="`${opt.id ?? ''}-${deliveryLinkOptionValue(opt)}`"
                   :label="opt.label"
-                  :value="String(opt.id)"
+                  :value="deliveryLinkOptionValue(opt)"
                 />
               </el-select>
             </el-form-item>
@@ -251,12 +269,30 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Search, RefreshLeft } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Search, RefreshLeft, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const PLATFORM_LABEL = { tiktok: 'TikTok', facebook: 'Facebook', google: 'Google' }
 function platformLabel(p) {
   return PLATFORM_LABEL[p] || p || '-'
+}
+
+/** 列表展示：优先业务推广ID（promote_id），与投放链接列表「推广ID」列一致 */
+function rowPromotionLinkId(row) {
+  if (!row) return '—'
+  const v = row.promote_id ?? row.promoteId ?? row.link_id ?? row.linkId
+  if (v === null || v === undefined || v === '') return '—'
+  return String(v)
+}
+
+/** 下拉取值：与库表 promote_id 一致；无则退回数字主键（兼容旧数据） */
+function deliveryLinkOptionValue(opt) {
+  if (!opt) return ''
+  const p = opt.promo_id != null && String(opt.promo_id).trim() !== '' ? String(opt.promo_id).trim() : ''
+  if (p) return p
+  if (opt.id != null && opt.id !== '') return String(opt.id)
+  return ''
 }
 
 function strategySummary(row) {
@@ -365,17 +401,18 @@ function removeStrategyRow(index) {
   strategyRows.value.splice(index, 1)
 }
 
-function ensureLinkOptionForEdit(row) {
-  const id = row?.link_id
-  if (id === null || id === undefined || id === '') {
+function ensureLinkOptionForEdit() {
+  const sid = formData.value.link_id
+  if (sid === null || sid === undefined || String(sid).trim() === '') {
     linkOptions.value = []
     return
   }
-  const sid = String(id)
+  const s = String(sid).trim()
   linkOptions.value = [
     {
-      id: sid,
-      label: row.promo_name ? `${row.promo_name} (#${sid})` : `链接 #${sid}`,
+      id: s,
+      promo_id: s,
+      label: `推广ID ${s}`,
     },
   ]
 }
@@ -464,13 +501,14 @@ const handleEdit = () => {
 }
 
 const handleEditRow = (row) => {
+  const lid = rowPromotionLinkId(row)
   formData.value = {
     ...row,
-    link_id: row.link_id != null ? String(row.link_id) : '',
+    link_id: lid === '—' ? '' : lid,
     replenish_callback_enabled: row.replenish_callback_enabled !== false,
   }
   strategyRows.value = parseStrategiesFromRow(row)
-  ensureLinkOptionForEdit(row)
+  ensureLinkOptionForEdit()
   dialogVisible.value = true
 }
 
@@ -673,6 +711,7 @@ onMounted(() => {
   width: 100%;
   margin-top: 4px;
 }
+
 </style>
 
 <style>

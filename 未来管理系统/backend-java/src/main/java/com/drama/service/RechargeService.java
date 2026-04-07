@@ -129,7 +129,7 @@ public class RechargeService {
                         q.getPlatform(),
                         q.getAccountId());
         List<RechargeRecord> rows =
-                rechargeRecordMapper.selectByParam(
+                rechargeRecordMapper.selectByParamWithUser(
                         q.getUserId(),
                         q.getPromotionId(),
                         q.getOrderId(),
@@ -196,6 +196,15 @@ public class RechargeService {
         m.put(
                 "actual_amount",
                 paid && r.getAmount() != null ? r.getAmount() : BigDecimal.ZERO);
+        if (r.getJoinUsername() != null && !r.getJoinUsername().isBlank()) {
+            m.put("join_username", r.getJoinUsername());
+        }
+        if (r.getJoinUserPromoteId() != null && !r.getJoinUserPromoteId().isBlank()) {
+            m.put("join_user_promote_id", r.getJoinUserPromoteId());
+        }
+        if (r.getJoinUserCountry() != null && !r.getJoinUserCountry().isBlank()) {
+            m.put("join_user_country", r.getJoinUserCountry());
+        }
         return m;
     }
 

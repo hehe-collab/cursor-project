@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.RechargeOrderMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.RechargeOrder" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO recharge_orders (
+      order_id, user_id, promotion_id, amount, coins, is_first_recharge
+    ) VALUES (
+      #{orderId}, #{userId}, #{promotionId}, #{amount}, #{coins},
+      #{isFirstRecharge,jdbcType=TINYINT}
+    )
+  </insert>
+
+  <select id="selectByPromotionAndDate" resultType="com.drama.entity.RechargeOrder">
+    SELECT *
+    FROM recharge_orders
+    WHERE promotion_id = #{promotionId}
+      AND DATE(created_at) = #{date}
+  </select>
+
+  <select id="selectAggByDate" resultType="com.drama.dto.PromotionRechargeAggRow">
+    SELECT promotion_id AS promotionId,
+      COUNT(*) AS orderCount,
+      COALESCE(SUM(amount), 0) AS rechargeAmount,
+      COALESCE(SUM(CASE WHEN is_first_recharge = 1 THEN 1 ELSE 0 END), 0) AS firstRechargeCount,
+      COALESCE(SUM(CASE WHEN is_first_recharge = 0 THEN 1 ELSE 0 END), 0) AS repeatRechargeCount
+    FROM recharge_orders
+    WHERE DATE(created_at) = #{date}
+    GROUP BY promotion_id
+  </select>
+
+  <select id="sumAmountByPromotionAndDate" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0)
+    FROM recharge_orders
+    WHERE promotion_id = #{promotionId}
+      AND DATE(created_at) = #{date}
+  </select>
+
+  <select id="sumAmountByPromotionAndHourStart" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0)
+    FROM recharge_orders
+    WHERE promotion_id = #{promotionId}
+      AND created_at &gt;= #{hourStart}
+      AND created_at &lt; #{hourEnd}
+  </select>
+
+  <select id="sumAmountByPromotionsAndHourStart" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0)
+    FROM recharge_orders
+    WHERE created_at &gt;= #{hourStart}
+      AND created_at &lt; #{hourEnd}
+    <if test="promotionIds != null and promotionIds.size() &gt; 0">
+      AND promotion_id IN
+      <foreach collection="promotionIds" item="id" open="(" separator="," close=")">
+        #{id}
+      </foreach>
+    </if>
+    <if test="promotionIds == null or promotionIds.size() == 0">
+      AND 1 = 0
+    </if>
+  </select>
+</mapper>

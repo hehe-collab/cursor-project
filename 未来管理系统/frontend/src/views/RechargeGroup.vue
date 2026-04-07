@@ -45,9 +45,18 @@
           <el-empty description="暂无方案组" />
         </template>
         <el-table-column type="selection" width="48" align="center" fixed />
-        <el-table-column label="分组ID" width="150" show-overflow-tooltip>
+        <el-table-column label="分组ID" width="200" align="left" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag v-if="row.group_id" type="info" size="small">{{ row.group_id }}</el-tag>
+            <div v-if="row.group_id ?? row.groupId" class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制分组ID"
+                @click="copyToClipboard(row.group_id ?? row.groupId, '分组ID')"
+              />
+              <span class="id-copy-row__text">{{ row.group_id ?? row.groupId }}</span>
+            </div>
             <span v-else>—</span>
           </template>
         </el-table-column>
@@ -210,7 +219,8 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, DocumentCopy } from '@element-plus/icons-vue'
+import { copyToClipboard } from '@/utils/clipboard'
 import { MEDIA_PLATFORMS } from '@/constants/media'
 import { formatDateTimeDisplay as formatDateTime } from '@/utils/dateDisplay'
 import {

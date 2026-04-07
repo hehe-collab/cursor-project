@@ -10,6 +10,8 @@ public interface PromotionLinkMapper {
 
     List<PromotionLink> selectAllOrderByIdDesc();
 
+    List<PromotionLink> selectAllWithDramaJoinOrderByIdDesc();
+
     PromotionLink selectById(@Param("id") int id);
 
     int countByPromoteIdExcludeId(@Param("promoteId") String promoteId, @Param("excludeId") Integer excludeId);

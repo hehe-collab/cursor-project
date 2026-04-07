@@ -622,9 +622,9 @@ h3 {
   padding: 8px 12px !important;
 }
 
-/* 列表页：筛选固定高度 + 表格区吃满剩余视口（指令 #022） */
+/* 列表页：在 Layout 的 flex 主体内用 flex 吃满高度，避免再用 100vh 扣减与 el-main 实际高度不一致导致内容区被挤没 */
 .page-list-layout {
-  height: calc(100vh - 48px - 36px - 24px);
+  flex: 1 1 auto;
   min-height: 280px;
   display: flex;
   flex-direction: column;

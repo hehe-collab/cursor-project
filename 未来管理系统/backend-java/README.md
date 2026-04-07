@@ -26,6 +26,7 @@
 | 广告任务 | `AdTaskController` | `/api/ad-task`：列表/详情/导出/创建 | #053 |
 | 阿里云 VOD | `VodController` | `/api/vod/*`（GET，与历史 Node 一致） | #054 |
 | 按日 ROI 统计 | `StatsController` | `GET /api/stats`（充值按日聚合） | #055 |
+| 推广明细（表 #078） | `PromotionDetailsController` | `GET /api/promotion-details`、`…/profit-chart`、`POST …/sync`；定时任务见 `application.yml` **`app.promotion.*`** | #079 |
 
 另：`HealthController`。
 
@@ -110,6 +111,27 @@ mysql -u root -p drama_system < src/main/resources/sql/demo_data.sql
 # 或 root 无密码：
 # mysql -u root drama_system < src/main/resources/sql/demo_data.sql
 ```
+
+**推广明细表（#078）**（在 **`schema.sql`** 与 **`demo_data.sql`** 之后执行）：
+
+```bash
+mysql -u root -p drama_system < src/main/resources/sql/schema-promotion.sql
+mysql -u root -p drama_system < src/main/resources/sql/demo-promotion-data.sql
+```
+
+若库在 **#078 之后**已建过 **`promotion_details_summary`**，但 **缺 `platform` / `country` / `impressions`**（报错 **`Unknown column 'country'`** 等），执行增量脚本（**#081/#084**，可重复执行，按 `INFORMATION_SCHEMA` 仅补缺失列/索引）：
+
+```bash
+mysql -u root -p drama_system < src/main/resources/sql/schema-promotion-update.sql
+```
+
+**注意**：脚本使用 **`DATABASE()`**，请在 **`USE drama_system;`** 后再source，或像上面一样在命令行指定库名 **`drama_system`**。
+
+新建库直接执行最新 **`schema-promotion.sql`** 即可，**通常不必**再跑 **`schema-promotion-update.sql`**。
+
+**广告账户（#082/#084）**：标准 **`schema.sql`** 已含 **`media`、`country`**。若早期自建表缺列，执行：**`sql/schema-accounts-update.sql`**（可重复执行）。
+
+**排序规则（#087）**：充值列表 **`recharge_records` JOIN `users`** 若报 **`Illegal mix of collations`**，执行 **`sql/fix-collation.sql`**（可重复；**无某扩展表时删除对应 `ALTER TABLE` 行**）。新建库跑 **`schema.sql`** 已含 **`ALTER DATABASE … utf8mb4_unicode_ci`**。
 
 导入后可测（需先登录拿 `token`；有 `jq` 时可简化）：
 

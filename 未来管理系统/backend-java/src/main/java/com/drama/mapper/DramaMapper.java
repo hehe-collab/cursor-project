@@ -9,6 +9,8 @@ import org.apache.ibatis.annotations.Param;
 public interface DramaMapper {
     Drama selectById(@Param("id") Integer id);
 
+    Drama selectByIdWithCategory(@Param("id") int id);
+
     java.util.List<Drama> selectPublicIdPairsByIds(@Param("ids") java.util.List<Integer> ids);
 
     long countByPublicId(@Param("publicId") String publicId);

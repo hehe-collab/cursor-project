@@ -21,8 +21,16 @@
     SELECT * FROM ad_accounts ORDER BY id DESC
   </select>
 
+  <select id="selectDistinctPlatforms" resultType="string">
+    SELECT DISTINCT LOWER(TRIM(media)) AS platform
+    FROM ad_accounts
+    WHERE media IS NOT NULL AND TRIM(media) != ''
+    ORDER BY platform
+  </select>
+
   <select id="selectDistinctCountries" resultType="string">
-    SELECT DISTINCT country FROM ad_accounts
+    SELECT DISTINCT UPPER(TRIM(country)) AS country
+    FROM ad_accounts
     WHERE country IS NOT NULL AND TRIM(country) != ''
     ORDER BY country
   </select>
@@ -35,6 +43,13 @@
 
   <select id="selectById" resultMap="RowMap">
     SELECT * FROM ad_accounts WHERE id = #{id}
+  </select>
+
+  <select id="selectFirstByAccountId" resultMap="RowMap">
+    SELECT * FROM ad_accounts
+    WHERE account_id = #{accountId}
+    ORDER BY id DESC
+    LIMIT 1
   </select>
 
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">

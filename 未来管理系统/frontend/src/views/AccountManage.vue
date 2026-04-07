@@ -98,19 +98,19 @@
             {{ formatAccountCountryLabel(row.country) }}
           </template>
         </el-table-column>
-        <el-table-column prop="subject_name" label="账户主体" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="account_id" label="账户ID" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="account_name" label="账户名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="subjectName" label="账户主体" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="accountId" label="账户ID" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="accountName" label="账户名称" min-width="150" show-overflow-tooltip />
         <el-table-column label="账户代理" width="120" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ formatAccountAgent(row.account_agent) }}
+            {{ formatAccountAgent(row.accountAgent) }}
           </template>
         </el-table-column>
         <el-table-column label="创建人" width="120">
-          <template #default="{ row }">{{ row.created_by_name || formatCreator(row.created_by) }}</template>
+          <template #default="{ row }">{{ row.createdByName || formatCreator(row.createdBy) }}</template>
         </el-table-column>
         <el-table-column label="创建时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
@@ -231,9 +231,15 @@ function formatMediaDisplay(media) {
 }
 
 function formatTime(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
+  if (iso == null || iso === '') return '—'
+  let d
+  if (Array.isArray(iso) && iso.length >= 3) {
+    const [y, M = 1, day = 1, h = 0, m = 0, s = 0] = iso
+    d = new Date(y, M - 1, day, h, m, s)
+  } else {
+    d = new Date(iso)
+  }
+  if (Number.isNaN(d.getTime())) return typeof iso === 'string' ? iso : '—'
   const pad = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
@@ -418,9 +424,9 @@ const handleEdit = (row) => {
     id: row.id,
     platform: MEDIA_TO_KEY[row.media] || '',
     country: row.country || '',
-    entityName: row.subject_name || '',
-    spid: row.account_id || '',
-    accountAgent: row.account_agent || '',
+    entityName: row.subjectName || '',
+    spid: row.accountId || '',
+    accountAgent: row.accountAgent || '',
   })
   dialogVisible.value = true
 }

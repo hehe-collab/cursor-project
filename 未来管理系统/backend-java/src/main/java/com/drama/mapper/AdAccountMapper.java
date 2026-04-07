@@ -10,11 +10,16 @@ public interface AdAccountMapper {
 
     List<AdAccount> selectAllOrderByIdDesc();
 
+    /** 投放媒体：与 product 所称 platform 对应，取自 media 列（去重、小写） */
+    List<String> selectDistinctPlatforms();
+
     List<String> selectDistinctCountries();
 
     List<String> selectDistinctSubjectNames();
 
     AdAccount selectById(@Param("id") int id);
+
+    AdAccount selectFirstByAccountId(@Param("accountId") String accountId);
 
     int insert(AdAccount row);
 

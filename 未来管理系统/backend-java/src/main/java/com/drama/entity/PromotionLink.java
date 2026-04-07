@@ -27,4 +27,7 @@ public class PromotionLink {
     private String createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /** LEFT JOIN dramas.public_id：减少二次 IN 查剧 */
+    private String joinedDramaPublicId;
 }

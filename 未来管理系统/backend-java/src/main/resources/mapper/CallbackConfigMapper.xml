@@ -32,6 +32,17 @@
     SELECT * FROM callback_configs WHERE id = #{id}
   </select>
 
+  <select id="selectForPromotionLinkCloneByKeys" resultMap="ConfigMap">
+    SELECT * FROM callback_configs
+    <where>
+      <if test="keys != null and keys.size() &gt; 0">
+        <foreach collection="keys" item="k" separator=" OR ">
+          TRIM(link_id) = TRIM(#{k})
+        </foreach>
+      </if>
+    </where>
+  </select>
+
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO callback_configs (
       link_id, platform, cold_start_count, min_price_limit,

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TiktokCostRecordMapper">
+
+  <insert id="upsert" parameterType="com.drama.entity.TiktokCostRecord">
+    INSERT INTO tiktok_cost_records (
+      promotion_id, account_id, account_name, balance, campaign_name,
+      cost, impressions, record_time
+    ) VALUES (
+      #{promotionId}, #{accountId}, #{accountName}, #{balance}, #{campaignName},
+      #{cost}, #{impressions}, #{recordTime}
+    )
+    ON DUPLICATE KEY UPDATE
+      account_id = VALUES(account_id),
+      account_name = VALUES(account_name),
+      balance = VALUES(balance),
+      campaign_name = VALUES(campaign_name),
+      cost = VALUES(cost),
+      impressions = VALUES(impressions),
+      created_at = created_at
+  </insert>
+
+  <select id="selectLatestByPromotion" resultType="com.drama.entity.TiktokCostRecord">
+    SELECT *
+    FROM tiktok_cost_records
+    WHERE promotion_id = #{promotionId}
+    ORDER BY record_time DESC, id DESC
+    LIMIT 1
+  </select>
+
+  <select id="selectByPromotionAndTime" resultType="com.drama.entity.TiktokCostRecord">
+    SELECT *
+    FROM tiktok_cost_records
+    WHERE promotion_id = #{promotionId}
+      AND record_time = #{recordTime}
+    LIMIT 1
+  </select>
+
+  <select id="selectByPromotionBetween" resultType="com.drama.entity.TiktokCostRecord">
+    SELECT *
+    FROM tiktok_cost_records
+    WHERE promotion_id = #{promotionId}
+      AND record_time &gt;= #{start}
+      AND record_time &lt; #{end}
+    ORDER BY record_time ASC, id ASC
+  </select>
+
+  <select id="selectByPromotionIdsBetween" resultType="com.drama.entity.TiktokCostRecord">
+    SELECT *
+    FROM tiktok_cost_records
+    WHERE record_time &gt;= #{start}
+      AND record_time &lt; #{end}
+    <if test="promotionIds != null and promotionIds.size() &gt; 0">
+      AND promotion_id IN
+      <foreach collection="promotionIds" item="id" open="(" separator="," close=")">
+        #{id}
+      </foreach>
+    </if>
+    <if test="promotionIds == null or promotionIds.size() == 0">
+      AND 1 = 0
+    </if>
+    ORDER BY promotion_id ASC, record_time ASC, id ASC
+  </select>
+
+  <select id="selectIntraDaySpendDelta" resultType="java.math.BigDecimal">
+    SELECT COALESCE(MAX(cost) - MIN(cost), 0)
+    FROM tiktok_cost_records
+    WHERE promotion_id = #{promotionId}
+      AND DATE(record_time) = #{date}
+  </select>
+
+  <select id="selectDayAggByDate" resultType="com.drama.dto.PromotionTiktokDayAggRow">
+    SELECT promotion_id AS promotionId,
+      COALESCE(MAX(cost) - MIN(cost), 0) AS dayCost,
+      COALESCE(MAX(impressions), 0) AS maxImpressions,
+      MAX(account_id) AS accountId
+    FROM tiktok_cost_records
+    WHERE DATE(record_time) = #{date}
+    GROUP BY promotion_id
+  </select>
+</mapper>

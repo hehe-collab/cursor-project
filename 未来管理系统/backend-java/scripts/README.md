@@ -32,6 +32,25 @@ node migrate-ad-tasks.js
 
 顺序上：**方案组**依赖 **方案**表已有数据时可后跑；其余按业务依赖自行调整，通常与上表一致即可。
 
+## 性能索引（指令 #074）
+
+在已建库 **`drama_system`** 的前提下：
+
+```bash
+bash scripts/apply-performance-indexes.sh
+# 可选验证：bash scripts/verify-indexes.sh
+# 有密码：MYSQL_PASSWORD='…' bash scripts/apply-performance-indexes.sh
+```
+
+SQL：**`src/main/resources/sql/performance_indexes.sql`**（幂等；列名与 **`schema.sql`** 一致，**非** Monica 泛用 **`promotion_id`/`recharge_orders`** 模板）。
+
+## 查询与慢 SQL 分析（指令 #075）
+
+```bash
+bash scripts/analyze-queries.sh
+bash scripts/analyze-slow-queries.sh   # 可选 MYSQL_PASSWORD
+```
+
 ## 增量 DDL（旧库保留数据时）
 
 **不要**使用与仓库不一致的通用「postback」表模板。请以 **`src/main/resources/sql/schema.sql`** 中 **§24～§26**（`callback_configs`、`callback_logs`、`ad_tasks`）及 **`recharge_records`** 的 **`platform`** 列为准：

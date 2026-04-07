@@ -29,6 +29,18 @@
     SELECT * FROM promotion_links ORDER BY id DESC
   </select>
 
+  <resultMap id="RowMapWithDrama" type="com.drama.entity.PromotionLink" extends="RowMap">
+    <result column="joined_drama_public_id" property="joinedDramaPublicId"/>
+  </resultMap>
+
+  <!-- 全量列表：LEFT JOIN dramas 带 public_id，减少再查 dramas -->
+  <select id="selectAllWithDramaJoinOrderByIdDesc" resultMap="RowMapWithDrama">
+    SELECT p.*, d.public_id AS joined_drama_public_id
+    FROM promotion_links p
+    LEFT JOIN dramas d ON p.drama_id = d.id
+    ORDER BY p.id DESC
+  </select>
+
   <select id="selectById" resultMap="RowMap">
     SELECT * FROM promotion_links WHERE id = #{id}
   </select>

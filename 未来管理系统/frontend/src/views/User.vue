@@ -77,10 +77,36 @@
         <template #empty>
           <el-empty description="暂无用户数据" />
         </template>
-        <el-table-column prop="user_id" label="用户ID" width="120" show-overflow-tooltip />
+        <el-table-column label="用户ID" width="160" align="left" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制用户ID"
+                @click="copyToClipboard(row.user_id ?? row.userId ?? row.id, '用户ID')"
+              />
+              <span class="id-copy-row__text">{{ row.user_id ?? row.userId ?? row.id }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="username" label="用户名" width="120" show-overflow-tooltip />
         <el-table-column prop="token" label="Token" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="promotion_id" label="推广ID" width="180" show-overflow-tooltip />
+        <el-table-column label="推广ID" width="200" align="left" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制推广ID"
+                @click="copyToClipboard(row.promotion_id ?? row.promotionId, '推广ID')"
+              />
+              <span class="id-copy-row__text">{{ (row.promotion_id ?? row.promotionId) || '—' }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="register_time"
           label="注册时间"
@@ -124,8 +150,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, RefreshLeft, Download } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, Download, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
+import { copyToClipboard } from '@/utils/clipboard'
 import { exportJsonToXlsx } from '../utils/excelExport'
 import { useCountries } from '@/composables/useCountries'
 

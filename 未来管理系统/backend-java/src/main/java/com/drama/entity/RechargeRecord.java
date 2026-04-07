@@ -36,4 +36,9 @@ public class RechargeRecord {
     private Boolean callbackSent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /** LEFT JOIN users：列表联查填充，非表字段 */
+    private String joinUsername;
+    private String joinUserPromoteId;
+    private String joinUserCountry;
 }

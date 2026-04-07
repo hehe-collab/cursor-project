@@ -4,9 +4,11 @@ import com.alibaba.fastjson2.JSON;
 import com.drama.dto.CallbackLogStatsRow;
 import com.drama.entity.CallbackConfig;
 import com.drama.entity.CallbackLog;
+import com.drama.entity.PromotionLink;
 import com.drama.exception.BusinessException;
 import com.drama.mapper.CallbackConfigMapper;
 import com.drama.mapper.CallbackLogMapper;
+import com.drama.mapper.PromotionLinkMapper;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -28,6 +30,7 @@ public class CallbackService {
 
     private final CallbackConfigMapper callbackConfigMapper;
     private final CallbackLogMapper callbackLogMapper;
+    private final PromotionLinkMapper promotionLinkMapper;
 
     public CallbackLogStatsRow getStats() {
         CallbackLogStatsRow row = callbackLogMapper.selectStats();
@@ -50,12 +53,49 @@ public class CallbackService {
         int from = (p - 1) * ps;
         List<CallbackConfig> slice =
                 all.subList(Math.min(from, total), Math.min(from + ps, total));
+        enrichPromoteIdForList(slice);
         Map<String, Object> data = new HashMap<>();
         data.put("list", slice);
         data.put("total", total);
         data.put("page", p);
         data.put("pageSize", ps);
         return data;
+    }
+
+    /**
+     * 列表展示：{@code callback_configs.link_id} 历史上多为投放链接<strong>数字主键</strong>，与投放页「推广ID」列（{@code
+     * promotion_links.promote_id}）不一致；此处回填 {@code promote_id} 供前端展示与编辑。
+     */
+    private void enrichPromoteIdForList(List<CallbackConfig> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Map<Integer, PromotionLink> cache = new HashMap<>();
+        for (CallbackConfig c : list) {
+            String lid = c.getLinkId();
+            if (lid == null || lid.isBlank()) {
+                c.setPromoteId(null);
+                continue;
+            }
+            if (!lid.chars().allMatch(Character::isDigit)) {
+                c.setPromoteId(lid);
+                continue;
+            }
+            try {
+                int pk = Integer.parseInt(lid, 10);
+                if (!cache.containsKey(pk)) {
+                    cache.put(pk, promotionLinkMapper.selectById(pk));
+                }
+                PromotionLink pl = cache.get(pk);
+                if (pl != null && pl.getPromoteId() != null && !pl.getPromoteId().isBlank()) {
+                    c.setPromoteId(pl.getPromoteId());
+                } else {
+                    c.setPromoteId(lid);
+                }
+            } catch (NumberFormatException e) {
+                c.setPromoteId(lid);
+            }
+        }
     }
 
     public Map<String, Object> listLogs(
