@@ -4,12 +4,24 @@
       <el-form :model="filterForm" class="filter-form user-filter-form" inline size="small" label-position="left">
         <el-form-item label="用户ID" label-width="60px">
           <div class="filter-item-xs">
-            <el-input v-model="filterForm.userId" placeholder="用户ID" clearable />
+            <el-input
+              v-model="filterForm.userId"
+              placeholder="用户ID"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="用户名" label-width="60px">
           <div class="filter-item-s">
-            <el-input v-model="filterForm.username" placeholder="用户名" clearable />
+            <el-input
+              v-model="filterForm.username"
+              placeholder="用户名"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="Token" label-width="50px">
@@ -19,12 +31,23 @@
         </el-form-item>
         <el-form-item label="推广ID" label-width="60px">
           <div class="filter-item-xs">
-            <el-input v-model="filterForm.promotionId" placeholder="推广ID" clearable />
+            <el-input
+              v-model="filterForm.promotionId"
+              placeholder="推广ID"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item v-if="countries.length > 0" label="国家" label-width="50px">
           <div class="filter-item-select">
-            <el-select v-model="filterForm.country" placeholder="全部" clearable>
+            <el-select
+              v-model="filterForm.country"
+              placeholder="全部"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option
                 v-for="item in countryFilterOptions"
                 :key="item.value === '' ? '_all' : item.value"
@@ -43,12 +66,13 @@
               start-placeholder="开始日期"
               end-placeholder="结束日期"
               value-format="YYYY-MM-DD"
+              @change="handleFilterImmediate"
             />
           </div>
         </el-form-item>
         <el-form-item label-width="0">
           <div class="filter-buttons">
-            <el-button type="primary" @click="handleQuery">
+            <el-button type="primary" @click="handleSearchClick">
               <el-icon><Search /></el-icon>
               搜索
             </el-button>
@@ -60,20 +84,42 @@
               <el-icon><Download /></el-icon>
               导出 Excel
             </el-button>
+            <el-button
+              v-if="tableData.length > 50"
+              size="small"
+              @click="useVirtualScroll = !useVirtualScroll"
+            >
+              {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
+            </el-button>
           </div>
         </el-form-item>
       </el-form>
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-table
-        v-loading="loading"
-        element-loading-text="加载中..."
-        :data="tableData"
-        border
-        stripe
-        height="calc(100vh - 220px)"
+      <template #header>
+        <div class="table-card-header-row">
+          <span>
+            用户列表
+            <el-tag v-if="searching" type="info" size="small" class="searching-tag">搜索中...</el-tag>
+          </span>
+        </div>
+      </template>
+      <div
+        class="table-wrapper"
+        :class="{ 'table-wrapper--virtual': useVirtualScroll }"
       >
+        <Loading v-if="useVirtualScroll" :loading="loading" text="加载中..." />
+        <el-table
+          v-if="!useVirtualScroll"
+          v-loading="loading"
+          element-loading-text="加载中..."
+          :data="tableData"
+          border
+          stripe
+          size="small"
+          height="100%"
+        >
         <template #empty>
           <el-empty description="暂无用户数据" />
         </template>
@@ -122,17 +168,57 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[20, 50, 100, 200]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleQuery"
-          @current-change="handleQuery"
-        />
+      <VirtualTable
+        v-else
+        :data="tableData"
+        :columns="virtualColumns"
+        :item-size="44"
+        key-field="id"
+      >
+        <template #userId="{ row }">
+          <div class="id-copy-row">
+            <el-button
+              :icon="DocumentCopy"
+              text
+              size="small"
+              title="复制用户ID"
+              @click="copyToClipboard(row.user_id ?? row.userId ?? row.id, '用户ID')"
+            />
+            <span class="id-copy-row__text">{{ row.user_id ?? row.userId ?? row.id }}</span>
+          </div>
+        </template>
+        <template #promotion="{ row }">
+          <div class="id-copy-row">
+            <el-button
+              :icon="DocumentCopy"
+              text
+              size="small"
+              title="复制推广ID"
+              @click="copyToClipboard(row.promotion_id ?? row.promotionId, '推广ID')"
+            />
+            <span class="id-copy-row__text">{{ (row.promotion_id ?? row.promotionId) || '—' }}</span>
+          </div>
+        </template>
+        <template #register="{ row }">
+          {{ formatTime(row.register_time || row.created_at) }}
+        </template>
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleViewDetail(row)">查看详情</el-button>
+        </template>
+      </VirtualTable>
       </div>
+
+      <el-pagination
+        class="compact-pagination"
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-sizes="[20, 50, 100, 200]"
+        layout="total, sizes, prev, pager, next, jumper"
+        size="small"
+        @size-change="handleQuery"
+        @current-change="handleQuery"
+      />
     </el-card>
 
     <el-dialog v-model="detailVisible" title="用户详情" width="600px" destroy-on-close>
@@ -148,13 +234,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, Download, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
 import { copyToClipboard } from '@/utils/clipboard'
 import { exportJsonToXlsx } from '../utils/excelExport'
 import { useCountries } from '@/composables/useCountries'
+import VirtualTable from '@/components/VirtualTable.vue'
+import Loading from '@/components/Loading.vue'
+import { debounce } from '@/utils/performance'
 
 const { countries, countryFilterOptions } = useCountries()
 
@@ -170,6 +259,25 @@ const filterForm = ref({
 const tableData = ref([])
 const loading = ref(false)
 const exporting = ref(false)
+const searching = ref(false)
+
+/** #092：虚拟滚动（当前页 >100 行自动开启，>50 行可手动切换） */
+const useVirtualScroll = ref(false)
+const virtualColumns = [
+  { prop: '_uid', label: '用户ID', slot: 'userId', gridWidth: 'minmax(140px, 1.1fr)' },
+  { prop: 'username', label: '用户名', gridWidth: 'minmax(96px, 0.8fr)' },
+  { prop: 'token', label: 'Token', gridWidth: 'minmax(160px, 1.2fr)' },
+  { prop: '_promo', label: '推广ID', slot: 'promotion', gridWidth: 'minmax(120px, 1fr)' },
+  { prop: '_reg', label: '注册时间', slot: 'register', gridWidth: 'minmax(150px, 0.9fr)' },
+  { prop: '_op', label: '操作', slot: 'actions', gridWidth: '100px' },
+]
+
+watch(
+  () => tableData.value.length,
+  (n) => {
+    if (n > 100) useVirtualScroll.value = true
+  },
+)
 
 const pagination = ref({
   page: 1,
@@ -205,6 +313,7 @@ function buildUserListParams(page, pageSize) {
 }
 
 const handleQuery = async () => {
+  searching.value = true
   loading.value = true
   try {
     const res = await request.get('/users', {
@@ -218,10 +327,29 @@ const handleQuery = async () => {
     ElMessage.error(`查询失败：${error.message || ''}`)
   } finally {
     loading.value = false
+    searching.value = false
   }
 }
 
+const handleSearchDebounced = debounce(() => {
+  pagination.value.page = 1
+  void handleQuery()
+}, 300)
+
+const handleSearchClick = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
+const handleFilterImmediate = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
 const handleReset = () => {
+  handleSearchDebounced.cancel()
   filterForm.value = {
     userId: '',
     username: '',
@@ -231,7 +359,7 @@ const handleReset = () => {
     dateRange: [],
   }
   pagination.value.page = 1
-  handleQuery()
+  void handleQuery()
 }
 
 const handleViewDetail = (row) => {
@@ -302,10 +430,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
+.table-wrapper--virtual {
+  position: relative;
 }
 
+.table-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.searching-tag {
+  margin-left: 8px;
+  vertical-align: middle;
+}
 </style>

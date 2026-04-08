@@ -26,7 +26,12 @@
       <el-form :model="filterForm" class="filter-form callback-monitor-filter-form" inline size="small" label-position="left">
         <el-form-item label="状态" label-width="50px">
           <div class="filter-item-s">
-            <el-select v-model="filterForm.status" placeholder="全部" clearable>
+            <el-select
+              v-model="filterForm.status"
+              placeholder="全部"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option label="全部" value="" />
               <el-option label="成功" value="success" />
               <el-option label="失败" value="failed" />
@@ -36,7 +41,12 @@
         </el-form-item>
         <el-form-item label="事件类型" label-width="70px">
           <div class="filter-item-s">
-            <el-select v-model="filterForm.eventType" placeholder="全部" clearable>
+            <el-select
+              v-model="filterForm.eventType"
+              placeholder="全部"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option label="全部" value="" />
               <el-option label="下单" value="下单" />
               <el-option label="完成支付" value="完成支付" />
@@ -45,7 +55,35 @@
         </el-form-item>
         <el-form-item label="订单号" label-width="60px">
           <div class="filter-item-m">
-            <el-input v-model="filterForm.orderId" placeholder="订单号" clearable />
+            <el-input
+              v-model="filterForm.orderId"
+              placeholder="订单号"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="用户ID" label-width="60px">
+          <div class="filter-item-xs">
+            <el-input
+              v-model="filterForm.userId"
+              placeholder="用户ID"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item label="推广ID" label-width="60px">
+          <div class="filter-item-xs">
+            <el-input
+              v-model="filterForm.promotionId"
+              placeholder="推广ID"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="时间范围" label-width="70px">
@@ -57,18 +95,26 @@
               start-placeholder="开始"
               end-placeholder="结束"
               value-format="YYYY-MM-DD"
+              @change="handleFilterImmediate"
             />
           </div>
         </el-form-item>
         <el-form-item label-width="0">
           <div class="filter-buttons">
-            <el-button type="primary" @click="handleQuery">
+            <el-button type="primary" @click="handleSearchClick">
               <el-icon><Search /></el-icon>
-              查询
+              搜索
             </el-button>
             <el-button @click="handleReset">
               <el-icon><RefreshLeft /></el-icon>
               重置
+            </el-button>
+            <el-button
+              v-if="tableData.length > 50"
+              size="small"
+              @click="useVirtualScroll = !useVirtualScroll"
+            >
+              {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
             </el-button>
           </div>
         </el-form-item>
@@ -76,7 +122,28 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-table v-loading="loading" :data="tableData" border stripe height="calc(100vh - 360px)">
+      <template #header>
+        <div class="table-card-header-row">
+          <span>
+            回传记录
+            <el-tag v-if="searching" type="info" size="small" class="searching-tag">搜索中...</el-tag>
+          </span>
+        </div>
+      </template>
+      <div
+        class="table-wrapper"
+        :class="{ 'table-wrapper--virtual': useVirtualScroll }"
+      >
+        <Loading v-if="useVirtualScroll" :loading="loading" text="加载中..." />
+        <el-table
+          v-if="!useVirtualScroll"
+          v-loading="loading"
+          :data="tableData"
+          border
+          stripe
+          height="100%"
+          size="small"
+        >
         <template #empty>
           <el-empty description="暂无回传记录" />
         </template>
@@ -119,12 +186,41 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-container">
+      <VirtualTable
+        v-else
+        :data="tableData"
+        :columns="virtualColumns"
+        :item-size="44"
+        key-field="id"
+      >
+        <template #orderCol="{ row }">
+          {{ row.order_id || row.order_no || '-' }}
+        </template>
+        <template #eventType="{ row }">
+          <el-tag :type="row.event_type === '完成支付' ? 'success' : 'info'">
+            {{ row.event_type || row.event || '-' }}
+          </el-tag>
+        </template>
+        <template #statusTag="{ row }">
+          <el-tag :type="statusTagType(row.status)">
+            {{ statusText(row.status) }}
+          </el-tag>
+        </template>
+        <template #errMsg="{ row }">
+          {{ row.error_message || '-' }}
+        </template>
+        <template #createdCol="{ row }">{{ formatTime(row.created_at) }}</template>
+        <template #sentCol="{ row }">{{ formatTime(row.sent_at || row.send_time) }}</template>
+      </VirtualTable>
+      </div>
+
+      <div class="pagination-container compact-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleQuery"
           @current-change="handleQuery"
@@ -135,10 +231,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
 import request from '../api/request'
+import VirtualTable from '@/components/VirtualTable.vue'
+import Loading from '@/components/Loading.vue'
+import { debounce } from '@/utils/performance'
 
 const kpiData = ref({
   total: 0,
@@ -151,11 +250,35 @@ const filterForm = ref({
   status: '',
   eventType: '',
   orderId: '',
+  userId: '',
+  promotionId: '',
   dateRange: [],
 })
 
 const tableData = ref([])
 const loading = ref(false)
+const searching = ref(false)
+
+/** #093：虚拟滚动（>100 行自动；>50 行可切换） */
+const useVirtualScroll = ref(false)
+const virtualColumns = [
+  { prop: 'id', label: 'ID', gridWidth: '72px' },
+  { prop: '_order', label: '订单号', slot: 'orderCol', gridWidth: 'minmax(120px, 1fr)' },
+  { prop: '_event', label: '事件类型', slot: 'eventType', gridWidth: 'minmax(100px, 0.9fr)' },
+  { prop: 'pixel_id', label: 'Pixel ID', gridWidth: 'minmax(120px, 1fr)' },
+  { prop: '_status', label: '状态', slot: 'statusTag', gridWidth: '88px' },
+  { prop: '_err', label: '错误信息', slot: 'errMsg', gridWidth: 'minmax(120px, 1.2fr)' },
+  { prop: 'retry_count', label: '重试', gridWidth: '64px' },
+  { prop: '_created', label: '创建时间', slot: 'createdCol', gridWidth: 'minmax(130px, 0.95fr)' },
+  { prop: '_sent', label: '发送时间', slot: 'sentCol', gridWidth: 'minmax(130px, 0.95fr)' },
+]
+
+watch(
+  () => tableData.value.length,
+  (n) => {
+    if (n > 100) useVirtualScroll.value = true
+  },
+)
 
 const pagination = ref({
   page: 1,
@@ -201,6 +324,7 @@ const loadKpiData = async () => {
 }
 
 const handleQuery = async () => {
+  searching.value = true
   loading.value = true
   try {
     const params = {
@@ -210,6 +334,8 @@ const handleQuery = async () => {
     if (filterForm.value.status) params.status = filterForm.value.status
     if (filterForm.value.eventType) params.event_type = filterForm.value.eventType
     if (filterForm.value.orderId) params.order_id = filterForm.value.orderId
+    if (filterForm.value.userId) params.user_id = filterForm.value.userId
+    if (filterForm.value.promotionId) params.promotion_id = filterForm.value.promotionId
     if (filterForm.value.dateRange && filterForm.value.dateRange.length === 2) {
       params.start_date = filterForm.value.dateRange[0]
       params.end_date = filterForm.value.dateRange[1]
@@ -223,18 +349,39 @@ const handleQuery = async () => {
     ElMessage.error(`查询失败：${error.message || ''}`)
   } finally {
     loading.value = false
+    searching.value = false
   }
 }
 
+const handleSearchDebounced = debounce(() => {
+  pagination.value.page = 1
+  void handleQuery()
+}, 300)
+
+const handleSearchClick = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
+const handleFilterImmediate = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
 const handleReset = () => {
+  handleSearchDebounced.cancel()
   filterForm.value = {
     status: '',
     eventType: '',
     orderId: '',
+    userId: '',
+    promotionId: '',
     dateRange: [],
   }
   pagination.value.page = 1
-  handleQuery()
+  void handleQuery()
 }
 
 onMounted(() => {
@@ -245,14 +392,13 @@ onMounted(() => {
 
 <style scoped>
 .callback-monitor-container {
-  padding: 20px;
+  padding: 0;
 }
 
 .kpi-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: var(--section-gap);
 }
 
 .kpi-card {
@@ -285,12 +431,25 @@ onMounted(() => {
 }
 
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .pagination-container {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.table-wrapper--virtual {
+  position: relative;
+}
+
+.table-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.searching-tag {
+  margin-left: 8px;
+  vertical-align: middle;
 }
 </style>

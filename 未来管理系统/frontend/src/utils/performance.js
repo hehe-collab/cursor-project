@@ -1,6 +1,8 @@
 /**
  * 性能监控（指令 #077，仅开发环境由 main / request 调用）
+ * 防抖/节流（指令 #091，lodash-es）
  */
+import { debounce as _debounce, throttle as _throttle } from 'lodash-es'
 
 /**
  * 页面加载（navigation timing + 尽力采集 FCP）
@@ -124,4 +126,60 @@ export function clearPerformanceData() {
   localStorage.removeItem('performanceMetrics')
   localStorage.removeItem('apiMetrics')
   console.log('已清除 performanceMetrics / apiMetrics')
+}
+
+export function debounce(func, wait = 300, options = {}) {
+  return _debounce(func, wait, {
+    leading: false,
+    trailing: true,
+    ...options,
+  })
+}
+
+export function throttle(func, wait = 300, options = {}) {
+  return _throttle(func, wait, {
+    leading: true,
+    trailing: true,
+    ...options,
+  })
+}
+
+export function rafThrottle(func) {
+  let rafId = null
+  return function rafThrottled(...args) {
+    if (rafId !== null) return
+    rafId = requestAnimationFrame(() => {
+      func.apply(this, args)
+      rafId = null
+    })
+  }
+}
+
+export function withMeasure(func, name = 'fn') {
+  return async function measured(...args) {
+    const start = performance.now()
+    const result = await func.apply(this, args)
+    const end = performance.now()
+    if (import.meta.env.DEV) {
+      console.log(`[Performance] ${name}: ${(end - start).toFixed(2)}ms`)
+    }
+    return result
+  }
+}
+
+let navTimer = null
+
+/** 路由跳转开始（beforeEach 调用） */
+export function markNavigationStart() {
+  navTimer = performance.now()
+}
+
+/** 路由就绪（afterEach 调用） */
+export function markNavigationEnd(to) {
+  if (navTimer == null) return
+  const ms = performance.now() - navTimer
+  navTimer = null
+  if (import.meta.env.DEV) {
+    console.log(`%c[Route] ${to.fullPath}`, 'color:#909399;font-weight:bold;', `${ms.toFixed(1)}ms`)
+  }
 }

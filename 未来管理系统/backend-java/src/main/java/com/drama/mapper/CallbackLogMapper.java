@@ -15,6 +15,8 @@ public interface CallbackLogMapper {
             @Param("status") String status,
             @Param("eventType") String eventType,
             @Param("orderId") String orderId,
+            @Param("userId") String userId,
+            @Param("promotionId") String promotionId,
             @Param("dateStart") String dateStart,
             @Param("dateEnd") String dateEnd,
             @Param("offset") int offset,
@@ -24,6 +26,8 @@ public interface CallbackLogMapper {
             @Param("status") String status,
             @Param("eventType") String eventType,
             @Param("orderId") String orderId,
+            @Param("userId") String userId,
+            @Param("promotionId") String promotionId,
             @Param("dateStart") String dateStart,
             @Param("dateEnd") String dateEnd);
 }

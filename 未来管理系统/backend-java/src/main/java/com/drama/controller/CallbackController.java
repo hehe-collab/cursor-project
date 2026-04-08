@@ -39,6 +39,10 @@ public class CallbackController {
             @RequestParam(required = false) String order_id,
             @RequestParam(required = false) String orderNo,
             @RequestParam(required = false) String order_no,
+            @RequestParam(required = false) String user_id,
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String promotion_id,
+            @RequestParam(required = false) String promotionId,
             @RequestParam(required = false) String dateStart,
             @RequestParam(required = false) String start_date,
             @RequestParam(required = false) String dateEnd,
@@ -49,7 +53,9 @@ public class CallbackController {
         String oid = firstNonBlank(order_id, orderNo, order_no);
         String ds = firstNonBlank(dateStart, start_date);
         String de = firstNonBlank(dateEnd, end_date);
-        return Result.success(callbackService.listLogs(status, et, oid, ds, de, page, pageSize));
+        String uid = firstNonBlank(user_id, userId);
+        String pid = firstNonBlank(promotion_id, promotionId);
+        return Result.success(callbackService.listLogs(status, et, oid, uid, pid, ds, de, page, pageSize));
     }
 
     @PostMapping("/config/batch-delete")

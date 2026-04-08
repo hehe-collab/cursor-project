@@ -3,6 +3,7 @@ import { ElMessage } from 'element-plus'
 import router from '../router'
 import { monitorApiRequest } from '@/utils/performance'
 import { monitorApiError } from '@/utils/errorMonitor'
+import { cacheManager } from '@/utils/cache'
 
 const request = axios.create({
   baseURL: '/api',
@@ -141,5 +142,31 @@ request.interceptors.response.use(
     return Promise.reject(err)
   },
 )
+
+/**
+ * 带 TTL 的 GET 缓存（与 axios 实例同一套拦截器，返回体仍为 `{ code, data, message }`）
+ * @param {string} url
+ * @param {Record<string, any>} params
+ * @param {{ ttl?: number }} [options] ttl 默认 5 分钟
+ */
+export function getWithCache(url, params = {}, options = {}) {
+  const ttl = options.ttl ?? 5 * 60 * 1000
+  const cacheKey = `GET:${url}:${JSON.stringify(params ?? {})}`
+  const hit = cacheManager.get(cacheKey)
+  if (hit !== null) {
+    if (import.meta.env.DEV) console.log('[Cache] hit', cacheKey)
+    return Promise.resolve(hit)
+  }
+  return request.get(url, { params }).then((body) => {
+    cacheManager.set(cacheKey, body, ttl)
+    if (import.meta.env.DEV) console.log('[Cache] miss→set', cacheKey)
+    return body
+  })
+}
+
+/** 清除某路径前缀下所有 GET 缓存键（用于分类/标签变更后） */
+export function clearApiCacheKeyPrefix(prefix) {
+  cacheManager.clearKeyPrefix(prefix)
+}
 
 export default request

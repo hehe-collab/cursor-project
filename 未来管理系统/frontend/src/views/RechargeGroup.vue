@@ -1,5 +1,5 @@
 <template>
-  <div class="recharge-group-page friend-style page-container">
+  <div class="recharge-group-page friend-style page-list-layout">
     <el-card shadow="never" class="main-card filter-card">
       <el-form :model="filterForm" class="filter-form" inline size="small" label-position="left" @submit.prevent>
         <el-form-item label="分组ID" label-width="64px">
@@ -31,16 +31,18 @@
     </el-card>
 
     <el-card shadow="never" class="main-card table-card">
-      <el-table
-        ref="tableRef"
-        :data="tableData"
-        v-loading="loading"
-        border
-        stripe
-        class="data-table"
-        height="calc(100vh - 280px)"
-        @selection-change="onSelectionChange"
-      >
+      <div class="table-wrapper">
+        <el-table
+          ref="tableRef"
+          :data="tableData"
+          v-loading="loading"
+          border
+          stripe
+          class="data-table"
+          height="100%"
+          size="small"
+          @selection-change="onSelectionChange"
+        >
         <template #empty>
           <el-empty description="暂无方案组" />
         </template>
@@ -121,13 +123,15 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pagination-wrap">
+      <div class="pagination-wrap compact-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handlePageChange"
@@ -500,12 +504,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-}
 .recharge-group-page .main-card {
   border-radius: 4px;
-  margin-bottom: 8px;
+}
+.recharge-group-page .main-card.filter-card {
+  margin-bottom: var(--section-gap);
 }
 .filter-form {
   margin-bottom: 0;
@@ -538,7 +541,6 @@ onMounted(() => {
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
 }
 .pixel-test-msg {
   margin-left: 10px;

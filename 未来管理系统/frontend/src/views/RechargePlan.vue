@@ -1,5 +1,5 @@
 <template>
-  <div class="recharge-plan-page friend-style">
+  <div class="recharge-plan-page friend-style page-list-layout">
     <el-card shadow="never" class="main-card filter-card">
       <el-form :model="query" class="filter-form" inline size="small" label-position="left" @submit.prevent>
         <el-form-item label="方案名称" label-width="70px">
@@ -39,17 +39,21 @@
           <el-button type="danger" :disabled="!selectedRows.length" @click="onBatchDelete">删除</el-button>
         </div>
       </el-form>
+    </el-card>
 
-      <el-table
-        ref="tableRef"
-        :data="list"
-        v-loading="loading"
-        border
-        stripe
-        class="data-table"
-        height="calc(100vh - 280px)"
-        @selection-change="onSelectionChange"
-      >
+    <el-card shadow="never" class="main-card table-card">
+      <div class="table-wrapper">
+        <el-table
+          ref="tableRef"
+          :data="list"
+          v-loading="loading"
+          border
+          stripe
+          class="data-table"
+          height="100%"
+          size="small"
+          @selection-change="onSelectionChange"
+        >
         <template #empty>
           <el-empty description="暂无充值方案" />
         </template>
@@ -106,13 +110,15 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pagination-wrap">
+      <div class="pagination-wrap compact-pagination">
         <el-pagination
           v-model:current-page="query.page"
           v-model:page-size="query.pageSize"
           :total="total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="loadList"
           @size-change="loadList"
@@ -529,8 +535,8 @@ onMounted(loadList)
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 0;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 .data-table {
@@ -559,7 +565,6 @@ onMounted(loadList)
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
 }
 
 /* 弹窗紧凑（指令 #027 样式优化） */

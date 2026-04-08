@@ -75,15 +75,17 @@
         </div>
       </div>
 
-      <el-table
-        ref="tableRef"
-        :data="tableData"
-        border
-        stripe
-        v-loading="loading"
-        height="calc(100vh - 300px)"
-        @selection-change="handleSelectionChange"
-      >
+      <div class="table-wrapper">
+        <el-table
+          ref="tableRef"
+          :data="tableData"
+          border
+          stripe
+          v-loading="loading"
+          height="100%"
+          size="small"
+          @selection-change="handleSelectionChange"
+        >
         <template #empty>
           <el-empty description="暂无账户数据" />
         </template>
@@ -119,13 +121,15 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pagination">
+      <div class="pagination compact-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleQuery"
           @current-change="handleQuery"
@@ -583,23 +587,19 @@ onMounted(async () => {
 
 <style scoped>
 .account-manage {
-  padding: 20px;
+  padding: 0;
 }
 
 .filter-card {
-  margin-bottom: 20px;
-}
-
-.table-card :deep(.el-card__body) {
-  padding-top: 16px;
+  margin-bottom: var(--section-gap);
 }
 
 .table-card .button-group {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .pagination {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }

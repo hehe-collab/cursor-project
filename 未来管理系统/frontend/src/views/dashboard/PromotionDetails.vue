@@ -71,13 +71,14 @@
     </el-card>
 
     <el-card class="table-card" shadow="never">
+      <div class="table-wrapper">
       <el-table
         v-loading="loading"
         :data="displayTableData"
         border
         stripe
         size="small"
-        :height="tableHeight"
+        height="100%"
         :row-class-name="tableRowClassName"
         :header-cell-style="{ background: '#f5f7fa', fontWeight: 'bold' }"
       >
@@ -168,19 +169,20 @@
           </template>
         </el-table-column>
       </el-table>
-
-      <div class="pagination-bar">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          background
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
       </div>
+
+      <el-pagination
+        class="compact-pagination"
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        size="small"
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+      />
     </el-card>
 
     <el-dialog
@@ -272,8 +274,6 @@ const pagination = reactive({
   pageSize: 20,
   total: 0,
 })
-
-const tableHeight = computed(() => Math.max(320, window.innerHeight - 420))
 
 const displayTableData = computed(() => {
   const rows = tableData.value || []
@@ -701,11 +701,19 @@ function formatDateTime(date) {
 </script>
 
 <style scoped>
+/* #090：嵌入看板 Tab 内，自成 flex 列吃满父级 */
 .promotion-details {
-  padding: 0 4px 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  box-sizing: border-box;
 }
 .filter-card {
-  margin-bottom: 10px;
+  flex-shrink: 0;
+  margin-bottom: 8px;
   border-radius: 8px;
 }
 .filter-form {
@@ -721,7 +729,26 @@ function formatDateTime(date) {
   width: 120px;
 }
 .table-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 8px;
+}
+.table-card :deep(.el-card__body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.promotion-details .table-wrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .summary-label {
   font-weight: 700;
@@ -741,11 +768,6 @@ function formatDateTime(date) {
 .profit-negative {
   color: #f56c6c;
   font-weight: 600;
-}
-.pagination-bar {
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
 }
 .chart-header {
   display: flex;

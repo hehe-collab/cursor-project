@@ -1,5 +1,5 @@
 <template>
-  <div class="title-pack-page">
+  <div class="title-pack-page page-list-layout">
     <el-card shadow="never" class="filter-card">
       <template #header><span>标题包</span></template>
       <el-form :model="query" class="filter-form" inline size="small" label-position="left">
@@ -16,49 +16,55 @@
         </el-form-item>
       </el-form>
 
-      <div class="button-group">
+      <div class="button-group compact-button-group">
         <div class="button-group-left">
-          <el-button type="primary" @click="showAdd">新增</el-button>
-          <el-button :disabled="selectedRows.length !== 1" @click="showEditSelected">修改</el-button>
-          <el-button type="danger" :disabled="selectedRows.length === 0" @click="onBatchDelete">删除</el-button>
+          <el-button type="primary" size="small" @click="showAdd">新增</el-button>
+          <el-button size="small" :disabled="selectedRows.length !== 1" @click="showEditSelected">修改</el-button>
+          <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="onBatchDelete">删除</el-button>
         </div>
         <div class="button-group-right">
-          <el-button @click="handleExport">导出</el-button>
+          <el-button size="small" @click="handleExport">导出</el-button>
         </div>
       </div>
+    </el-card>
 
-      <el-table
-        ref="tableRef"
-        :data="list"
-        v-loading="loading"
-        stripe
-        height="calc(100vh - 300px)"
-        @selection-change="onSelectionChange"
-      >
-        <template #empty>
-          <el-empty description="暂无标题包" />
-        </template>
-        <el-table-column type="selection" width="48" />
-        <el-table-column prop="name" label="标题名称" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="content" label="标题内容" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="created_by_name" label="创建人" width="120" />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="showDetail(row)">查看</el-button>
-            <el-button link type="danger" @click="onDelete(row)">删除</el-button>
+    <el-card shadow="never" class="table-card">
+      <div class="table-wrapper">
+        <el-table
+          ref="tableRef"
+          :data="list"
+          v-loading="loading"
+          stripe
+          size="small"
+          height="100%"
+          @selection-change="onSelectionChange"
+        >
+          <template #empty>
+            <el-empty description="暂无标题包" />
           </template>
-        </el-table-column>
-      </el-table>
+          <el-table-column type="selection" width="48" />
+          <el-table-column prop="name" label="标题名称" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="content" label="标题内容" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="created_by_name" label="创建人" width="120" />
+          <el-table-column prop="created_at" label="创建时间" width="180" />
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="showDetail(row)">查看</el-button>
+              <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
       <el-pagination
+        class="compact-pagination"
         v-model:current-page="query.page"
         v-model:page-size="query.pageSize"
         :total="total"
         :page-sizes="[20, 50, 100, 200]"
         layout="total, sizes, prev, pager, next"
+        size="small"
         @current-change="loadList"
         @size-change="loadList"
-        style="margin-top: 16px"
       />
     </el-card>
 
@@ -252,11 +258,8 @@ onMounted(loadList)
 </script>
 
 <style scoped>
-.filter-form {
-  margin-bottom: 16px;
-}
 .title-pack-page .button-group {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 .detail-content {
   white-space: pre-wrap;

@@ -57,7 +57,8 @@
     </el-card>
 
     <el-card class="table-card" shadow="never">
-      <el-table :data="tableData" border stripe v-loading="loading" height="calc(100vh - 300px)">
+      <div class="table-wrapper">
+        <el-table :data="tableData" border stripe v-loading="loading" height="100%" size="small">
         <template #empty>
           <el-empty description="暂无广告素材" />
         </template>
@@ -66,12 +67,11 @@
         <el-table-column prop="videoId" label="视频ID" width="200" show-overflow-tooltip />
         <el-table-column label="封面" width="100">
           <template #default="{ row }">
-            <el-image
+            <img
               v-if="row.coverUrl"
-              :src="row.coverUrl"
-              :preview-src-list="[row.coverUrl]"
-              fit="cover"
+              v-lazy="row.coverUrl"
               class="cover-thumb"
+              alt=""
             />
             <span v-else>—</span>
           </template>
@@ -84,13 +84,15 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pagination">
+      <div class="pagination compact-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleQuery"
           @current-change="handleQuery"
@@ -177,6 +179,7 @@
           <el-image
             v-if="viewData.coverUrl"
             :src="viewData.coverUrl"
+            lazy
             :preview-src-list="[viewData.coverUrl]"
             fit="cover"
             style="width: 200px; height: 200px"
@@ -404,20 +407,17 @@ onMounted(() => {
 
 <style scoped>
 .ad-material {
-  padding: 20px;
+  padding: 0;
 }
 
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: var(--section-gap);
 }
 
 .table-card {
   position: relative;
 }
 
-.table-card :deep(.el-card__body) {
-  padding-top: 16px;
-}
 
 .cover-thumb {
   width: 50px;
@@ -427,7 +427,6 @@ onMounted(() => {
 }
 
 .pagination {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }

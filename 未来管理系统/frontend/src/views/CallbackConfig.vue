@@ -50,14 +50,16 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-table
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        height="calc(100vh - 300px)"
-        @selection-change="handleSelectionChange"
-      >
+      <div class="table-wrapper">
+        <el-table
+          v-loading="loading"
+          :data="tableData"
+          border
+          stripe
+          height="100%"
+          size="small"
+          @selection-change="handleSelectionChange"
+        >
         <el-table-column type="selection" width="55" align="center" />
 
         <el-table-column label="推广链接 ID" min-width="200" align="left" show-overflow-tooltip>
@@ -117,13 +119,15 @@
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pagination-container">
+      <div class="pagination-container compact-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleQuery"
           @current-change="handleQuery"
@@ -618,15 +622,14 @@ onMounted(() => {
 
 <style scoped>
 .callback-config-container {
-  padding: 20px;
+  padding: 0;
 }
 
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: var(--section-gap);
 }
 
 .pagination-container {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }

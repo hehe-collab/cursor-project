@@ -102,6 +102,8 @@ public class CallbackService {
             String status,
             String eventType,
             String orderId,
+            String userId,
+            String promotionId,
             String dateStart,
             String dateEnd,
             int page,
@@ -109,13 +111,15 @@ public class CallbackService {
         String st = normalizeStatusFilter(status);
         String et = emptyToNull(eventType);
         String oid = emptyToNull(orderId);
+        String uid = emptyToNull(userId);
+        String pid = emptyToNull(promotionId);
         String ds = emptyToNull(dateStart);
         String de = emptyToNull(dateEnd);
         int p = Math.max(1, page);
         int ps = Math.max(1, pageSize);
-        long total = callbackLogMapper.countFiltered(st, et, oid, ds, de);
+        long total = callbackLogMapper.countFiltered(st, et, oid, uid, pid, ds, de);
         int offset = (p - 1) * ps;
-        List<CallbackLog> rows = callbackLogMapper.selectFiltered(st, et, oid, ds, de, offset, ps);
+        List<CallbackLog> rows = callbackLogMapper.selectFiltered(st, et, oid, uid, pid, ds, de, offset, ps);
         Map<String, Object> data = new HashMap<>();
         data.put("list", rows.stream().map(this::normalizeLog).collect(Collectors.toList()));
         data.put("total", total);

@@ -4,10 +4,12 @@
  * 无 `page`/`pageSize` 时：`data` 为**数组**（短剧表单下拉等）。
  * 有分页参数时：`data` 为 `{ list, total, page, pageSize }`。
  */
-import request from './request'
+import request, { getWithCache, clearApiCacheKeyPrefix } from './request'
+
+const CAT_GET_PREFIX = 'GET:/categories:'
 
 export function getCategories(params) {
-  return request.get('/categories', { params })
+  return getWithCache('/categories', params ?? {}, { ttl: 5 * 60 * 1000 })
 }
 
 export function getCategoryStats() {
@@ -18,14 +20,20 @@ export function getCategoryById(id) {
   return request.get(`/categories/${id}`)
 }
 
-export function createCategory(data) {
-  return request.post('/categories', data)
+export async function createCategory(data) {
+  const res = await request.post('/categories', data)
+  if (res?.code === 0) clearApiCacheKeyPrefix(CAT_GET_PREFIX)
+  return res
 }
 
-export function updateCategory(id, data) {
-  return request.put(`/categories/${id}`, data)
+export async function updateCategory(id, data) {
+  const res = await request.put(`/categories/${id}`, data)
+  if (res?.code === 0) clearApiCacheKeyPrefix(CAT_GET_PREFIX)
+  return res
 }
 
-export function deleteCategory(id) {
-  return request.delete(`/categories/${id}`)
+export async function deleteCategory(id) {
+  const res = await request.delete(`/categories/${id}`)
+  if (res?.code === 0) clearApiCacheKeyPrefix(CAT_GET_PREFIX)
+  return res
 }

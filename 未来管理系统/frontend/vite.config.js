@@ -56,6 +56,9 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('@element-plus/icons-vue')) return 'ep-icons'
           if (id.includes('echarts')) return 'echarts'
           if (id.includes('xlsx')) return 'xlsx'
+          if (id.includes('lodash')) return 'lodash'
+          if (id.includes('vue-virtual-scroller')) return 'vue-virtual-scroller'
+          if (id.includes('vue3-lazyload')) return 'vue3-lazyload'
           if (id.includes('vue-router')) return 'vue-router'
           if (id.includes('/vue') || id.includes('\\vue')) return 'vue-core'
           if (id.includes('axios')) return 'axios'
@@ -69,5 +72,8 @@ export default defineConfig(({ mode }) => ({
   esbuild: {
     drop: mode === 'production' ? ['console', 'debugger'] : [],
     legalComments: 'none',
+  },
+  optimizeDeps: {
+    include: ['vue', 'vue-router', 'element-plus', 'axios', 'lodash-es', 'vue-virtual-scroller', 'vue3-lazyload'],
   },
 }))

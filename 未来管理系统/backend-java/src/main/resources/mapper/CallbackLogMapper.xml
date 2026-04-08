@@ -34,6 +34,20 @@
           OR IFNULL(order_id,'') LIKE CONCAT('%', #{orderId}, '%')
         )
       </if>
+      <if test="userId != null and userId != ''">
+        AND (
+          IFNULL(order_id,'') LIKE CONCAT('%', #{userId}, '%')
+          OR IFNULL(order_no,'') LIKE CONCAT('%', #{userId}, '%')
+          OR IFNULL(error_message,'') LIKE CONCAT('%', #{userId}, '%')
+        )
+      </if>
+      <if test="promotionId != null and promotionId != ''">
+        AND (
+          IFNULL(pixel_id,'') LIKE CONCAT('%', #{promotionId}, '%')
+          OR IFNULL(order_id,'') LIKE CONCAT('%', #{promotionId}, '%')
+          OR IFNULL(order_no,'') LIKE CONCAT('%', #{promotionId}, '%')
+        )
+      </if>
       <if test="dateStart != null and dateStart != ''">
         AND DATE(created_at) &gt;= DATE(#{dateStart})
       </if>

@@ -17,12 +17,23 @@
         </el-form-item>
         <el-form-item label="剧名" label-width="50px">
           <div class="filter-item-s">
-            <el-input v-model="filterForm.dramaName" placeholder="剧名" clearable />
+            <el-input
+              v-model="filterForm.dramaName"
+              placeholder="剧名"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="状态" label-width="50px">
           <div class="filter-item-s">
-            <el-select v-model="filterForm.status" placeholder="状态" clearable>
+            <el-select
+              v-model="filterForm.status"
+              placeholder="状态"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option label="上架" value="online" />
               <el-option label="下架" value="offline" />
             </el-select>
@@ -30,7 +41,7 @@
         </el-form-item>
         <el-form-item label-width="0">
           <div class="filter-buttons">
-            <el-button type="primary" :loading="loading" @click="handleQuery">
+            <el-button type="primary" :loading="loading" @click="handleSearchClick">
               <el-icon class="el-icon--left"><Search /></el-icon>
               搜索
             </el-button>
@@ -70,6 +81,9 @@
           </el-dropdown>
         </div>
         <div class="button-group-right">
+          <el-button size="small" @click="useVirtualScroll = !useVirtualScroll">
+            {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
+          </el-button>
           <el-button type="success" :loading="exporting" @click="handleExportExcel">
             <el-icon class="el-icon--left"><Download /></el-icon>
             导出 Excel
@@ -79,7 +93,85 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <SkeletonTable v-if="loading && tableData.length === 0" :rows="10" :columns="8" />
+      <template #header>
+        <div class="table-card-header-row">
+          <span>
+            短剧列表
+            <el-tag v-if="searching" type="info" size="small" class="searching-tag">搜索中...</el-tag>
+          </span>
+        </div>
+      </template>
+      <div
+        class="table-wrapper"
+        :class="{ 'table-wrapper--virtual': useVirtualScroll }"
+      >
+      <SkeletonTable v-if="loading && tableData.length === 0 && !useVirtualScroll" :rows="10" :columns="8" />
+      <template v-else-if="useVirtualScroll">
+        <Loading :loading="loading" text="加载中..." />
+        <VirtualTable
+          :data="tableData"
+          :columns="virtualColumns"
+          :item-size="44"
+          key-field="id"
+        >
+          <template #selection="{ row }">
+            <el-checkbox
+              :model-value="isRowSelected(row)"
+              @change="(v) => toggleRowSelected(row, v)"
+            />
+          </template>
+          <template #online="{ row }">
+            <el-switch
+              v-model="row.is_online"
+              :active-value="1"
+              :inactive-value="0"
+              @change="() => handleToggleOnline(row)"
+            />
+          </template>
+          <template #status="{ row }">
+            <el-tag :type="row.is_online === 1 ? 'success' : 'info'">
+              {{ row.is_online === 1 ? '上架' : '下架' }}
+            </el-tag>
+          </template>
+          <template #dramaId="{ row }">
+            <div class="id-copy-row">
+              <el-button
+                :icon="DocumentCopy"
+                text
+                size="small"
+                title="复制剧ID"
+                @click="copyToClipboard(dramaListDisplayId(row), '剧ID')"
+              />
+              <span class="id-copy-row__text">{{ dramaListDisplayId(row) }}</span>
+            </div>
+          </template>
+          <template #title="{ row }">
+            {{ row.title || row.name }}
+          </template>
+          <template #cover="{ row }">
+            <img
+              v-if="dramaCoverUrl(row)"
+              v-lazy="dramaCoverUrl(row)"
+              class="drama-cover-thumb drama-cover-thumb--lazy"
+              alt=""
+            />
+            <span v-else class="drama-cover-empty">—</span>
+          </template>
+          <template #totalEp="{ row }">{{ dramaTotalEpisodes(row) }}集</template>
+          <template #freeEp="{ row }">{{ dramaFreeEpisodes(row) }}集</template>
+          <template #task="{ row }">
+            <el-tag :type="getTaskStatusType(row.task_status)" effect="plain">
+              {{ getTaskStatusText(row.task_status) }}
+            </el-tag>
+          </template>
+          <template #created="{ row }">{{ formatTime(row.created_at) }}</template>
+          <template #actions="{ row }">
+            <el-button type="primary" link size="small" @click="handleViewDetail(row)">详细</el-button>
+            <el-button type="primary" link size="small" @click="handleEditRow(row)">修改</el-button>
+            <el-button type="danger" link size="small" @click="handleDeleteRow(row)">删除</el-button>
+          </template>
+        </VirtualTable>
+      </template>
       <el-table
         v-else
         v-loading="loading"
@@ -87,8 +179,9 @@
         :data="tableData"
         border
         stripe
+        size="small"
         style="width: 100%"
-        height="calc(100vh - 320px)"
+        height="100%"
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" align="center" />
@@ -128,25 +221,13 @@
         </el-table-column>
         <el-table-column label="封面" width="88" align="center">
           <template #default="{ row }">
-            <el-image
+            <img
               v-if="dramaCoverUrl(row)"
-              :src="dramaCoverUrl(row)"
-              lazy
-              fit="cover"
-              class="drama-cover-thumb"
-              :preview-src-list="[dramaCoverUrl(row)]"
-              preview-teleported
-              :hide-on-click-modal="true"
-            >
-              <template #placeholder>
-                <div class="drama-cover-placeholder">…</div>
-              </template>
-              <template #error>
-                <div class="drama-cover-placeholder">
-                  <el-icon><Picture /></el-icon>
-                </div>
-              </template>
-            </el-image>
+              v-lazy="dramaCoverUrl(row)"
+              class="drama-cover-thumb drama-cover-thumb--lazy"
+               alt=""
+               @click="handleViewDetail(row)"
+            />
             <span v-else class="drama-cover-empty">—</span>
           </template>
         </el-table-column>
@@ -179,18 +260,19 @@
           </template>
         </el-table-column>
       </el-table>
-
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[20, 50, 100, 200]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleQuery"
-          @current-change="handleQuery"
-        />
       </div>
+
+      <el-pagination
+        class="compact-pagination"
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-sizes="[20, 50, 100, 200]"
+        layout="total, sizes, prev, pager, next, jumper"
+        size="small"
+        @size-change="handleQuery"
+        @current-change="handleQuery"
+      />
     </el-card>
 
     <el-dialog :title="dialogTitle" v-model="dialogVisible" width="600px" @closed="handleDialogClosed">
@@ -284,14 +366,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, RefreshLeft, Plus, Edit, Delete, ArrowDown, Download, DocumentCopy, Picture } from '@element-plus/icons-vue'
+import { Search, RefreshLeft, Plus, Edit, Delete, ArrowDown, Download, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
+import { getCategories } from '@/api/category'
 import { getDramaDetail, getDramaList, invalidateDramaCaches } from '@/api/drama'
 import SkeletonTable from '@/components/SkeletonTable.vue'
+import VirtualTable from '@/components/VirtualTable.vue'
+import Loading from '@/components/Loading.vue'
 import { exportJsonToXlsx } from '../utils/excelExport'
 import { copyToClipboard } from '@/utils/clipboard'
+import { debounce } from '@/utils/performance'
 
 const filterForm = ref({
   dramaId: '',
@@ -302,7 +388,43 @@ const filterForm = ref({
 const tableData = ref([])
 const loading = ref(false)
 const exporting = ref(false)
+const searching = ref(false)
 const selectedRows = ref([])
+
+/** #091：虚拟滚动（>100 行自动开启，可手动切回标准表格） */
+const useVirtualScroll = ref(false)
+const virtualColumns = [
+  { prop: '_sel', label: '', slot: 'selection', gridWidth: '52px' },
+  { prop: '_on', label: '投放', slot: 'online', gridWidth: '76px' },
+  { prop: '_st', label: '状态', slot: 'status', gridWidth: '88px' },
+  { prop: '_pid', label: '剧ID', slot: 'dramaId', gridWidth: 'minmax(140px, 1fr)' },
+  { prop: '_title', label: '剧名', slot: 'title', gridWidth: 'minmax(160px, 1.3fr)' },
+  { prop: '_cover', label: '封面', slot: 'cover', gridWidth: '72px' },
+  { prop: '_te', label: '总集', slot: 'totalEp', gridWidth: '76px' },
+  { prop: '_fe', label: '免费', slot: 'freeEp', gridWidth: '76px' },
+  { prop: '_task', label: '任务', slot: 'task', gridWidth: '108px' },
+  { prop: '_created', label: '创建时间', slot: 'created', gridWidth: 'minmax(140px, 1fr)' },
+  { prop: '_op', label: '操作', slot: 'actions', gridWidth: 'minmax(220px, 1.2fr)' },
+]
+
+watch(
+  () => tableData.value.length,
+  (n) => {
+    if (n > 100) useVirtualScroll.value = true
+  },
+)
+
+function isRowSelected(row) {
+  return selectedRows.value.some((r) => r.id === row.id)
+}
+
+function toggleRowSelected(row, checked) {
+  if (checked) {
+    if (!isRowSelected(row)) selectedRows.value = [...selectedRows.value, row]
+  } else {
+    selectedRows.value = selectedRows.value.filter((r) => r.id !== row.id)
+  }
+}
 
 const pagination = ref({
   page: 1,
@@ -411,7 +533,7 @@ function mapFilterStatus(s) {
 
 async function loadCategories() {
   try {
-    const res = await request.get('/categories')
+    const res = await getCategories()
     if (res.code === 0 && Array.isArray(res.data)) {
       categoryList.value = res.data
     }
@@ -436,7 +558,7 @@ function buildDramaFilterParams() {
 }
 
 const handleQuery = async () => {
-  if (loading.value) return
+  searching.value = true
   loading.value = true
   try {
     const params = {
@@ -457,13 +579,32 @@ const handleQuery = async () => {
     ElMessage.error(error?.message || '查询失败')
   } finally {
     loading.value = false
+    searching.value = false
   }
 }
 
+const handleSearchDebounced = debounce(() => {
+  pagination.value.page = 1
+  void handleQuery()
+}, 300)
+
+const handleSearchClick = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
+const handleFilterImmediate = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
 const handleReset = () => {
+  handleSearchDebounced.cancel()
   filterForm.value = { dramaId: '', dramaName: '', status: '' }
   pagination.value.page = 1
-  handleQuery()
+  void handleQuery()
 }
 
 const handleSelectionChange = (rows) => {
@@ -793,22 +934,11 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.drama-manage-container {
-  padding: 20px;
-}
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 .filter-card :deep(.el-card__body) {
   padding-bottom: 10px;
-}
-.table-card {
-  margin-bottom: 20px;
-}
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
 }
 .upload-tip {
   color: #909399;
@@ -821,8 +951,13 @@ onUnmounted(() => {
   height: 72px;
   border-radius: 4px;
 }
-.drama-cover-thumb :deep(.el-image__inner) {
+.drama-cover-thumb--lazy {
   object-fit: cover;
+  display: block;
+  cursor: pointer;
+}
+.table-wrapper--virtual {
+  position: relative;
 }
 .drama-cover-placeholder {
   display: flex;
@@ -841,6 +976,16 @@ onUnmounted(() => {
 .drama-cover-detail {
   max-height: 140px;
   max-width: 100%;
+}
+
+.table-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.searching-tag {
+  margin-left: 8px;
+  vertical-align: middle;
 }
 
 </style>

@@ -49,13 +49,34 @@
               <el-icon class="el-icon--left"><Download /></el-icon>
               导出
             </el-button>
+            <el-button
+              v-if="tableData.length > 50"
+              size="small"
+              @click="useVirtualScroll = !useVirtualScroll"
+            >
+              {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
+            </el-button>
           </div>
         </el-form-item>
       </el-form>
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-table v-loading="loading" :data="tableData" border stripe style="width: 100%" height="calc(100vh - 240px)">
+      <div
+        class="table-wrapper"
+        :class="{ 'table-wrapper--virtual': useVirtualScroll }"
+      >
+        <Loading v-if="useVirtualScroll" :loading="loading" text="加载中..." />
+        <el-table
+          v-if="!useVirtualScroll"
+          v-loading="loading"
+          :data="tableData"
+          border
+          stripe
+          style="width: 100%"
+          height="100%"
+          size="small"
+        >
         <el-table-column prop="task_id" label="任务ID" width="120" align="center" />
         <el-table-column prop="account_ids" label="账户ID" min-width="300" show-overflow-tooltip>
           <template #default="{ row }">
@@ -84,12 +105,37 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-container">
+      <VirtualTable
+        v-else
+        :data="tableData"
+        :columns="virtualColumns"
+        :item-size="44"
+        key-field="task_id"
+      >
+        <template #accounts="{ row }">
+          <div class="text-overflow">{{ row.account_ids }}</div>
+        </template>
+        <template #accNames="{ row }">
+          <div class="text-overflow">{{ row.account_names }}</div>
+        </template>
+        <template #statusTag="{ row }">
+          <el-tag :type="getStatusType(row.status)">
+            {{ getStatusText(row.status) }}
+          </el-tag>
+        </template>
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleView(row)">查看</el-button>
+        </template>
+      </VirtualTable>
+      </div>
+
+      <div class="pagination-container compact-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleQuery"
           @current-change="handleQuery"
@@ -144,10 +190,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { Search, Download, RefreshLeft } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '../api/request'
+import VirtualTable from '@/components/VirtualTable.vue'
+import Loading from '@/components/Loading.vue'
 
 const filterForm = reactive({
   taskId: '',
@@ -159,6 +207,26 @@ const filterForm = reactive({
 const tableData = ref([])
 const loading = ref(false)
 const exporting = ref(false)
+
+/** #093：虚拟滚动 */
+const useVirtualScroll = ref(false)
+const virtualColumns = [
+  { prop: 'task_id', label: '任务ID', gridWidth: '108px' },
+  { prop: '_acc', label: '账户ID', slot: 'accounts', gridWidth: 'minmax(140px, 1.4fr)' },
+  { prop: '_accn', label: '账户名称', slot: 'accNames', gridWidth: 'minmax(120px, 1.2fr)' },
+  { prop: 'promotion_type', label: '推广类型', gridWidth: 'minmax(100px, 1fr)' },
+  { prop: '_st', label: '状态', slot: 'statusTag', gridWidth: '88px' },
+  { prop: 'created_by', label: '创建人', gridWidth: '100px' },
+  { prop: 'created_at', label: '创建时间', gridWidth: 'minmax(130px, 1fr)' },
+  { prop: '_op', label: '操作', slot: 'actions', gridWidth: '88px' },
+]
+
+watch(
+  () => tableData.value.length,
+  (n) => {
+    if (n > 100) useVirtualScroll.value = true
+  },
+)
 
 const pagination = reactive({
   page: 1,
@@ -286,7 +354,7 @@ onMounted(() => {
 }
 
 .table-card {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .text-overflow {
@@ -296,9 +364,12 @@ onMounted(() => {
 }
 
 .pagination-container {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.table-wrapper--virtual {
+  position: relative;
 }
 
 .detail-scroll {

@@ -11,17 +11,35 @@
       >
         <el-form-item label="用户ID" label-width="60px">
           <div class="filter-item-xs">
-            <el-input v-model="filterForm.userId" placeholder="用户ID" clearable />
+            <el-input
+              v-model="filterForm.userId"
+              placeholder="用户ID"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="推广ID" label-width="60px">
           <div class="filter-item-xs">
-            <el-input v-model="filterForm.promotionId" placeholder="推广ID" clearable />
+            <el-input
+              v-model="filterForm.promotionId"
+              placeholder="推广ID"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="订单号" label-width="60px">
           <div class="filter-item-m">
-            <el-input v-model="filterForm.orderId" placeholder="订单号" clearable />
+            <el-input
+              v-model="filterForm.orderId"
+              placeholder="订单号"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="外订单号" label-width="70px">
@@ -31,7 +49,12 @@
         </el-form-item>
         <el-form-item label="媒体" label-width="50px">
           <div class="filter-item-select">
-            <el-select v-model="filterForm.platform" placeholder="全部" clearable>
+            <el-select
+              v-model="filterForm.platform"
+              placeholder="全部"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option label="TikTok" value="tiktok" />
               <el-option label="Meta" value="meta" />
               <el-option label="Facebook" value="facebook" />
@@ -46,7 +69,12 @@
         </el-form-item>
         <el-form-item v-if="countries.length > 0" label="国家" label-width="50px">
           <div class="filter-item-select">
-            <el-select v-model="filterForm.country" placeholder="全部" clearable>
+            <el-select
+              v-model="filterForm.country"
+              placeholder="全部"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option
                 v-for="item in countryFilterOptions"
                 :key="item.value === '' ? '_all' : item.value"
@@ -65,12 +93,18 @@
               start-placeholder="开始日期"
               end-placeholder="结束日期"
               value-format="YYYY-MM-DD"
+              @change="handleFilterImmediate"
             />
           </div>
         </el-form-item>
         <el-form-item v-show="activeTab === 'all'" label="支付结果" label-width="70px">
           <div class="filter-item-select">
-            <el-select v-model="filterForm.paymentStatus" placeholder="全部" clearable>
+            <el-select
+              v-model="filterForm.paymentStatus"
+              placeholder="全部"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option label="成功" value="paid" />
               <el-option label="待支付" value="pending" />
               <el-option label="失败" value="failed" />
@@ -79,7 +113,7 @@
         </el-form-item>
         <el-form-item label-width="0">
           <div class="filter-buttons">
-            <el-button type="primary" @click="handleQuery">
+            <el-button type="primary" @click="handleSearchClick">
               <el-icon><Search /></el-icon>
               搜索
             </el-button>
@@ -91,26 +125,43 @@
               <el-icon><Download /></el-icon>
               导出
             </el-button>
+            <el-button
+              v-if="tableData.length > 50"
+              size="small"
+              @click="useVirtualScroll = !useVirtualScroll"
+            >
+              {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
+            </el-button>
           </div>
         </el-form-item>
       </el-form>
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-tabs v-model="activeTab" class="recharge-tabs" @tab-change="handleTabChange">
-        <el-tab-pane :label="`全部 (${stats.total})`" name="all" />
-        <el-tab-pane :label="`待支付订单 (${stats.pending})`" name="pending" />
-      </el-tabs>
+      <div class="recharge-tabs-bar">
+        <el-tabs v-model="activeTab" class="recharge-tabs compact-tabs" @tab-change="handleTabChange">
+          <el-tab-pane :label="`全部 (${stats.total})`" name="all" />
+          <el-tab-pane :label="`待支付订单 (${stats.pending})`" name="pending" />
+        </el-tabs>
+        <el-tag v-if="searching" type="info" size="small" class="recharge-searching-tag">搜索中...</el-tag>
+      </div>
 
-      <el-table
-        v-loading="loading"
-        element-loading-text="加载中..."
-        :data="tableData"
-        border
-        stripe
-        class="recharge-table"
-        height="calc(100vh - 280px)"
+      <div
+        class="table-wrapper"
+        :class="{ 'table-wrapper--virtual': useVirtualScroll }"
       >
+        <Loading v-if="useVirtualScroll" :loading="loading" text="加载中..." />
+        <el-table
+          v-if="!useVirtualScroll"
+          v-loading="loading"
+          element-loading-text="加载中..."
+          :data="tableData"
+          border
+          stripe
+          class="recharge-table"
+          size="small"
+          height="100%"
+        >
         <template #empty>
           <el-empty description="暂无充值记录" />
         </template>
@@ -171,17 +222,53 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          :total="pagination.total"
-          :page-sizes="[20, 50, 100, 200]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleQuery"
-          @current-change="handleQuery"
-        />
+      <VirtualTable
+        v-else
+        :data="tableData"
+        :columns="virtualColumns"
+        :item-size="48"
+        key-field="id"
+      >
+        <template #pay="{ row }">
+          <el-tag :type="payTagType(row.payment_status)">
+            {{ payStatusText(row.payment_status) }}
+          </el-tag>
+        </template>
+        <template #adId="{ row }">
+          {{ row.ad_account_id || '—' }}
+        </template>
+        <template #adName="{ row }">
+          {{ row.ad_account_name || '—' }}
+        </template>
+        <template #first="{ row }">
+          <el-icon v-if="row.is_first_recharge" color="#67c23a" :size="18"><CircleCheck /></el-icon>
+          <span v-else>—</span>
+        </template>
+        <template #callback="{ row }">
+          <el-tag v-if="row.callback_sent" type="success" size="small">已回传</el-tag>
+          <span v-else class="sub-muted">否</span>
+        </template>
+        <template #newUser="{ row }">
+          <el-icon v-if="row.is_new_user" color="#67c23a" :size="18"><CircleCheck /></el-icon>
+          <span v-else>—</span>
+        </template>
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleViewDetail(row)">查看详情</el-button>
+        </template>
+      </VirtualTable>
       </div>
+
+      <el-pagination
+        class="compact-pagination"
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        :page-sizes="[20, 50, 100, 200]"
+        layout="total, sizes, prev, pager, next, jumper"
+        size="small"
+        @size-change="handleQuery"
+        @current-change="handleQuery"
+      />
     </el-card>
 
     <el-dialog v-model="detailVisible" title="充值详情" width="600px" destroy-on-close>
@@ -214,12 +301,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft, CircleCheck, Download } from '@element-plus/icons-vue'
 import request from '../api/request'
 import { exportJsonToXlsx } from '../utils/excelExport'
 import { useCountries } from '@/composables/useCountries'
+import VirtualTable from '@/components/VirtualTable.vue'
+import Loading from '@/components/Loading.vue'
+import { debounce } from '@/utils/performance'
 
 const { countries, countryFilterOptions } = useCountries()
 
@@ -245,6 +335,35 @@ const stats = ref({
 const tableData = ref([])
 const loading = ref(false)
 const exporting = ref(false)
+const searching = ref(false)
+
+/** #092：虚拟滚动（>100 行自动开启；>50 行显示切换，与 User 一致） */
+const useVirtualScroll = ref(false)
+const virtualColumns = [
+  { prop: 'user_id', label: '用户ID', gridWidth: 'minmax(88px, 0.95fr)' },
+  { prop: 'drama_name', label: '剧名', gridWidth: 'minmax(88px, 0.95fr)' },
+  { prop: 'amount', label: '充值金额', gridWidth: '76px' },
+  { prop: '_pay', label: '支付结果', slot: 'pay', gridWidth: '88px' },
+  { prop: '_adId', label: '账户ID', slot: 'adId', gridWidth: 'minmax(72px, 0.85fr)' },
+  { prop: '_adName', label: '账户名称', slot: 'adName', gridWidth: 'minmax(88px, 0.9fr)' },
+  { prop: '_first', label: '首充', slot: 'first', gridWidth: '64px' },
+  { prop: '_cb', label: '回传', slot: 'callback', gridWidth: '72px' },
+  { prop: 'promotion_id', label: '推广ID', gridWidth: 'minmax(88px, 0.95fr)' },
+  { prop: 'local_register_time', label: '当地注册', gridWidth: 'minmax(86px, 0.85fr)' },
+  { prop: 'local_order_time', label: '当地订单', gridWidth: 'minmax(86px, 0.85fr)' },
+  { prop: 'order_id', label: '订单ID', gridWidth: 'minmax(72px, 0.8fr)' },
+  { prop: 'platform', label: '媒体', gridWidth: '72px' },
+  { prop: 'new_user_id', label: '新用户ID', gridWidth: 'minmax(88px, 0.85fr)' },
+  { prop: '_newu', label: '新用户', slot: 'newUser', gridWidth: '64px' },
+  { prop: '_op', label: '操作', slot: 'actions', gridWidth: '96px' },
+]
+
+watch(
+  () => tableData.value.length,
+  (n) => {
+    if (n > 100) useVirtualScroll.value = true
+  },
+)
 
 const pagination = ref({
   page: 1,
@@ -274,11 +393,13 @@ const loadStats = async () => {
 }
 
 const handleTabChange = () => {
+  handleSearchDebounced.cancel()
   pagination.value.page = 1
-  handleQuery()
+  void handleQuery()
 }
 
 const handleQuery = async () => {
+  searching.value = true
   loading.value = true
   try {
     const params = buildRechargeParams(pagination.value.page, pagination.value.pageSize)
@@ -292,10 +413,29 @@ const handleQuery = async () => {
     ElMessage.error(`查询失败：${error.message || ''}`)
   } finally {
     loading.value = false
+    searching.value = false
   }
 }
 
+const handleSearchDebounced = debounce(() => {
+  pagination.value.page = 1
+  void handleQuery()
+}, 300)
+
+const handleSearchClick = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
+const handleFilterImmediate = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
 const handleReset = () => {
+  handleSearchDebounced.cancel()
   filterForm.value = {
     userId: '',
     promotionId: '',
@@ -309,7 +449,7 @@ const handleReset = () => {
   }
   activeTab.value = 'all'
   pagination.value.page = 1
-  handleQuery()
+  void handleQuery()
 }
 
 const handleViewDetail = (row) => {
@@ -405,30 +545,35 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.recharge-container {
-  padding: 20px;
-}
-
-.filter-card {
-  margin-bottom: 20px;
-}
-.recharge-tabs {
+.recharge-tabs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 0;
 }
 
-.recharge-table {
-  margin-top: 12px;
+.recharge-tabs {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 200px;
 }
 
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
+.recharge-searching-tag {
+  flex-shrink: 0;
+}
+
+.recharge-table {
+  margin-top: 0;
 }
 
 .sub-muted {
   color: #909399;
   font-size: 12px;
+}
+
+.table-wrapper--virtual {
+  position: relative;
 }
 
 </style>

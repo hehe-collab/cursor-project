@@ -7,12 +7,18 @@
         inline
         size="small"
         label-position="left"
-        @submit.prevent="handleQuery"
-        @keyup.enter="handleQuery"
+        @submit.prevent="handleSearchClick"
+        @keyup.enter="handleSearchClick"
       >
         <el-form-item label="推广ID" label-width="60px">
           <div class="filter-item-xs">
-            <el-input v-model="filterForm.promoId" placeholder="推广ID" clearable />
+            <el-input
+              v-model="filterForm.promoId"
+              placeholder="推广ID"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="剧的ID" label-width="60px">
@@ -22,7 +28,12 @@
         </el-form-item>
         <el-form-item label="投放媒体" label-width="70px">
           <div class="filter-item-select">
-            <el-select v-model="filterForm.media" placeholder="媒体" clearable>
+            <el-select
+              v-model="filterForm.media"
+              placeholder="媒体"
+              clearable
+              @change="handleFilterImmediate"
+            >
               <el-option label="TikTok" value="tiktok" />
               <el-option label="Meta" value="meta" />
               <el-option label="Google" value="google" />
@@ -36,6 +47,7 @@
               v-model="filterForm.country"
               :placeholder="countryMultiOptions.length ? '全部' : '请先在账户管理维护广告账户国家'"
               clearable
+              @change="handleFilterImmediate"
             >
               <el-option
                 v-for="item in countryFilterOptions"
@@ -48,7 +60,13 @@
         </el-form-item>
         <el-form-item label="推广名称" label-width="70px">
           <div class="filter-item-s">
-            <el-input v-model="filterForm.promoName" placeholder="推广名称" clearable />
+            <el-input
+              v-model="filterForm.promoName"
+              placeholder="推广名称"
+              clearable
+              @input="handleSearchDebounced"
+              @clear="handleReset"
+            />
           </div>
         </el-form-item>
         <el-form-item label="推广域名" label-width="70px">
@@ -58,7 +76,7 @@
         </el-form-item>
         <el-form-item label-width="0">
           <div class="filter-buttons">
-            <el-button type="primary" :loading="loading" @click="handleQuery">
+            <el-button type="primary" :loading="loading" @click="handleSearchClick">
               <el-icon class="el-icon--left"><Search /></el-icon>
               搜索
             </el-button>
@@ -91,6 +109,13 @@
           </el-button>
         </div>
         <div class="button-group-right">
+          <el-button
+            v-if="tableData.length > 50"
+            size="small"
+            @click="useVirtualScroll = !useVirtualScroll"
+          >
+            {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
+          </el-button>
           <el-button type="warning" :loading="exporting" @click="handleExport">
             <el-icon class="el-icon--left"><Download /></el-icon>
             导出
@@ -100,16 +125,31 @@
     </el-card>
 
     <el-card shadow="never" class="table-card">
-      <el-table
-        v-loading="loading"
-        element-loading-text="加载中..."
-        :data="tableData"
-        border
-        stripe
-        style="width: 100%"
-        height="calc(100vh - 340px)"
-        @selection-change="handleSelectionChange"
+      <template #header>
+        <div class="table-card-header-row">
+          <span>
+            投放链接列表
+            <el-tag v-if="searching" type="info" size="small" class="searching-tag">搜索中...</el-tag>
+          </span>
+        </div>
+      </template>
+      <div
+        class="table-wrapper"
+        :class="{ 'table-wrapper--virtual': useVirtualScroll }"
       >
+        <Loading v-if="useVirtualScroll" :loading="loading" text="加载中..." />
+        <el-table
+          v-if="!useVirtualScroll"
+          v-loading="loading"
+          element-loading-text="加载中..."
+          :data="tableData"
+          border
+          stripe
+          style="width: 100%"
+          height="100%"
+          size="small"
+          @selection-change="handleSelectionChange"
+        >
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
@@ -171,12 +211,75 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-container">
+      <VirtualTable
+        v-else
+        :data="tableData"
+        :columns="virtualColumns"
+        :item-size="52"
+        key-field="id"
+      >
+        <template #selection="{ row }">
+          <el-checkbox
+            :model-value="isRowSelected(row)"
+            @change="(v) => toggleRowSelected(row, v)"
+          />
+        </template>
+        <template #enabledTag="{ row }">
+          <el-tag :type="row.enabled !== false ? 'success' : 'info'" size="small">
+            {{ row.enabled !== false ? '启用' : '禁用' }}
+          </el-tag>
+        </template>
+        <template #promoId="{ row }">
+          <div class="id-copy-row">
+            <el-button
+              :icon="DocumentCopy"
+              text
+              size="small"
+              title="复制推广ID"
+              @click="copyToClipboard(row.promo_id ?? row.promoId, '推广ID')"
+            />
+            <span class="id-copy-row__text">{{ (row.promo_id ?? row.promoId) || '—' }}</span>
+          </div>
+        </template>
+        <template #dramaId="{ row }">
+          <div class="id-copy-row">
+            <el-button
+              :icon="DocumentCopy"
+              text
+              size="small"
+              title="复制剧ID"
+              @click="
+                copyToClipboard(
+                  row.drama_public_id ?? row.dramaPublicId ?? row.drama_id ?? row.dramaId,
+                  '剧ID',
+                )
+              "
+            />
+            <span class="id-copy-row__text">{{ row.drama_public_id || row.drama_id || '—' }}</span>
+          </div>
+        </template>
+        <template #countryCell="{ row }">
+          {{ formatAccountCountryLabel(row.country) }}
+        </template>
+        <template #createdAt="{ row }">{{ row.created_at }}</template>
+        <template #actions="{ row }">
+          <div class="delivery-link-row-actions">
+            <el-button size="small" @click="handleCopyLink(row)">复制链接</el-button>
+            <el-button size="small" @click="handleCopy(row)">复制</el-button>
+            <el-button size="small" @click="handleEditRow(row)">修改</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteRow(row)">删除</el-button>
+          </div>
+        </template>
+      </VirtualTable>
+      </div>
+
+      <div class="pagination-container compact-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[20, 50, 100, 200]"
+          size="small"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleQuery"
           @current-change="handleQuery"
@@ -282,12 +385,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Plus, Edit, Delete, Download, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
 import { copyToClipboard } from '@/utils/clipboard'
 import { useCountries } from '@/composables/useCountries'
+import VirtualTable from '@/components/VirtualTable.vue'
+import Loading from '@/components/Loading.vue'
+import { debounce } from '@/utils/performance'
 
 const { countryFilterOptions, countryMultiOptions, formatAccountCountryLabel } = useCountries()
 
@@ -303,7 +409,46 @@ const filterForm = ref({
 const tableData = ref([])
 const loading = ref(false)
 const exporting = ref(false)
+const searching = ref(false)
 const selectedRows = ref([])
+
+/** #093：虚拟滚动 */
+const useVirtualScroll = ref(false)
+const virtualColumns = [
+  { prop: '_sel', label: '', slot: 'selection', gridWidth: '48px' },
+  { prop: '_en', label: '状态', slot: 'enabledTag', gridWidth: '76px' },
+  { prop: '_promo', label: '推广ID', slot: 'promoId', gridWidth: 'minmax(120px, 1fr)' },
+  { prop: '_drama', label: '剧的ID', slot: 'dramaId', gridWidth: 'minmax(120px, 1fr)' },
+  { prop: 'media', label: '投放媒体', gridWidth: '88px' },
+  { prop: '_country', label: '国家/地区', slot: 'countryCell', gridWidth: '100px' },
+  { prop: 'promo_name', label: '推广名称', gridWidth: 'minmax(120px, 1.15fr)' },
+  { prop: 'drama_name', label: '剧名', gridWidth: 'minmax(88px, 0.95fr)' },
+  { prop: 'plan_group_id', label: '方案组ID', gridWidth: 'minmax(100px, 1fr)' },
+  { prop: 'beans_per_episode', label: '金豆', gridWidth: '64px' },
+  { prop: 'free_episodes', label: '免费', gridWidth: '64px' },
+  { prop: 'created_by', label: '创建人', gridWidth: '88px' },
+  { prop: '_created', label: '创建时间', slot: 'createdAt', gridWidth: 'minmax(130px, 0.9fr)' },
+  { prop: '_op', label: '操作', slot: 'actions', gridWidth: 'minmax(200px, 1.5fr)' },
+]
+
+watch(
+  () => tableData.value.length,
+  (n) => {
+    if (n > 100) useVirtualScroll.value = true
+  },
+)
+
+function isRowSelected(row) {
+  return selectedRows.value.some((r) => r.id === row.id)
+}
+
+function toggleRowSelected(row, checked) {
+  if (checked) {
+    if (!isRowSelected(row)) selectedRows.value = [...selectedRows.value, row]
+  } else {
+    selectedRows.value = selectedRows.value.filter((r) => r.id !== row.id)
+  }
+}
 
 const pagination = ref({
   page: 1,
@@ -420,7 +565,7 @@ async function ensureFormSelectOptions() {
 }
 
 const handleQuery = async () => {
-  if (loading.value) return
+  searching.value = true
   loading.value = true
   try {
     const res = await request.get('/delivery-links', {
@@ -446,10 +591,29 @@ const handleQuery = async () => {
     ElMessage.error(error?.message || '查询失败')
   } finally {
     loading.value = false
+    searching.value = false
   }
 }
 
+const handleSearchDebounced = debounce(() => {
+  pagination.value.page = 1
+  void handleQuery()
+}, 300)
+
+const handleSearchClick = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
+const handleFilterImmediate = () => {
+  handleSearchDebounced.cancel()
+  pagination.value.page = 1
+  void handleQuery()
+}
+
 const handleReset = () => {
+  handleSearchDebounced.cancel()
   filterForm.value = {
     promoId: '',
     dramaId: '',
@@ -459,7 +623,7 @@ const handleReset = () => {
     promoDomain: '',
   }
   pagination.value.page = 1
-  handleQuery()
+  void handleQuery()
 }
 
 const handleSelectionChange = (rows) => {
@@ -738,21 +902,20 @@ onMounted(() => {
 
 <style scoped>
 .delivery-links-container {
-  padding: 20px;
+  padding: 0;
 }
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: var(--section-gap);
 }
 .filter-card :deep(.el-card__body) {
   padding-bottom: 10px;
 }
-.table-card {
-  margin-bottom: 20px;
-}
 .pagination-container {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+.table-wrapper--virtual {
+  position: relative;
 }
 .form-tip {
   color: #909399;
@@ -774,5 +937,14 @@ onMounted(() => {
 .delivery-link-row-actions :deep(.el-button) {
   flex-shrink: 0;
   margin: 0;
+}
+.table-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.searching-tag {
+  margin-left: 8px;
+  vertical-align: middle;
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="dashboard-container">
+  <div class="dashboard-page-layout dashboard-root">
     <el-card v-show="activeTab === 'overview'" class="filter-card" shadow="never">
       <el-form
         :model="filterForm"
@@ -103,7 +103,7 @@
     </el-card>
 
     <el-card class="tabs-card" shadow="never">
-      <el-tabs v-model="activeTab" class="custom-tabs" @tab-change="handleTabChange">
+      <el-tabs v-model="activeTab" class="custom-tabs compact-tabs" @tab-change="handleTabChange">
         <el-tab-pane name="promotion">
           <template #label>
             <span class="tab-label">
@@ -433,14 +433,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.dashboard-container {
-  padding: 8px;
+/* #090：高度由 Layout + .dashboard-page-layout（全局 flex）承担 */
+.dashboard-root {
   background: #f0f2f5;
-  height: calc(100vh - 48px - 36px - 24px);
-  min-height: 320px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
 }
 
 .filter-card {

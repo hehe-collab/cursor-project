@@ -61,6 +61,8 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '../api/request'
+import { getCategories } from '@/api/category'
+import { getTags } from '@/api/tag'
 
 const router = useRouter()
 const route = useRoute()
@@ -89,11 +91,11 @@ const isEdit = computed(() => !!route.params.id)
 async function loadData() {
   try {
     const [catRes, tagRes] = await Promise.all([
-      request.get('/categories').catch(() => ({ data: [] })),
-      request.get('/tags').catch(() => ({ data: [] })),
+      getCategories().catch(() => ({ code: -1, data: [] })),
+      getTags().catch(() => ({ code: -1, data: [] })),
     ])
-    categories.value = catRes.data || []
-    tags.value = tagRes.data || []
+    categories.value = catRes.code === 0 && Array.isArray(catRes.data) ? catRes.data : []
+    tags.value = tagRes.code === 0 && Array.isArray(tagRes.data) ? tagRes.data : []
   } catch (e) {
     ElMessage.error('加载分类/标签失败')
   }

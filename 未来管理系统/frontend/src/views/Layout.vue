@@ -354,7 +354,8 @@ function logout() {
 .tab-item.active .tab-close:hover { color: rgba(255,255,255,0.9); }
 .main {
   background: #f0f2f5;
-  padding: var(--page-padding, 12px);
+  padding: var(--page-padding, 8px);
+  box-sizing: border-box;
   /* 与顶部 header、tabs-bar 同列 flex 时，必须占满剩余高度；否则 el-main 高度为 0 → 主内容区白屏 */
   flex: 1 1 0;
   min-height: 0;
@@ -374,13 +375,16 @@ function logout() {
   padding: 0 6px;
 }
 .main-router-host {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
 .main-router-host > * {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>
