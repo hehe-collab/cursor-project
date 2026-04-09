@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokPixelMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.TikTokPixel" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO tiktok_pixels (advertiser_id, pixel_id, pixel_name, pixel_code, status)
+    VALUES (#{advertiserId}, #{pixelId}, #{pixelName}, #{pixelCode}, COALESCE(#{status}, 'active'))
+  </insert>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokPixel">
+    SELECT * FROM tiktok_pixels WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectByPixelId" resultType="com.drama.entity.TikTokPixel">
+    SELECT * FROM tiktok_pixels WHERE pixel_id = #{pixelId} LIMIT 1
+  </select>
+
+  <select id="selectByAdvertiserId" resultType="com.drama.entity.TikTokPixel">
+    SELECT * FROM tiktok_pixels WHERE advertiser_id = #{advertiserId} ORDER BY id DESC
+  </select>
+
+  <select id="selectAll" resultType="com.drama.entity.TikTokPixel">
+    SELECT * FROM tiktok_pixels ORDER BY id DESC
+  </select>
+
+  <update id="update" parameterType="com.drama.entity.TikTokPixel">
+    UPDATE tiktok_pixels
+    SET pixel_name = #{pixelName},
+        pixel_code = #{pixelCode},
+        status = #{status},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateStatus">
+    UPDATE tiktok_pixels SET status = #{status}, updated_at = CURRENT_TIMESTAMP
+    WHERE pixel_id = #{pixelId}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_pixels WHERE id = #{id}
+  </delete>
+
+  <delete id="deleteByPixelId">
+    DELETE FROM tiktok_pixels WHERE pixel_id = #{pixelId}
+  </delete>
+</mapper>

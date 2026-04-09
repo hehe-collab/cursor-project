@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokCampaignMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.TikTokCampaign" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO tiktok_campaigns (
+      advertiser_id, campaign_id, campaign_name, objective, budget, budget_mode, operation_status
+    ) VALUES (
+      #{advertiserId}, #{campaignId}, #{campaignName}, #{objective}, #{budget}, #{budgetMode}, #{operationStatus}
+    )
+  </insert>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokCampaign">
+    SELECT * FROM tiktok_campaigns WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectByCampaignId" resultType="com.drama.entity.TikTokCampaign">
+    SELECT * FROM tiktok_campaigns WHERE campaign_id = #{campaignId} LIMIT 1
+  </select>
+
+  <select id="selectByAdvertiserId" resultType="com.drama.entity.TikTokCampaign">
+    SELECT * FROM tiktok_campaigns WHERE advertiser_id = #{advertiserId} ORDER BY id DESC
+  </select>
+
+  <select id="selectAll" resultType="com.drama.entity.TikTokCampaign">
+    SELECT * FROM tiktok_campaigns ORDER BY id DESC
+  </select>
+
+  <update id="update" parameterType="com.drama.entity.TikTokCampaign">
+    UPDATE tiktok_campaigns
+    SET campaign_name = #{campaignName},
+        objective = #{objective},
+        budget = #{budget},
+        budget_mode = #{budgetMode},
+        operation_status = #{operationStatus},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateOperationStatus">
+    UPDATE tiktok_campaigns SET operation_status = #{operationStatus}, updated_at = CURRENT_TIMESTAMP
+    WHERE campaign_id = #{campaignId}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_campaigns WHERE id = #{id}
+  </delete>
+
+  <delete id="deleteByCampaignId">
+    DELETE FROM tiktok_campaigns WHERE campaign_id = #{campaignId}
+  </delete>
+
+  <insert id="batchUpsert">
+    INSERT INTO tiktok_campaigns (
+      advertiser_id, campaign_id, campaign_name, objective, budget, budget_mode, operation_status
+    ) VALUES
+    <foreach collection="list" item="item" separator=",">
+      (#{item.advertiserId}, #{item.campaignId}, #{item.campaignName}, #{item.objective},
+       #{item.budget}, #{item.budgetMode}, #{item.operationStatus})
+    </foreach>
+    ON DUPLICATE KEY UPDATE
+      campaign_name = VALUES(campaign_name),
+      objective = VALUES(objective),
+      budget = VALUES(budget),
+      budget_mode = VALUES(budget_mode),
+      operation_status = VALUES(operation_status),
+      updated_at = CURRENT_TIMESTAMP
+  </insert>
+</mapper>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokExcelImportMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.TikTokExcelImport" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO tiktok_excel_imports (
+      advertiser_id, import_type, file_path, original_filename, file_size, status,
+      total_count, success_count, failed_count, error_logs, started_at, completed_at, created_by
+    ) VALUES (
+      #{advertiserId}, #{importType}, #{filePath}, #{originalFilename}, #{fileSize},
+      COALESCE(#{status}, 'pending'),
+      COALESCE(#{totalCount}, 0), COALESCE(#{successCount}, 0), COALESCE(#{failedCount}, 0),
+      #{errorLogs}, #{startedAt}, #{completedAt}, #{createdBy}
+    )
+  </insert>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokExcelImport">
+    SELECT * FROM tiktok_excel_imports WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectByAdvertiserId" resultType="com.drama.entity.TikTokExcelImport">
+    SELECT * FROM tiktok_excel_imports
+    WHERE advertiser_id = #{advertiserId}
+    ORDER BY created_at DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectByStatus" resultType="com.drama.entity.TikTokExcelImport">
+    SELECT * FROM tiktok_excel_imports
+    WHERE status = #{status}
+    ORDER BY created_at DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectAllPaged" resultType="com.drama.entity.TikTokExcelImport">
+    SELECT * FROM tiktok_excel_imports
+    ORDER BY created_at DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <update id="update" parameterType="com.drama.entity.TikTokExcelImport">
+    UPDATE tiktok_excel_imports
+    SET status = #{status},
+        total_count = #{totalCount},
+        success_count = #{successCount},
+        failed_count = #{failedCount},
+        error_logs = #{errorLogs},
+        started_at = #{startedAt},
+        completed_at = #{completedAt},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_excel_imports WHERE id = #{id}
+  </delete>
+
+  <select id="countByAdvertiserId" resultType="int">
+    SELECT COUNT(*) FROM tiktok_excel_imports WHERE advertiser_id = #{advertiserId}
+  </select>
+</mapper>

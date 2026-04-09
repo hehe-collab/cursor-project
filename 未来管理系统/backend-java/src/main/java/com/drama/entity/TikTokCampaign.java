@@ -1,0 +1,27 @@
+package com.drama.entity;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/** TikTok 广告系列（对齐 tiktok_campaigns.operation_status） */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class TikTokCampaign {
+
+    private Long id;
+    private String advertiserId;
+    private String campaignId;
+    private String campaignName;
+    private String objective;
+    private BigDecimal budget;
+    private String budgetMode;
+    private String operationStatus;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}

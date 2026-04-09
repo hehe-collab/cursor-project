@@ -40,6 +40,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
+        // TikTok OAuth 浏览器回跳无法携带 Bearer
+        if ("GET".equalsIgnoreCase(request.getMethod()) && "/api/tiktok/oauth/callback".equals(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         if (!path.startsWith("/api/")) {
             filterChain.doFilter(request, response);
             return;

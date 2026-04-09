@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokAccountMapper">
+
+  <insert id="upsert" parameterType="com.drama.entity.TikTokAccount">
+    INSERT INTO tiktok_accounts (
+      advertiser_id, advertiser_name, access_token, refresh_token, token_expires_at,
+      currency, timezone, balance, status
+    ) VALUES (
+      #{advertiserId}, #{advertiserName}, #{accessToken}, #{refreshToken}, #{tokenExpiresAt},
+      COALESCE(#{currency}, 'USD'), COALESCE(#{timezone}, 'UTC'),
+      COALESCE(#{balance}, 0), COALESCE(#{status}, 'active')
+    )
+    ON DUPLICATE KEY UPDATE
+      advertiser_name = VALUES(advertiser_name),
+      access_token = VALUES(access_token),
+      refresh_token = VALUES(refresh_token),
+      token_expires_at = VALUES(token_expires_at),
+      currency = VALUES(currency),
+      timezone = VALUES(timezone),
+      balance = VALUES(balance),
+      status = VALUES(status),
+      updated_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <select id="selectByAdvertiserId" resultType="com.drama.entity.TikTokAccount">
+    SELECT * FROM tiktok_accounts WHERE advertiser_id = #{advertiserId} LIMIT 1
+  </select>
+
+  <select id="selectByStatus" resultType="com.drama.entity.TikTokAccount">
+    SELECT * FROM tiktok_accounts WHERE status = #{status} ORDER BY id ASC
+  </select>
+
+  <update id="updateTokens" parameterType="com.drama.entity.TikTokAccount">
+    UPDATE tiktok_accounts
+    SET access_token = #{accessToken},
+        refresh_token = #{refreshToken},
+        token_expires_at = #{tokenExpiresAt},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE advertiser_id = #{advertiserId}
+  </update>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokAccount">
+    SELECT * FROM tiktok_accounts WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectAllOrderByIdAsc" resultType="com.drama.entity.TikTokAccount">
+    SELECT * FROM tiktok_accounts ORDER BY id ASC
+  </select>
+
+  <update id="updateById" parameterType="com.drama.entity.TikTokAccount">
+    UPDATE tiktok_accounts
+    SET advertiser_name = #{advertiserName},
+        access_token = #{accessToken},
+        refresh_token = #{refreshToken},
+        token_expires_at = #{tokenExpiresAt},
+        currency = #{currency},
+        timezone = #{timezone},
+        balance = COALESCE(#{balance}, balance),
+        status = #{status},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateBalance">
+    UPDATE tiktok_accounts SET balance = #{balance}, updated_at = CURRENT_TIMESTAMP
+    WHERE advertiser_id = #{advertiserId}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_accounts WHERE id = #{id}
+  </delete>
+
+  <delete id="deleteByAdvertiserId">
+    DELETE FROM tiktok_accounts WHERE advertiser_id = #{advertiserId}
+  </delete>
+</mapper>

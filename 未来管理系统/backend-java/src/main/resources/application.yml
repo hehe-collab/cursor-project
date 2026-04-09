@@ -54,3 +54,40 @@ drama:
   pixel:
     meta-graph-version: ${META_GRAPH_VERSION:v21.0}
     http-timeout-ms: ${PIXEL_HTTP_TIMEOUT_MS:10000}
+
+  # TikTok Marketing API v1.3（https://business-api.tiktok.com/portal/docs/about-the-guide/v1.3）
+  # 真实同步：mock-enabled=false 且配置广告主 Token + ID；密钥勿提交，用环境变量。
+  tiktok:
+    mock-enabled: ${TIKTOK_MOCK_ENABLED:true}
+    fallback-mock-on-error: ${TIKTOK_FALLBACK_MOCK_ON_ERROR:false}
+    base-url: ${TIKTOK_API_BASE_URL:https://business-api.tiktok.com/open_api/v1.3}
+    app-id: ${TIKTOK_APP_ID:}
+    app-secret: ${TIKTOK_APP_SECRET:}
+    redirect-uri: ${TIKTOK_REDIRECT_URI:http://localhost:3001/api/tiktok/oauth/callback}
+    advertiser-access-token: ${TIKTOK_ADVERTISER_ACCESS_TOKEN:}
+    advertiser-id: ${TIKTOK_ADVERTISER_ID:}
+    http-timeout-ms: ${TIKTOK_HTTP_TIMEOUT_MS:30000}
+    report-type: ${TIKTOK_REPORT_TYPE:BASIC}
+    service-type: ${TIKTOK_SERVICE_TYPE:AUCTION}
+    data-level: ${TIKTOK_DATA_LEVEL:AUCTION_CAMPAIGN}
+    report-page-size: ${TIKTOK_REPORT_PAGE_SIZE:1000}
+
+# TikTok Open API 统一客户端 / OAuth URL（指令 #095-5，与 drama.tiktok 并存；凭证复用 TIKTOK_APP_ID 等）
+tiktok:
+  api:
+    app-id: ${TIKTOK_APP_ID:your_app_id}
+    app-secret: ${TIKTOK_APP_SECRET:your_app_secret}
+    base-url: ${TIKTOK_PUBLIC_BASE_URL:https://business-api.tiktok.com}
+    version: ${TIKTOK_OPEN_API_VERSION:v1.3}
+    timeout: ${TIKTOK_API_CLIENT_TIMEOUT_MS:30000}
+    enabled: ${TIKTOK_API_CLIENT_ENABLED:true}
+    debug: ${TIKTOK_API_CLIENT_DEBUG:false}
+    token-refresh-advance-minutes: ${TIKTOK_TOKEN_REFRESH_ADVANCE_MINUTES:5}
+    max-retries: ${TIKTOK_API_MAX_RETRIES:3}
+    retry-interval: ${TIKTOK_API_RETRY_INTERVAL_MS:1000}
+  oauth:
+    auth-url: ${TIKTOK_OAUTH_AUTH_URL:https://business-api.tiktok.com/portal/auth}
+    token-url: ${TIKTOK_OAUTH_TOKEN_URL:https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/}
+    refresh-token-url: ${TIKTOK_OAUTH_REFRESH_TOKEN_URL:https://business-api.tiktok.com/open_api/v1.3/oauth2/refresh_token/}
+    redirect-uri: ${TIKTOK_OAUTH_REDIRECT_URI:${TIKTOK_REDIRECT_URI:http://localhost:3001/api/tiktok/oauth/callback}}
+    scope: ${TIKTOK_OAUTH_SCOPE:user.info.basic,ad.management,reporting}

@@ -90,7 +90,7 @@ public class PromotionDetailsController {
 
     @PostMapping("/sync")
     public Result<Void> sync() {
-        promotionTiktokSyncService.runMockSyncAll();
+        promotionTiktokSyncService.runSyncAll();
         return Result.success(null);
     }
 

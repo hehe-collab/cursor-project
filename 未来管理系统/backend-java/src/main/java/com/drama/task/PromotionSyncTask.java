@@ -20,7 +20,7 @@ public class PromotionSyncTask {
     @Scheduled(cron = "${app.promotion.tiktok-sync-cron}")
     public void syncTikTokData() {
         try {
-            promotionTiktokSyncService.runMockSyncAll();
+            promotionTiktokSyncService.runSyncAll();
         } catch (Exception e) {
             log.error("TikTok sync failed", e);
         }

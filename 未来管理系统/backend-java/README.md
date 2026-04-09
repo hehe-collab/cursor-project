@@ -48,6 +48,79 @@
 - Maven 3.9+
 - MySQL 8/9，数据库 `drama_system`
 
+### TikTok Marketing API（v1.3，推广明细消耗同步）
+
+官方指南：[About the guide v1.3](https://business-api.tiktok.com/portal/docs/about-the-guide/v1.3)。  
+实现说明：`PromotionTiktokSyncService` 在 **`drama.tiktok.mock-enabled=false`** 且已配置广告主凭证时，调用 **`GET /open_api/v1.3/report/integrated/get/`**（与 [ReportingApi / reportIntegratedGet](https://github.com/tiktok/tiktok-business-api-sdk/blob/main/js_sdk/docs/ReportingApi.md) 一致），将 **AUCTION_CAMPAIGN** 粒度的 `spend` / `impressions` 写入 **`tiktok_cost_records`**，并通过 **campaign_name 包含本地 `promotion_links.promote_id`** 与推广关联。
+
+| 环境变量 | 说明 |
+|----------|------|
+| `TIKTOK_MOCK_ENABLED` | 默认 `true`；设为 `false` 才请求真实 TikTok |
+| `TIKTOK_ADVERTISER_ACCESS_TOKEN` | （兼容旧版）单广告主 **Access-Token**；若库中存在 **`tiktok_accounts` status=active**，优先用库内多账户 |
+| `TIKTOK_ADVERTISER_ID` | （兼容旧版）单广告主 **advertiser_id** |
+| `TIKTOK_APP_ID` / `TIKTOK_APP_SECRET` | OAuth 换票/刷新（**`TikTokOAuthService`**） |
+| `TIKTOK_REDIRECT_URI` | 默认 `http://localhost:3001/api/tiktok/oauth/callback`，须与 TikTok 应用后台一致 |
+| `TIKTOK_FALLBACK_MOCK_ON_ERROR` | 真实请求异常时是否回退 Mock（默认 `false`） |
+| `TIKTOK_API_BASE_URL` | 可选，默认 `https://business-api.tiktok.com/open_api/v1.3` |
+
+**TikTok 核心 DDL（指令 #095-1）**
+
+- 推荐：`bash scripts/import-tiktok-core-schema.sh`（或 `mysql … drama_system < src/main/resources/sql/schema-tiktok-core.sql`）  
+- 将创建 **`tiktok_accounts`**（含 **`balance`**）、**`tiktok_campaigns`**、**`tiktok_adgroups`**、**`tiktok_ads`** 及外键。  
+- 若此前仅执行过 **`tiktok-accounts.sql`**，请按 **`schema-tiktok-core.sql`** 文件头注释为 **`tiktok_accounts`** 补齐 **`balance`**，再导入本文件（避免 `CREATE TABLE IF NOT EXISTS` 跳过导致缺列）。
+
+**TikTok 扩展 DDL（指令 #095-2）**
+
+- 在核心表之后执行：`bash scripts/import-tiktok-extended-schema.sh`（或 `mysql … drama_system < src/main/resources/sql/schema-tiktok-extended.sql`）  
+- 将创建 **`tiktok_pixels`**、**`tiktok_conversion_logs`**（**`pixel_id` 可空**，支持 Pixel 删除时 **ON DELETE SET NULL**）、**`tiktok_reports`**（唯一键 **`uk_tiktok_reports_dim`**）。
+
+**TikTok 任务 / 导入 / 同步日志 DDL（指令 #095-3）**
+
+- 在 **`tiktok_accounts` 已存在** 的前提下：`bash scripts/import-tiktok-tasks-schema.sh`（或 `mysql … drama_system < src/main/resources/sql/schema-tiktok-tasks.sql`）  
+- 将创建 **`tiktok_ad_tasks`**（JSON **`task_params`/`result_data`**、重试与优先级）、**`tiktok_excel_imports`**（**`error_logs`** JSON）、**`tiktok_sync_logs`**（**`advertiser_id` 可空**、**`request_params`/`response_data`** JSON）。  
+
+**Java 实体与 Mapper（指令 #095-4）**
+
+- **Entity**：**`TikTokAccount`**（含 **`balance`**；无 **`adminId`** 列）、**`TikTokCampaign`**（**`operationStatus`**）、**`TikTokAdGroup`**、**`TikTokAd`**、**`TikTokPixel`**、**`TikTokConversionLog`**、**`TikTokReport`**、**`TikTokAdTask`**、**`TikTokExcelImport`**、**`TikTokSyncLog`**（JSON 列用 **`String`**）。  
+- **Mapper**：上述实体对应 **`com.drama.mapper.*` + `resources/mapper/*.xml`**；**`TikTokAccountMapper`** 保留 **`upsert` / `updateTokens`**（OAuth 仍用）。  
+
+**配置与 API 客户端（指令 #095-5）**
+
+- **`tiktok.api.*`**：**`TikTokConfig`**（拼 **`getFullApiUrl`”、超时、重试、调试开关）；**`TikTokHttpClientConfiguration`** 注册带超时的 **`RestTemplate`**。  
+- **`tiktok.oauth.*`**：**`TikTokOAuthConfig`**（授权页 / token / refresh URL、**`redirect-uri`**、**`scope`**，**`getAuthorizationUrl`** 做参数编码）。  
+- **DTO**：**`TikTokOAuthCallbackDTO`**、**`TikTokTokenResponseDTO`**、**`TikTokApiResponseDTO<T>`**（泛型表示 TikTok 外层响应的 `data`）。  
+- **工具**：**`TikTokApiClient`**（GET/POST/PUT/DELETE、写入 **`tiktok_sync_logs`**）；**`TikTokSignatureUtil`**（HMAC-SHA256 / MD5）；**`TikTokTokenRefreshUtil`**（按可配置提前分钟刷新，**内部委托**既有 **`TikTokOAuthService.refreshAccessToken`**，与 **`drama.tiktok`** 一致）。  
+- **环境变量示例**：**`backend-java/.env.example`**；**`mvn test`** 含 **`TikTokConfigTest`**、切片 **`TikTokApiClientTest`**。
+
+**Service 层（指令 #095-6）**
+
+- **`TikTokAccountService`**：列表/详情/按状态、**`upsert`**、**`updateById`**、**`updateTokens`（组装 `TikTokAccount`）**、余额、删、**`getValidAccessToken`**。  
+- **`TikTokCampaignService` / `TikTokAdGroupService` / `TikTokAdService`**：本地查询 + **同步/创建/改状态/删**（**`TikTokApiClient`**）；**`updateOperationStatus`** 与表字段 **`operation_status`** 一致。  
+- **`TikTokPixelService`**：**`syncPixelsFromTikTok`**（**`pixel/list/`**，兼容响应 **`list` 或 `pixels`**）。  
+- **`TikTokConversionService`** / **`TikTokAdTaskService`** / **`TikTokExcelImportService`**：围绕各自 Mapper 的读写与分页。  
+- **`TikTokReportService`**：**`syncAuctionCampaignDayFromTikTok`** 委托 **`TikTokIntegratedReportClient`**，**`batchUpsert`** 至 **`tiktok_reports`**（**`dimensions=campaign`**）。  
+- **Mapper 增补**：**`selectAll`**（**campaigns、adgroups、pixels**）、**`selectAll` + `selectByCampaignId`**（**ads**）。  
+- **#095-6（续）**：**`TikTokPixelService`** 支持 **`getPixels(null)` → 全表**、**`createPixel`**、**`updatePixel`**；**`TikTokConversionService`** **`sendConversionEvent` / `retryFailedConversions`**（**`event/track/`** 路径需按官方文档校准）；**`TikTokReportService`** **`getReports` / `syncReportsFromTikTok`**（区间内按天 **`syncAuctionCampaignDayFromTikTok`**）；**`TikTokAdTaskService`** **`processPendingTasks` + `executeTask`**；**`TikTokExcelImportService`** **`uploadAndProcess`（POI `.xlsx`、目录 `${app.upload-dir}/tiktok/excel`）**。依赖已含 **`poi-ooxml`**，无需重复声明 **`poi`**。
+
+**REST Controller（指令 #095-7，步骤 1～5）**
+
+- **`@RequiredArgsConstructor` + `final`** 注入；统一 **`Result.success` / `Result.error`**；除 **`TikTokOAuthController`** 已约定的 **`/callback`** 外，其余走 **`JwtAuthenticationFilter`** 的 Bearer 规则。
+- **路径**：**`/api/tiktok/accounts`**（**`GET` 可选 `status`**；**`GET /{id:\\d+}`** 等避免与字符串业务 ID 路径冲突）、**`/api/tiktok/campaigns`**（**`POST /sync`** body **`advertiser_id`**；**`PUT /{campaignId}/status`** body **`status`**）、**`/api/tiktok/adgroups`**、**`/api/tiktok/ads`**、**`/api/tiktok/pixels`**。
+- **Pixel 删除**：**`DELETE /api/tiktok/pixels/pixel/{pixelId}`**（TikTok **`pixel_id`**），避免与 **`GET /api/tiktok/pixels/{id}`**（库主键）同段路径混淆。
+- **#095-7（续）**：**`/api/tiktok/conversions`**（列表、**`GET /event/{eventId}`**、发送、**`POST /retry`**、**`GET /stats`**）；**`/api/tiktok/reports`**（查询、**`POST /sync`**、**`GET /summary`**）；**`/api/tiktok/tasks`**（**`POST /process`**）；**`/api/tiktok/excel-imports`**（**`multipart` 上传**、**`GET /template`** 下载 classpath 模板，若无文件则 **404**）。列表分页的 **`total`** 与当前 Service 一致（本页条数）；**`TikTokExcelImportController`** 的 **`createdBy`** 来自 **`@RequestAttribute adminId`** + **`AdminMapper`**（与 **`JwtAuthenticationFilter`** 一致），非 Spring **`Authentication`**。
+- **`TikTokOAuthController`** 已存在（**`/api/tiktok/oauth`**），勿重复新建。
+
+**OAuth 与多广告主（指令 #096）**
+
+1. 建表：新环境用上面 **#095-1**；仅需最小 OAuth 表时可：`mysql -u root -p drama_system < src/main/resources/sql/tiktok-accounts.sql`  
+2. 配置 `TIKTOK_APP_ID`、`TIKTOK_APP_SECRET`、`TIKTOK_REDIRECT_URI`，关闭 Mock。  
+3. 已登录管理员请求 **`GET /api/tiktok/oauth/authorize-url?state=任意`**，浏览器打开返回的 URL 完成授权。  
+4. TikTok 回跳 **`GET /api/tiktok/oauth/callback?auth_code=...`**（**免 JWT**，已在 **`JwtAuthenticationFilter`** 放行）。  
+5. 定时/手动同步会遍历 **`tiktok_accounts` 中 `status=active`** 的账户；拉报表前若 Access Token 距过期不足约 1 小时会尝试 **`POST .../oauth2/refresh_token/`** 刷新。  
+6. 手动刷新：**`POST /api/tiktok/oauth/refresh?advertiser_id=...`**（需 Bearer）。
+
+入口不变：`POST /api/promotion-details/sync` 与定时任务 **`app.promotion.tiktok-sync-cron`**（见 `application.yml`）。
+
 ### macOS：终端里 `java` / `mvn` 找不到，或运行成了 Java 23
 
 Homebrew 安装的 JDK 往往不在默认 PATH；请先 **固定 JAVA_HOME 为 JDK 17**，再执行 Maven：

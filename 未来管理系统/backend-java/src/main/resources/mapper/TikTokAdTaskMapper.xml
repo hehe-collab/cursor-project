@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokAdTaskMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.TikTokAdTask" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO tiktok_ad_tasks (
+      advertiser_id, task_type, task_name, task_params, target_id, status, result_id, result_data,
+      error_message, retry_count, max_retries, priority,
+      scheduled_at, started_at, completed_at, created_by
+    ) VALUES (
+      #{advertiserId}, #{taskType}, #{taskName}, #{taskParams}, #{targetId},
+      COALESCE(#{status}, 'pending'), #{resultId}, #{resultData},
+      #{errorMessage}, COALESCE(#{retryCount}, 0), COALESCE(#{maxRetries}, 3), COALESCE(#{priority}, 0),
+      #{scheduledAt}, #{startedAt}, #{completedAt}, #{createdBy}
+    )
+  </insert>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokAdTask">
+    SELECT * FROM tiktok_ad_tasks WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectPendingTasks" resultType="com.drama.entity.TikTokAdTask">
+    SELECT * FROM tiktok_ad_tasks
+    WHERE status = 'pending'
+      AND (scheduled_at IS NULL OR scheduled_at &lt;= NOW())
+    ORDER BY priority DESC, scheduled_at ASC, created_at ASC
+    LIMIT #{limit}
+  </select>
+
+  <select id="selectByAdvertiserId" resultType="com.drama.entity.TikTokAdTask">
+    SELECT * FROM tiktok_ad_tasks
+    WHERE advertiser_id = #{advertiserId}
+    ORDER BY created_at DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectByStatus" resultType="com.drama.entity.TikTokAdTask">
+    SELECT * FROM tiktok_ad_tasks
+    WHERE status = #{status}
+    ORDER BY created_at DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <update id="update" parameterType="com.drama.entity.TikTokAdTask">
+    UPDATE tiktok_ad_tasks
+    SET status = #{status},
+        result_id = #{resultId},
+        result_data = #{resultData},
+        error_message = #{errorMessage},
+        retry_count = #{retryCount},
+        started_at = #{startedAt},
+        completed_at = #{completedAt},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateStatus">
+    UPDATE tiktok_ad_tasks SET status = #{status}, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_ad_tasks WHERE id = #{id}
+  </delete>
+
+  <select id="countByAdvertiserIdAndStatus" resultType="int">
+    SELECT COUNT(*) FROM tiktok_ad_tasks
+    WHERE advertiser_id = #{advertiserId} AND status = #{status}
+  </select>
+</mapper>

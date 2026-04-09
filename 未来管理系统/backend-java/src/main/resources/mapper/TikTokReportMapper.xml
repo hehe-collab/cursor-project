@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokReportMapper">
+
+  <insert id="upsert" parameterType="com.drama.entity.TikTokReport">
+    INSERT INTO tiktok_reports (
+      advertiser_id, dimensions, dimension_id, stat_date,
+      spend, impressions, clicks, ctr, cpc, cpm,
+      conversions, conversion_rate, cost_per_conversion, conversion_value, roi
+    ) VALUES (
+      #{advertiserId}, #{dimensions}, #{dimensionId}, #{statDate},
+      #{spend}, #{impressions}, #{clicks}, #{ctr}, #{cpc}, #{cpm},
+      #{conversions}, #{conversionRate}, #{costPerConversion}, #{conversionValue}, #{roi}
+    )
+    ON DUPLICATE KEY UPDATE
+      spend = VALUES(spend),
+      impressions = VALUES(impressions),
+      clicks = VALUES(clicks),
+      ctr = VALUES(ctr),
+      cpc = VALUES(cpc),
+      cpm = VALUES(cpm),
+      conversions = VALUES(conversions),
+      conversion_rate = VALUES(conversion_rate),
+      cost_per_conversion = VALUES(cost_per_conversion),
+      conversion_value = VALUES(conversion_value),
+      roi = VALUES(roi),
+      updated_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokReport">
+    SELECT * FROM tiktok_reports WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectByUniqueKey" resultType="com.drama.entity.TikTokReport">
+    SELECT * FROM tiktok_reports
+    WHERE advertiser_id = #{advertiserId}
+      AND dimensions = #{dimensions}
+      AND dimension_id = #{dimensionId}
+      AND stat_date = #{statDate}
+    LIMIT 1
+  </select>
+
+  <select id="selectByAdvertiserAndDateRange" resultType="com.drama.entity.TikTokReport">
+    SELECT * FROM tiktok_reports
+    WHERE advertiser_id = #{advertiserId}
+      AND stat_date BETWEEN #{startDate} AND #{endDate}
+    ORDER BY stat_date DESC, dimensions, dimension_id
+  </select>
+
+  <select id="selectByAdvertiserDimensionsAndDateRange" resultType="com.drama.entity.TikTokReport">
+    SELECT * FROM tiktok_reports
+    WHERE advertiser_id = #{advertiserId}
+      AND dimensions = #{dimensions}
+      AND stat_date BETWEEN #{startDate} AND #{endDate}
+    ORDER BY stat_date DESC, dimension_id
+  </select>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_reports WHERE id = #{id}
+  </delete>
+
+  <insert id="batchUpsert">
+    INSERT INTO tiktok_reports (
+      advertiser_id, dimensions, dimension_id, stat_date,
+      spend, impressions, clicks, ctr, cpc, cpm,
+      conversions, conversion_rate, cost_per_conversion, conversion_value, roi
+    ) VALUES
+    <foreach collection="list" item="item" separator=",">
+      (#{item.advertiserId}, #{item.dimensions}, #{item.dimensionId}, #{item.statDate},
+       #{item.spend}, #{item.impressions}, #{item.clicks}, #{item.ctr}, #{item.cpc}, #{item.cpm},
+       #{item.conversions}, #{item.conversionRate}, #{item.costPerConversion},
+       #{item.conversionValue}, #{item.roi})
+    </foreach>
+    ON DUPLICATE KEY UPDATE
+      spend = VALUES(spend),
+      impressions = VALUES(impressions),
+      clicks = VALUES(clicks),
+      ctr = VALUES(ctr),
+      cpc = VALUES(cpc),
+      cpm = VALUES(cpm),
+      conversions = VALUES(conversions),
+      conversion_rate = VALUES(conversion_rate),
+      cost_per_conversion = VALUES(cost_per_conversion),
+      conversion_value = VALUES(conversion_value),
+      roi = VALUES(roi),
+      updated_at = CURRENT_TIMESTAMP
+  </insert>
+</mapper>

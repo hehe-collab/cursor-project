@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokConversionLogMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.TikTokConversionLog" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO tiktok_conversion_logs (
+      advertiser_id, pixel_id, event_type, event_id, user_id, click_id, external_id,
+      event_value, currency, content_type, content_id,
+      status, response_code, response_message, retry_count, event_time
+    ) VALUES (
+      #{advertiserId}, #{pixelId}, #{eventType}, #{eventId}, #{userId}, #{clickId}, #{externalId},
+      #{eventValue}, COALESCE(#{currency}, 'USD'), #{contentType}, #{contentId},
+      COALESCE(#{status}, 'pending'), #{responseCode}, #{responseMessage},
+      COALESCE(#{retryCount}, 0), #{eventTime}
+    )
+  </insert>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokConversionLog">
+    SELECT * FROM tiktok_conversion_logs WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectByEventId" resultType="com.drama.entity.TikTokConversionLog">
+    SELECT * FROM tiktok_conversion_logs WHERE event_id = #{eventId} LIMIT 1
+  </select>
+
+  <select id="selectByAdvertiserId" resultType="com.drama.entity.TikTokConversionLog">
+    SELECT * FROM tiktok_conversion_logs
+    WHERE advertiser_id = #{advertiserId}
+    ORDER BY event_time DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectPendingRetry" resultType="com.drama.entity.TikTokConversionLog">
+    SELECT * FROM tiktok_conversion_logs
+    WHERE status = 'failed' AND retry_count &lt; 3
+    ORDER BY created_at ASC
+    LIMIT #{limit}
+  </select>
+
+  <update id="update" parameterType="com.drama.entity.TikTokConversionLog">
+    UPDATE tiktok_conversion_logs
+    SET status = #{status},
+        response_code = #{responseCode},
+        response_message = #{responseMessage},
+        retry_count = #{retryCount},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_conversion_logs WHERE id = #{id}
+  </delete>
+
+  <select id="countSuccessByAdvertiserAndEventType" resultType="int">
+    SELECT COUNT(*) FROM tiktok_conversion_logs
+    WHERE advertiser_id = #{advertiserId} AND event_type = #{eventType} AND status = 'success'
+  </select>
+</mapper>

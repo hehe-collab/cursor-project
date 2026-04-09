@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.TikTokSyncLogMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.TikTokSyncLog" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO tiktok_sync_logs (
+      advertiser_id, sync_type, api_endpoint, request_method,
+      request_params, response_code, response_data, status, error_message, duration_ms, executed_at
+    ) VALUES (
+      #{advertiserId}, #{syncType}, #{apiEndpoint}, COALESCE(#{requestMethod}, 'GET'),
+      #{requestParams}, #{responseCode}, #{responseData},
+      COALESCE(#{status}, 'success'), #{errorMessage}, #{durationMs},
+      COALESCE(#{executedAt}, NOW())
+    )
+  </insert>
+
+  <select id="selectById" resultType="com.drama.entity.TikTokSyncLog">
+    SELECT * FROM tiktok_sync_logs WHERE id = #{id} LIMIT 1
+  </select>
+
+  <select id="selectByAdvertiserId" resultType="com.drama.entity.TikTokSyncLog">
+    SELECT * FROM tiktok_sync_logs
+    WHERE advertiser_id = #{advertiserId}
+    ORDER BY executed_at DESC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectRecentFailed" resultType="com.drama.entity.TikTokSyncLog">
+    SELECT * FROM tiktok_sync_logs
+    WHERE status = 'failed'
+    ORDER BY executed_at DESC
+    LIMIT #{limit}
+  </select>
+
+  <delete id="deleteOlderThan">
+    DELETE FROM tiktok_sync_logs
+    WHERE created_at &lt; #{cutoff}
+      <choose>
+        <when test="successOnly">
+          AND status = 'success'
+        </when>
+        <otherwise>
+          AND status = 'failed'
+        </otherwise>
+      </choose>
+  </delete>
+
+  <delete id="deleteById">
+    DELETE FROM tiktok_sync_logs WHERE id = #{id}
+  </delete>
+</mapper>
