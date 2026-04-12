@@ -1,9 +1,11 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.Data;
 
 /** 剧集（表 drama_episodes） */
+@Schema(description = "短剧剧集")
 @Data
 public class DramaEpisode {
     private Integer id;

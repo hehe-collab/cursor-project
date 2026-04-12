@@ -66,10 +66,11 @@ CALL add_perf_index('recharge_records', 'idx_perf_rr_paystat_created', '`payment
 CALL add_perf_index('recharge_records', 'idx_perf_rr_country', '`country`');
 
 -- ---------------------------------------------------------------------------
--- 5. recharge_plans（已有 idx_rp_status、idx_rp_pay；无 sort_order 列，不建 Monica 稿中 sort 索引）
+-- 5. recharge_plans（该表已在 schema.sql 中 DROP，由 recharge_plan_groups / recharge_plan_group_plans 替代，无需建索引）
 -- ---------------------------------------------------------------------------
-CALL add_perf_index('recharge_plans', 'idx_perf_rp_created_at', '`created_at`');
-CALL add_perf_index('recharge_plans', 'idx_perf_rp_name', '`name`(100)');
+-- 以下 CALL 已由存储过程幂等跳过，不会报错，保留仅供参考
+-- CALL add_perf_index('recharge_plans', 'idx_perf_rp_created_at', '`created_at`');
+-- CALL add_perf_index('recharge_plans', 'idx_perf_rp_name', '`name`(100)');
 
 -- ---------------------------------------------------------------------------
 -- 6. promotion_links（已有 uk_pl_promote_id、idx_pl_drama、idx_pl_plan_group）

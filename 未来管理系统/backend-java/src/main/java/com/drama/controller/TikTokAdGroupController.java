@@ -3,6 +3,9 @@ package com.drama.controller;
 import com.drama.common.Result;
 import com.drama.entity.TikTokAdGroup;
 import com.drama.service.TikTokAdGroupService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "TikTok广告组", description = "广告组的同步与 CRUD")
 @Slf4j
 @RestController
 @RequestMapping("/api/tiktok/adgroups")
@@ -25,10 +29,11 @@ public class TikTokAdGroupController {
 
     private final TikTokAdGroupService adGroupService;
 
+    @Operation(summary = "获取广告组列表", description = "获取TikTok广告组列表")
     @GetMapping
     public Result<List<TikTokAdGroup>> getAdGroups(
-            @RequestParam(required = false) String advertiserId,
-            @RequestParam(required = false) String campaignId) {
+            @Parameter(description = "广告主ID") @RequestParam(required = false) String advertiserId,
+            @Parameter(description = "广告系列ID") @RequestParam(required = false) String campaignId) {
         try {
             return Result.success(adGroupService.getAdGroups(advertiserId, campaignId));
         } catch (Exception e) {
@@ -37,6 +42,7 @@ public class TikTokAdGroupController {
         }
     }
 
+    @Operation(summary = "获取广告组详情", description = "根据ID获取广告组详细信息")
     @GetMapping("/{id:\\d+}")
     public Result<TikTokAdGroup> getAdGroupById(@PathVariable Long id) {
         try {
@@ -47,6 +53,7 @@ public class TikTokAdGroupController {
         }
     }
 
+    @Operation(summary = "根据广告组ID获取详情", description = "根据TikTok广告组ID获取详细信息")
     @GetMapping("/adgroup/{adgroupId}")
     public Result<TikTokAdGroup> getAdGroupByAdgroupId(@PathVariable String adgroupId) {
         try {
@@ -57,6 +64,7 @@ public class TikTokAdGroupController {
         }
     }
 
+    @Operation(summary = "同步广告组", description = "从TikTok同步广告组到本地")
     @PostMapping("/sync")
     public Result<List<TikTokAdGroup>> syncAdGroups(@RequestBody Map<String, String> params) {
         try {
@@ -72,6 +80,7 @@ public class TikTokAdGroupController {
         }
     }
 
+    @Operation(summary = "创建广告组", description = "创建一个新的TikTok广告组")
     @PostMapping
     public Result<TikTokAdGroup> createAdGroup(@RequestBody TikTokAdGroup adGroup) {
         try {
@@ -82,6 +91,7 @@ public class TikTokAdGroupController {
         }
     }
 
+    @Operation(summary = "更新广告组状态", description = "更新指定广告组的启用状态")
     @PutMapping("/{adgroupId}/status")
     public Result<TikTokAdGroup> updateAdGroupStatus(
             @PathVariable String adgroupId, @RequestBody Map<String, String> params) {
@@ -97,6 +107,7 @@ public class TikTokAdGroupController {
         }
     }
 
+    @Operation(summary = "删除广告组", description = "删除指定的广告组")
     @DeleteMapping("/{adgroupId}")
     public Result<Void> deleteAdGroup(@PathVariable String adgroupId) {
         try {

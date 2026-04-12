@@ -378,5 +378,8 @@ public class PromotionTiktokSyncService {
         if (s.getImpressions() == null) {
             s.setImpressions(0L);
         }
+        if (s.getUserCount() == null) {
+            s.setUserCount(0);
+        }
     }
 }

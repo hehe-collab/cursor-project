@@ -1,7 +1,11 @@
 package com.drama.controller;
 
+import com.drama.annotation.RateLimit;
 import com.drama.common.Result;
 import com.drama.service.DashboardService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "数据看板", description = "数据概览、趋势图表、推广明细")
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
@@ -21,37 +26,42 @@ public class DashboardController {
      * 数据概览：须与 {@code Dashboard.vue} 图表字段一致（含 {@code chart_data}、{@code recharge_status_dist}）。
      * 未传 {@code start_date}/{@code end_date} 时默认近 7 天。固定路径须在裸 {@code @GetMapping} 之前。
      */
+    @Operation(summary = "获取数据概览", description = "获取数据概览统计信息，默认近7天")
     @GetMapping("/stats")
+    @RateLimit(key = "dashboard:stats", max = 50, timeout = 1, limitType = RateLimit.LimitType.GLOBAL)
     public Result<Map<String, Object>> stats(
-            @RequestParam(value = "start_date", required = false) String startDate,
-            @RequestParam(value = "end_date", required = false) String endDate) {
+            @Parameter(description = "开始日期") @RequestParam(value = "start_date", required = false) String startDate,
+            @Parameter(description = "结束日期") @RequestParam(value = "end_date", required = false) String endDate) {
         LocalDate[] r = parseRangeOrDefault7(startDate, endDate);
         return Result.success(dashboardService.stats(r[0], r[1]));
     }
 
     /** 按日趋势：{@code user} | {@code recharge} | {@code view}；{@code days} 默认 7、最大 366。 */
+    @Operation(summary = "获取趋势数据", description = "获取用户/充值/观看趋势数据")
     @GetMapping("/trends")
     public Result<Map<String, Object>> trends(
-            @RequestParam(defaultValue = "user") String type, @RequestParam(required = false) Integer days) {
+            @Parameter(description = "趋势类型：user/recharge/view") @RequestParam(defaultValue = "user") String type,
+            @Parameter(description = "天数") @RequestParam(required = false) Integer days) {
         return Result.success(dashboardService.trends(type, days));
     }
 
     /**
      * 推广明细分页（演示数据）。筛选参数均为可选，组合过滤。
      */
+    @Operation(summary = "获取推广明细", description = "获取推广明细列表，支持多条件筛选")
     @GetMapping("/promotion-details")
     public Result<Map<String, Object>> promotionDetails(
-            @RequestParam(required = false) String start_date,
-            @RequestParam(required = false) String end_date,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize,
-            @RequestParam(required = false) String promotion_id,
-            @RequestParam(required = false) String promotion_name,
-            @RequestParam(required = false) String drama_id,
-            @RequestParam(required = false) String drama_name,
-            @RequestParam(required = false) String account,
-            @RequestParam(required = false) String media,
-            @RequestParam(required = false) String country) {
+            @Parameter(description = "开始日期") @RequestParam(required = false) String start_date,
+            @Parameter(description = "结束日期") @RequestParam(required = false) String end_date,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int pageSize,
+            @Parameter(description = "推广ID") @RequestParam(required = false) String promotion_id,
+            @Parameter(description = "推广名称") @RequestParam(required = false) String promotion_name,
+            @Parameter(description = "短剧ID") @RequestParam(required = false) String drama_id,
+            @Parameter(description = "短剧名称") @RequestParam(required = false) String drama_name,
+            @Parameter(description = "账户") @RequestParam(required = false) String account,
+            @Parameter(description = "媒体平台") @RequestParam(required = false) String media,
+            @Parameter(description = "国家") @RequestParam(required = false) String country) {
         LocalDate start = null;
         LocalDate end = null;
         if (start_date != null && !start_date.isBlank()) {
@@ -78,10 +88,11 @@ public class DashboardController {
     /**
      * 与 {@link #stats} 相同聚合；未传日期时默认近 7 天（含今天），便于 {@code curl} 与指令验收。
      */
+    @Operation(summary = "获取数据摘要", description = "获取数据摘要统计信息，默认近7天")
     @GetMapping
     public Result<Map<String, Object>> summary(
-            @RequestParam(value = "start_date", required = false) String startDate,
-            @RequestParam(value = "end_date", required = false) String endDate) {
+            @Parameter(description = "开始日期") @RequestParam(value = "start_date", required = false) String startDate,
+            @Parameter(description = "结束日期") @RequestParam(value = "end_date", required = false) String endDate) {
         LocalDate[] r = parseRangeOrDefault7(startDate, endDate);
         return Result.success(dashboardService.stats(r[0], r[1]));
     }

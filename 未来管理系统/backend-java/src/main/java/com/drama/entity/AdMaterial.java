@@ -1,8 +1,10 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.Data;
 
+@Schema(description = "广告素材")
 @Data
 public class AdMaterial {
 

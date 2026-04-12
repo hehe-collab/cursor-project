@@ -59,4 +59,8 @@
   <select id="countByAdvertiserId" resultType="int">
     SELECT COUNT(*) FROM tiktok_excel_imports WHERE advertiser_id = #{advertiserId}
   </select>
+
+  <select id="countAll" resultType="int">
+    SELECT COUNT(*) FROM tiktok_excel_imports
+  </select>
 </mapper>

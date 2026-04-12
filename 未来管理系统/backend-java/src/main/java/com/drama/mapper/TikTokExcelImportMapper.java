@@ -25,4 +25,6 @@ public interface TikTokExcelImportMapper {
     int deleteById(@Param("id") Long id);
 
     int countByAdvertiserId(@Param("advertiserId") String advertiserId);
+
+    int countAll();
 }

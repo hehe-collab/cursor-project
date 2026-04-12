@@ -1,13 +1,18 @@
 package com.drama.controller;
 
+import com.drama.annotation.RateLimit;
 import com.drama.common.Result;
 import com.drama.dto.*;
 import com.drama.service.PromotionDetailsService;
 import com.drama.service.PromotionTiktokSyncService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "推广明细", description = "推广明细列表与利润图表")
 @RestController
 @RequestMapping("/api/promotion-details")
 @RequiredArgsConstructor
@@ -17,19 +22,20 @@ public class PromotionDetailsController {
     private final PromotionTiktokSyncService promotionTiktokSyncService;
 
     /** 列表：蛇形 query 与 #079 说明一致 */
+    @Operation(summary = "获取推广明细列表", description = "获取推广明细列表，支持多条件筛选和分页")
     @GetMapping
     public Result<PromotionDetailsResponseDTO> list(
-            @RequestParam(required = false) String start_date,
-            @RequestParam(required = false) String end_date,
-            @RequestParam(required = false) String promotion_id,
-            @RequestParam(required = false) String promotion_name,
-            @RequestParam(required = false) String platform,
-            @RequestParam(required = false) String drama_id,
-            @RequestParam(required = false) String drama_name,
-            @RequestParam(required = false) String country,
-            @RequestParam(required = false) String account_id,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int page_size) {
+            @Parameter(description = "开始日期") @RequestParam(required = false) String start_date,
+            @Parameter(description = "结束日期") @RequestParam(required = false) String end_date,
+            @Parameter(description = "推广ID") @RequestParam(required = false) String promotion_id,
+            @Parameter(description = "推广名称") @RequestParam(required = false) String promotion_name,
+            @Parameter(description = "平台") @RequestParam(required = false) String platform,
+            @Parameter(description = "短剧ID") @RequestParam(required = false) String drama_id,
+            @Parameter(description = "短剧名称") @RequestParam(required = false) String drama_name,
+            @Parameter(description = "国家") @RequestParam(required = false) String country,
+            @Parameter(description = "账户ID") @RequestParam(required = false) String account_id,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int page_size) {
         PromotionDetailsQueryDTO q = new PromotionDetailsQueryDTO();
         q.setStartDate(parseDate(start_date));
         q.setEndDate(parseDate(end_date));
@@ -48,18 +54,19 @@ public class PromotionDetailsController {
     /**
      * #086：列表筛选条件下全部推广的汇总利润图（须放在 /{promotionId}/profit-chart 之前避免路径歧义）。
      */
+    @Operation(summary = "获取全部推广利润图表", description = "获取筛选条件下所有推广的汇总利润图表")
     @GetMapping("/profit-chart-all")
     public Result<ProfitChartDataDTO> profitChartAll(
-            @RequestParam(required = false) String start_date,
-            @RequestParam(required = false) String end_date,
-            @RequestParam(defaultValue = "hour") String granularity,
-            @RequestParam(required = false) String promotion_id,
-            @RequestParam(required = false) String promotion_name,
-            @RequestParam(required = false) String platform,
-            @RequestParam(required = false) String drama_id,
-            @RequestParam(required = false) String drama_name,
-            @RequestParam(required = false) String country,
-            @RequestParam(required = false) String account_id) {
+            @Parameter(description = "开始日期") @RequestParam(required = false) String start_date,
+            @Parameter(description = "结束日期") @RequestParam(required = false) String end_date,
+            @Parameter(description = "数据粒度：hour/day") @RequestParam(defaultValue = "hour") String granularity,
+            @Parameter(description = "推广ID") @RequestParam(required = false) String promotion_id,
+            @Parameter(description = "推广名称") @RequestParam(required = false) String promotion_name,
+            @Parameter(description = "平台") @RequestParam(required = false) String platform,
+            @Parameter(description = "短剧ID") @RequestParam(required = false) String drama_id,
+            @Parameter(description = "短剧名称") @RequestParam(required = false) String drama_name,
+            @Parameter(description = "国家") @RequestParam(required = false) String country,
+            @Parameter(description = "账户ID") @RequestParam(required = false) String account_id) {
         ProfitChartQueryDTO cq = new ProfitChartQueryDTO();
         cq.setStartDate(parseDate(start_date));
         cq.setEndDate(parseDate(end_date));
@@ -75,12 +82,13 @@ public class PromotionDetailsController {
         return Result.success(promotionDetailsService.getProfitChartAll(cq, fq));
     }
 
+    @Operation(summary = "获取单推广利润图表", description = "获取指定推广的利润图表")
     @GetMapping("/{promotionId}/profit-chart")
     public Result<ProfitChartDataDTO> profitChart(
             @PathVariable("promotionId") String promotionId,
-            @RequestParam(required = false) String start_date,
-            @RequestParam(required = false) String end_date,
-            @RequestParam(defaultValue = "day") String granularity) {
+            @Parameter(description = "开始日期") @RequestParam(required = false) String start_date,
+            @Parameter(description = "结束日期") @RequestParam(required = false) String end_date,
+            @Parameter(description = "数据粒度：hour/day") @RequestParam(defaultValue = "day") String granularity) {
         ProfitChartQueryDTO q = new ProfitChartQueryDTO();
         q.setStartDate(parseDate(start_date));
         q.setEndDate(parseDate(end_date));
@@ -88,7 +96,9 @@ public class PromotionDetailsController {
         return Result.success(promotionDetailsService.getProfitChart(promotionId, q));
     }
 
+    @Operation(summary = "同步推广明细", description = "从TikTok同步推广明细数据")
     @PostMapping("/sync")
+    @RateLimit(key = "promotion:sync", max = 10, timeout = 300, limitType = RateLimit.LimitType.USER)
     public Result<Void> sync() {
         promotionTiktokSyncService.runSyncAll();
         return Result.success(null);

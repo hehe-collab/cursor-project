@@ -3,6 +3,9 @@ package com.drama.controller;
 import com.drama.common.Result;
 import com.drama.entity.TikTokCampaign;
 import com.drama.service.TikTokCampaignService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "TikTok广告系列", description = "广告系列的同步与 CRUD")
 @Slf4j
 @RestController
 @RequestMapping("/api/tiktok/campaigns")
@@ -25,9 +29,10 @@ public class TikTokCampaignController {
 
     private final TikTokCampaignService campaignService;
 
+    @Operation(summary = "获取广告系列列表", description = "获取TikTok广告系列列表")
     @GetMapping
     public Result<List<TikTokCampaign>> getCampaigns(
-            @RequestParam(required = false) String advertiserId) {
+            @Parameter(description = "广告主ID") @RequestParam(required = false) String advertiserId) {
         try {
             return Result.success(campaignService.getCampaigns(advertiserId));
         } catch (Exception e) {
@@ -36,6 +41,7 @@ public class TikTokCampaignController {
         }
     }
 
+    @Operation(summary = "获取广告系列详情", description = "根据ID获取广告系列详细信息")
     @GetMapping("/{id:\\d+}")
     public Result<TikTokCampaign> getCampaignById(@PathVariable Long id) {
         try {
@@ -46,6 +52,7 @@ public class TikTokCampaignController {
         }
     }
 
+    @Operation(summary = "根据广告系列ID获取详情", description = "根据TikTok广告系列ID获取详细信息")
     @GetMapping("/campaign/{campaignId}")
     public Result<TikTokCampaign> getCampaignByCampaignId(@PathVariable String campaignId) {
         try {
@@ -56,6 +63,7 @@ public class TikTokCampaignController {
         }
     }
 
+    @Operation(summary = "同步广告系列", description = "从TikTok同步广告系列到本地")
     @PostMapping("/sync")
     public Result<List<TikTokCampaign>> syncCampaigns(@RequestBody Map<String, String> params) {
         try {
@@ -70,6 +78,7 @@ public class TikTokCampaignController {
         }
     }
 
+    @Operation(summary = "创建广告系列", description = "创建一个新的TikTok广告系列")
     @PostMapping
     public Result<TikTokCampaign> createCampaign(@RequestBody TikTokCampaign campaign) {
         try {
@@ -80,6 +89,7 @@ public class TikTokCampaignController {
         }
     }
 
+    @Operation(summary = "更新广告系列", description = "更新指定广告系列的信息")
     @PutMapping("/{campaignId}")
     public Result<TikTokCampaign> updateCampaign(
             @PathVariable String campaignId, @RequestBody TikTokCampaign campaign) {
@@ -91,6 +101,7 @@ public class TikTokCampaignController {
         }
     }
 
+    @Operation(summary = "更新广告系列状态", description = "更新指定广告系列的启用状态")
     @PutMapping("/{campaignId}/status")
     public Result<TikTokCampaign> updateCampaignStatus(
             @PathVariable String campaignId, @RequestBody Map<String, String> params) {
@@ -106,6 +117,7 @@ public class TikTokCampaignController {
         }
     }
 
+    @Operation(summary = "删除广告系列", description = "删除指定的广告系列")
     @DeleteMapping("/{campaignId}")
     public Result<Void> deleteCampaign(@PathVariable String campaignId) {
         try {

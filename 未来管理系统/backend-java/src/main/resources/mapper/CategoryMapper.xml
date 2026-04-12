@@ -2,31 +2,44 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.drama.mapper.CategoryMapper">
 
-  <sql id="WhereName">
+  <sql id="CategoryColumns">
+    id, name, slug, description,
+    IFNULL(sort_order, 0) AS sort_order,
+    IFNULL(is_enabled, 1) AS is_enabled,
+    (SELECT COUNT(*) FROM dramas d WHERE d.category_id = c.id) AS drama_count,
+    created_at, updated_at
+  </sql>
+
+  <sql id="WhereClause">
     <where>
       <if test="name != null and name != ''">
         AND name LIKE CONCAT('%', #{name}, '%')
+      </if>
+      <if test="isEnabled != null">
+        AND is_enabled = #{isEnabled}
       </if>
     </where>
   </sql>
 
   <select id="selectById" resultType="com.drama.entity.Category">
-    SELECT * FROM categories WHERE id = #{id}
+    SELECT <include refid="CategoryColumns"/>
+    FROM categories c WHERE id = #{id}
   </select>
 
   <select id="selectAll" resultType="com.drama.entity.Category">
-    SELECT * FROM categories ORDER BY sort ASC, id ASC
+    SELECT <include refid="CategoryColumns"/>
+    FROM categories c ORDER BY sort_order ASC, id ASC
   </select>
 
   <select id="countByParam" resultType="long">
-    SELECT COUNT(*) FROM categories
-    <include refid="WhereName"/>
+    SELECT COUNT(*) FROM categories c <include refid="WhereClause"/>
   </select>
 
   <select id="selectByParam" resultType="com.drama.entity.Category">
-    SELECT * FROM categories
-    <include refid="WhereName"/>
-    ORDER BY sort ASC, id ASC
+    SELECT <include refid="CategoryColumns"/>
+    FROM categories c
+    <include refid="WhereClause"/>
+    ORDER BY sort_order ASC, id ASC
     LIMIT #{limit} OFFSET #{offset}
   </select>
 
@@ -38,11 +51,25 @@
   </select>
 
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO categories (name, sort) VALUES (#{name}, #{sort})
+    INSERT INTO categories (name, slug, description, sort_order, is_enabled)
+    VALUES (
+      #{name},
+      #{slug,jdbcType=VARCHAR},
+      #{description,jdbcType=VARCHAR},
+      IFNULL(#{sortOrder}, 0),
+      IFNULL(#{isEnabled}, 1)
+    )
   </insert>
 
   <update id="update">
-    UPDATE categories SET name = #{name}, sort = #{sort}, updated_at = NOW() WHERE id = #{id}
+    UPDATE categories SET
+      name = #{name},
+      slug = #{slug,jdbcType=VARCHAR},
+      description = #{description,jdbcType=VARCHAR},
+      sort_order = IFNULL(#{sortOrder}, 0),
+      is_enabled = IFNULL(#{isEnabled}, 1),
+      updated_at = NOW()
+    WHERE id = #{id}
   </update>
 
   <delete id="deleteById">

@@ -37,6 +37,10 @@ public class TikTokAdTaskService {
         return List.of();
     }
 
+    public int countTotalTasks(String advertiserId, String status) {
+        return taskMapper.countByAdvertiserIdAndStatus(advertiserId, status);
+    }
+
     public TikTokAdTask getTaskById(Long id) {
         return getById(id);
     }

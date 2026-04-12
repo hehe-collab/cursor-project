@@ -60,7 +60,20 @@
           <el-menu-item index="/ad-material">广告素材</el-menu-item>
           <el-menu-item index="/title-pack">标题包</el-menu-item>
           <el-menu-item index="/batch-tools">批量工具</el-menu-item>
+          <el-menu-item index="/tiktok-ad-import">广告导入</el-menu-item>
           <el-menu-item index="/ad-task">广告任务</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="system">
+          <template #title>
+            <el-icon><Tools /></el-icon>
+            <span>系统配置</span>
+          </template>
+          <el-menu-item index="/system/categories">分类管理</el-menu-item>
+          <el-menu-item index="/system/tags">标签管理</el-menu-item>
+          <el-menu-item index="/system/settings">站点设置</el-menu-item>
+          <el-menu-item index="/system/admins">管理员管理</el-menu-item>
+          <el-menu-item index="/system/roles">角色管理</el-menu-item>
+          <el-menu-item index="/system/logs">操作日志</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -114,18 +127,18 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { Expand, Fold } from '@element-plus/icons-vue'
+import { Expand, Fold, Tools } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
 
 const desktopCollapse = ref(false)
 
-const asideWidth = computed(() => (desktopCollapse.value ? '64px' : '210px'))
+const asideWidth = computed(() => (desktopCollapse.value ? '64px' : '140px'))
 
 /** Element Plus 会在注册菜单项后执行 initMenu，可能把多组子菜单置于展开态；仅靠 default-openeds=[] 不够。此处用组件 expose 的 close/open 与路由对齐。 */
 const sideMenuRef = ref(null)
-const SUB_MENU_INDEXES = ['user', 'delivery', 'recharge-sub', 'tools']
+const SUB_MENU_INDEXES = ['user', 'delivery', 'recharge-sub', 'tools', 'system']
 
 function parentSubIndexForPath(fullPath) {
   if (fullPath.startsWith('/users')) return 'user'
@@ -145,9 +158,20 @@ function parentSubIndexForPath(fullPath) {
     fullPath.startsWith('/ad-material') ||
     fullPath.startsWith('/title-pack') ||
     fullPath.startsWith('/batch-tools') ||
-    fullPath.startsWith('/ad-task')
+    fullPath.startsWith('/ad-task') ||
+    fullPath.startsWith('/tiktok-ad-import')
   ) {
     return 'tools'
+  }
+  if (
+    fullPath.startsWith('/system/categories') ||
+    fullPath.startsWith('/system/tags') ||
+    fullPath.startsWith('/system/settings') ||
+    fullPath.startsWith('/system/admins') ||
+    fullPath.startsWith('/system/roles') ||
+    fullPath.startsWith('/system/logs')
+  ) {
+    return 'system'
   }
   return null
 }
@@ -182,8 +206,10 @@ watch(() => route.path, (p) => {
   syncSideMenuOpenState(p)
 })
 
+const MAX_TABS = 6
 const tabs = ref([{ path: '/dashboard', title: '首页' }])
 const activeTab = ref('/dashboard')
+const tabAccessOrder = ref([])
 const showLoginSuccess = ref(!!sessionStorage.getItem('loginSuccess'))
 if (showLoginSuccess.value) {
   setTimeout(() => {
@@ -208,7 +234,14 @@ const titleMap = {
   '/ad-material': '广告素材',
   '/title-pack': '标题包',
   '/batch-tools': '批量工具',
+  '/tiktok-ad-import': '广告导入',
   '/ad-task': '广告任务',
+  '/system/categories': '分类管理',
+  '/system/tags': '标签管理',
+  '/system/settings': '站点设置',
+  '/system/admins': '管理员管理',
+  '/system/roles': '角色管理',
+  '/system/logs': '操作日志',
 }
 
 function getTitle(path) {
@@ -222,15 +255,34 @@ const breadcrumbItems = computed(() => {
   if (path === '/recharge') return [{ label: '用户信息' }, { label: '充值记录' }]
   if (path === '/recharge-plan') return [{ label: '充值配置' }, { label: '充值方案' }]
   if (path === '/recharge-group') return [{ label: '充值配置' }, { label: '充值方案组' }]
+  if (path === '/tiktok-ad-import') return [{ label: '投放工具' }, { label: '广告导入' }]
+  if (path.startsWith('/system/')) return [{ label: '系统配置' }, { label: getTitle(path) }]
+  if (path.startsWith('/dramas/')) return [{ label: '短剧管理' }, { label: getTitle(path) }]
   return [{ label: getTitle(path) }]
 })
 
 watch(() => route.path, (path) => {
   const title = getTitle(path)
   const tabPath = path.startsWith('/dramas/edit') ? '/dramas' : path
+
+  if (tabPath !== '/dashboard') {
+    const orderIdx = tabAccessOrder.value.indexOf(tabPath)
+    if (orderIdx !== -1) {
+      tabAccessOrder.value.splice(orderIdx, 1)
+    }
+    tabAccessOrder.value.push(tabPath)
+  }
+
   if (!tabs.value.find(t => t.path === tabPath)) {
+    if (tabs.value.length >= MAX_TABS) {
+      const oldest = tabAccessOrder.value[0]
+      const tabIdx = tabs.value.findIndex(t => t.path === oldest)
+      if (tabIdx !== -1) tabs.value.splice(tabIdx, 1)
+      tabAccessOrder.value.shift()
+    }
     tabs.value.push({ path: tabPath, title })
   }
+
   activeTab.value = tabPath
 }, { immediate: true })
 
@@ -242,9 +294,11 @@ function closeTab(path) {
   const idx = tabs.value.findIndex(t => t.path === path)
   if (idx < 0) return
   tabs.value.splice(idx, 1)
+  const orderIdx = tabAccessOrder.value.indexOf(path)
+  if (orderIdx !== -1) tabAccessOrder.value.splice(orderIdx, 1)
   if (route.path === path) {
-    const next = tabs.value[idx] || tabs.value[idx - 1] || tabs.value[0]
-    router.push(next?.path || '/dashboard')
+    const nextPath = tabAccessOrder.value[tabAccessOrder.value.length - 1] || '/dashboard'
+    router.push(nextPath)
   }
 }
 
@@ -265,6 +319,8 @@ const user = computed(() => {
 function logout() {
   localStorage.removeItem('token')
   localStorage.removeItem('user')
+  localStorage.removeItem('userInfo')
+  localStorage.removeItem('permissions')
   router.push('/login')
 }
 </script>
@@ -274,7 +330,6 @@ function logout() {
 .aside {
   background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
   color: #fff;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.08);
 }
 .logo {
   height: 48px;
@@ -354,14 +409,13 @@ function logout() {
 .tab-item.active .tab-close:hover { color: rgba(255,255,255,0.9); }
 .main {
   background: #f0f2f5;
-  padding: var(--page-padding, 8px);
+  padding: 8px;
   box-sizing: border-box;
-  /* 与顶部 header、tabs-bar 同列 flex 时，必须占满剩余高度；否则 el-main 高度为 0 → 主内容区白屏 */
   flex: 1 1 0;
   min-height: 0;
-  overflow: auto;
   display: flex;
   flex-direction: column;
+  overflow: auto;
 }
 
 .nav-toggle {
@@ -380,6 +434,7 @@ function logout() {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 4px;
 }
 .main-router-host > * {
   flex: 1 1 auto;

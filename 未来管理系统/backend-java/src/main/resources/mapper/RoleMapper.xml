@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.RoleMapper">
+
+  <sql id="RoleColumns">
+    id, name, code, description,
+    IFNULL(is_system, 0) AS is_system,
+    created_at, updated_at
+  </sql>
+
+  <select id="selectAll" resultType="com.drama.entity.Role">
+    SELECT <include refid="RoleColumns"/> FROM roles ORDER BY is_system DESC, id ASC
+  </select>
+
+  <select id="selectById" resultType="com.drama.entity.Role">
+    SELECT <include refid="RoleColumns"/> FROM roles WHERE id = #{id}
+  </select>
+
+  <select id="selectByCode" resultType="com.drama.entity.Role">
+    SELECT <include refid="RoleColumns"/> FROM roles WHERE code = #{code}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO roles (name, code, description, is_system)
+    VALUES (#{name}, #{code}, #{description}, IFNULL(#{isSystem}, 0))
+  </insert>
+
+  <update id="update">
+    UPDATE roles SET name = #{name}, description = #{description} WHERE id = #{id}
+  </update>
+
+  <!-- 删除时加 is_system 保护，防止删内置角色 -->
+  <delete id="deleteById">
+    DELETE FROM roles WHERE id = #{id} AND IFNULL(is_system, 0) = #{isSystem}
+  </delete>
+
+  <select id="selectPermissionsByRoleId" resultType="com.drama.entity.Permission">
+    SELECT p.id, p.name, p.code, p.module, p.description, p.created_at
+    FROM permissions p
+    INNER JOIN role_permissions rp ON p.id = rp.permission_id
+    WHERE rp.role_id = #{roleId}
+    ORDER BY p.module, p.id
+  </select>
+
+  <insert id="insertRolePermission">
+    INSERT IGNORE INTO role_permissions (role_id, permission_id) VALUES (#{roleId}, #{permissionId})
+  </insert>
+
+  <delete id="deleteRolePermissions">
+    DELETE FROM role_permissions WHERE role_id = #{roleId}
+  </delete>
+</mapper>

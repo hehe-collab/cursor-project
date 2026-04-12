@@ -1,15 +1,96 @@
+# Swagger / SpringDoc 配置
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    persist-authorization: true
+
 # 生产环境：请通过环境变量注入密码与 JWT_SECRET
 spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:drama_system}?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:drama_system}?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     druid:
-      max-active: 20
-      initial-size: 2
-      min-idle: 2
+      # ========== 连接池基础配置 ==========
+      # 连接池名称
+      pool-name: DramaDruidPool
+      # 初始连接数
+      initial-size: 5
+      # 最小空闲连接数
+      min-idle: 5
+      # 最大活跃连接数（根据服务器配置调整）
+      # 公式：((CPU核心数 * 2) + 有效磁盘数)，一般 20-50
+      max-active: 30
+      # 连接获取超时时间（毫秒）
+      max-wait: 60000
+
+      # ========== 连接检测配置 ==========
+      # 连接有效性检测 SQL
+      validation-query: SELECT 1
+      # 获取连接时检测（轻微性能损耗，但保证连接可用）
+      test-on-borrow: false
+      # 归还连接时检测
+      test-on-return: false
+      # 空闲时检测（建议开启，防止连接失效）
+      test-while-idle: true
+      # 连接保持空闲时间（毫秒）
+      min-evictable-idle-time-millis: 300000
+      # 空闲检测间隔（毫秒）
+      time-between-eviction-runs-millis: 60000
+
+      # ========== 性能优化配置 ==========
+      # 预处理语句缓存大小
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      # 连接超时时间（毫秒）
+      connect-timeout: 30000
+      # Socket 超时时间（毫秒）
+      socket-timeout: 60000
+      # 是否自动提交
+      auto-commit: true
+
+      # ========== 泄漏检测配置 ==========
+      # 连接泄漏检测阈值（毫秒）：0 禁用，正常 60000
+      remove-abandoned-timeout: 180
+      # 启用连接泄漏检测
+      remove-abandoned: true
+
+      # ========== 监控配置 ==========
+      # 启用监控页面
+      stat-view-enabled: true
+      # 监控页面登录用户
+      login-username: admin
+      login-password: ${DRUID_PASSWORD:admin123}
+      # 慢 SQL 记录阈值（毫秒）
+      slow-sql-millis: 2000
+      log-slow-sql: true
+
+      # ========== 过滤器配置 ==========
+      filter:
+        stat:
+          enabled: true
+          # 日志输出
+          log-slow-sql: true
+          slow-sql-millis: 2000
+          # 合并多次查询
+          merge-sql: true
+        wall:
+          enabled: true
+          config:
+            multi-statement-allow: true
+
+      # ========== 高级配置 ==========
+      # 连接生命周期超时（毫秒）
+      max-evictable-idle-time-millis: 3600000
+      # 全局PreparedStatement缓存大小
+      global-stat-enabled: true
+
   servlet:
     multipart:
       max-file-size: 100MB
@@ -20,6 +101,10 @@ spring:
 jwt:
   secret: ${JWT_SECRET}
   expire-days: ${JWT_EXPIRE_DAYS:7}
+
+# ========== 加密配置 ==========
+encrypt:
+  secret-key: ${ENCRYPT_SECRET_KEY}
 
 aliyun:
   vod:
@@ -34,3 +119,5 @@ logging:
   level:
     com.drama: INFO
     org.springframework: WARN
+    com.alibaba.druid: INFO
+    com.alibaba.druid.pool: DEBUG

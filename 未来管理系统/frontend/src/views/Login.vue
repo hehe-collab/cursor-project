@@ -41,12 +41,25 @@ async function onSubmit() {
   loading.value = true
   try {
     const res = await request.post('/auth/login', form)
-    const payload = res.data || {}
+    // 拦截器返回整包 { code, data, message }；兼容若未来直接返回 data
+    const payload =
+      res && typeof res === 'object' && res.data != null && (res.data.token != null || res.data.admin != null)
+        ? res.data
+        : res && (res.token != null || res.admin != null)
+          ? res
+          : {}
     localStorage.setItem('token', payload.token)
-    localStorage.setItem('user', JSON.stringify(payload.admin || payload.user || {}))
+    const adminObj = payload.admin || payload.user || {}
+    localStorage.setItem('user', JSON.stringify(adminObj))
+    localStorage.setItem('userInfo', JSON.stringify(adminObj))
+    localStorage.setItem('permissions', JSON.stringify(payload.permissions || []))
     sessionStorage.setItem('loginSuccess', '1')
     ElMessage.success('登录成功')
-    router.push('/')
+    if (payload.need_change_password) {
+      router.push('/change-password')
+    } else {
+      router.push('/')
+    }
   } catch {
     /* 错误已由 request 拦截器提示 */
   } finally {

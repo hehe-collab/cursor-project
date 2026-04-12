@@ -1,9 +1,11 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Data;
 
+@Schema(description = "充值订单")
 @Data
 public class RechargeOrder {
 

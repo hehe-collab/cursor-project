@@ -1,39 +1,40 @@
 /**
- * 分类 API — `GET /api/categories` 走 Java 3001
- *
- * 无 `page`/`pageSize` 时：`data` 为**数组**（短剧表单下拉等）。
- * 有分页参数时：`data` 为 `{ list, total, page, pageSize }`。
+ * 分类管理 API
+ * GET|POST|PUT|DELETE /api/categories
  */
-import request, { getWithCache, clearApiCacheKeyPrefix } from './request'
+import request from './request'
 
-const CAT_GET_PREFIX = 'GET:/categories:'
-
+/** 获取分类列表（无分页参数时返回数组） */
 export function getCategories(params) {
-  return getWithCache('/categories', params ?? {}, { ttl: 5 * 60 * 1000 })
+  return request.get('/categories', { params })
 }
 
-export function getCategoryStats() {
-  return request.get('/categories/stats')
-}
-
+/** 获取单个分类 */
 export function getCategoryById(id) {
   return request.get(`/categories/${id}`)
 }
 
-export async function createCategory(data) {
-  const res = await request.post('/categories', data)
-  if (res?.code === 0) clearApiCacheKeyPrefix(CAT_GET_PREFIX)
-  return res
+/** 创建分类 */
+export function createCategory(data) {
+  return request.post('/categories', data)
 }
 
-export async function updateCategory(id, data) {
-  const res = await request.put(`/categories/${id}`, data)
-  if (res?.code === 0) clearApiCacheKeyPrefix(CAT_GET_PREFIX)
-  return res
+/** 更新分类 */
+export function updateCategory(id, data) {
+  return request.put(`/categories/${id}`, data)
 }
 
-export async function deleteCategory(id) {
-  const res = await request.delete(`/categories/${id}`)
-  if (res?.code === 0) clearApiCacheKeyPrefix(CAT_GET_PREFIX)
-  return res
+/** 删除分类 */
+export function deleteCategory(id) {
+  return request.delete(`/categories/${id}`)
+}
+
+/** 批量更新排序 */
+export function batchSortCategories(ids) {
+  return request.post('/categories/batch-sort', { ids })
+}
+
+/** 获取分类统计 */
+export function getCategoryStats() {
+  return request.get('/categories/stats')
 }

@@ -1,5 +1,6 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 /**
  * TikTok 广告任务队列（对齐 tiktok_ad_tasks）。JSON 列在 Java 中用 String 承载，由业务层序列化。
  */
+@Schema(description = "TikTok广告任务")
 @Data
 @Builder
 @NoArgsConstructor

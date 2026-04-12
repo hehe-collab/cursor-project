@@ -8,6 +8,8 @@
     <result column="password" property="password"/>
     <result column="nickname" property="nickname"/>
     <result column="role" property="role"/>
+    <result column="role_id" property="roleId"/>
+    <result column="password_changed" property="passwordChanged"/>
     <result column="created_at" property="createdAt"/>
     <result column="updated_at" property="updatedAt"/>
   </resultMap>
@@ -20,8 +22,40 @@
     SELECT * FROM admins WHERE id = #{id} LIMIT 1
   </select>
 
+  <select id="selectAll" resultMap="BaseMap">
+    SELECT * FROM admins ORDER BY id ASC
+  </select>
+
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO admins (username, password, nickname, role)
-    VALUES (#{username}, #{password}, #{nickname}, #{role})
+    INSERT INTO admins (username, password, nickname, role, role_id)
+    VALUES (#{username}, #{password}, #{nickname}, #{role}, #{roleId})
   </insert>
+
+  <update id="update">
+    UPDATE admins SET
+      username = #{username},
+      nickname = #{nickname},
+      role = #{role},
+      role_id = #{roleId}
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateRole">
+    UPDATE admins SET
+      role_id = #{roleId},
+      role = #{role}
+    WHERE id = #{id}
+  </update>
+
+  <update id="updatePassword">
+    UPDATE admins SET password = #{password}, password_changed = 1 WHERE id = #{id}
+  </update>
+
+  <update id="updatePasswordChanged">
+    UPDATE admins SET password_changed = #{passwordChanged} WHERE id = #{id}
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM admins WHERE id = #{id}
+  </delete>
 </mapper>

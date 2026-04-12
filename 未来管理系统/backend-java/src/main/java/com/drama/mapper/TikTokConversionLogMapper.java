@@ -25,4 +25,6 @@ public interface TikTokConversionLogMapper {
 
     int countSuccessByAdvertiserAndEventType(
             @Param("advertiserId") String advertiserId, @Param("eventType") String eventType);
+
+    int countByAdvertiserId(@Param("advertiserId") String advertiserId);
 }

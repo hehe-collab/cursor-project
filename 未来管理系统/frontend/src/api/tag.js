@@ -1,39 +1,40 @@
 /**
- * 标签 API — `GET /api/tags` 走 Java 3001
- *
- * 无 `page`/`pageSize` 时：`data` 为**数组**（短剧表单下拉等）。
- * 有分页参数时：`data` 为 `{ list, total, page, pageSize }`。
+ * 标签管理 API
+ * GET|POST|PUT|DELETE /api/tags
  */
-import request, { getWithCache, clearApiCacheKeyPrefix } from './request'
+import request from './request'
 
-const TAG_GET_PREFIX = 'GET:/tags:'
-
+/** 获取标签列表（无分页参数时返回数组） */
 export function getTags(params) {
-  return getWithCache('/tags', params ?? {}, { ttl: 5 * 60 * 1000 })
+  return request.get('/tags', { params })
 }
 
-export function getTagStats() {
-  return request.get('/tags/stats')
-}
-
+/** 获取单个标签 */
 export function getTagById(id) {
   return request.get(`/tags/${id}`)
 }
 
-export async function createTag(data) {
-  const res = await request.post('/tags', data)
-  if (res?.code === 0) clearApiCacheKeyPrefix(TAG_GET_PREFIX)
-  return res
+/** 创建标签 */
+export function createTag(data) {
+  return request.post('/tags', data)
 }
 
-export async function updateTag(id, data) {
-  const res = await request.put(`/tags/${id}`, data)
-  if (res?.code === 0) clearApiCacheKeyPrefix(TAG_GET_PREFIX)
-  return res
+/** 更新标签 */
+export function updateTag(id, data) {
+  return request.put(`/tags/${id}`, data)
 }
 
-export async function deleteTag(id) {
-  const res = await request.delete(`/tags/${id}`)
-  if (res?.code === 0) clearApiCacheKeyPrefix(TAG_GET_PREFIX)
-  return res
+/** 删除标签 */
+export function deleteTag(id) {
+  return request.delete(`/tags/${id}`)
+}
+
+/** 批量设置热门 */
+export function batchSetHot(ids, isHot) {
+  return request.post('/tags/batch-hot', { ids, is_hot: isHot })
+}
+
+/** 获取标签统计 */
+export function getTagStats() {
+  return request.get('/tags/stats')
 }

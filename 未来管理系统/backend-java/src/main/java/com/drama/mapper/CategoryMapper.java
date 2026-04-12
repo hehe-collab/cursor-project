@@ -13,10 +13,13 @@ public interface CategoryMapper {
 
     List<Category> selectAll();
 
-    long countByParam(@Param("name") String name);
+    long countByParam(@Param("name") String name, @Param("isEnabled") Boolean isEnabled);
 
     List<Category> selectByParam(
-            @Param("name") String name, @Param("offset") int offset, @Param("limit") int limit);
+            @Param("name") String name,
+            @Param("isEnabled") Boolean isEnabled,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
 
     CategoryStatsRow selectStats();
 

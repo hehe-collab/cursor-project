@@ -1,109 +1,7 @@
 <template>
   <div class="dashboard-page-layout dashboard-root">
-    <el-card v-show="activeTab === 'overview'" class="filter-card" shadow="never">
-      <el-form
-        :model="filterForm"
-        class="filter-form"
-        inline
-        size="small"
-        label-position="left"
-        @submit.prevent="handleFilter"
-      >
-        <el-form-item label="推广ID" label-width="60px">
-          <div class="filter-item-xs">
-            <el-input v-model="filterForm.promotion_id" placeholder="推广ID" clearable />
-          </div>
-        </el-form-item>
-        <el-form-item label="推广名称" label-width="60px">
-          <div class="filter-item-s">
-            <el-input v-model="filterForm.promotion_name" placeholder="推广名称" clearable />
-          </div>
-        </el-form-item>
-        <el-form-item label="剧ID" label-width="50px">
-          <div class="filter-item-xs">
-            <el-input v-model="filterForm.drama_id" placeholder="剧ID" clearable />
-          </div>
-        </el-form-item>
-        <el-form-item label="剧名称" label-width="50px">
-          <div class="filter-item-s">
-            <el-input v-model="filterForm.drama_name" placeholder="剧名称" clearable />
-          </div>
-        </el-form-item>
-        <el-form-item label="账户" label-width="50px">
-          <div class="filter-item-s">
-            <el-input v-model="filterForm.account" placeholder="账户" clearable />
-          </div>
-        </el-form-item>
-        <el-form-item label="投放媒体" label-width="70px">
-          <div class="filter-item-m">
-            <el-select
-              v-model="filterForm.media"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              clearable
-              placeholder="媒体"
-            >
-              <el-option label="TikTok" value="tiktok" />
-              <el-option label="Facebook" value="facebook" />
-              <el-option label="Google" value="google" />
-              <el-option label="Snapchat" value="snapchat" />
-            </el-select>
-          </div>
-        </el-form-item>
-        <el-form-item v-if="countries.length > 0" label="国家" label-width="50px">
-          <div class="filter-item-m">
-            <el-select
-              v-model="filterForm.country"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              clearable
-              placeholder="国家"
-            >
-              <el-option
-                v-for="opt in countryMultiOptions"
-                :key="opt.value"
-                :label="opt.label"
-                :value="opt.value"
-              />
-            </el-select>
-          </div>
-        </el-form-item>
-        <el-form-item label="日期范围" label-width="60px">
-          <div class="filter-item-daterange">
-            <el-date-picker
-              v-model="dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始"
-              end-placeholder="结束"
-              value-format="YYYY-MM-DD"
-              @change="handleDateChange"
-            />
-          </div>
-        </el-form-item>
-        <el-form-item label-width="0">
-          <div class="filter-buttons">
-            <el-button type="primary" :loading="filterSubmitting" @click="handleFilter">
-              <el-icon><Search /></el-icon>
-              查询
-            </el-button>
-            <el-button :disabled="filterSubmitting" @click="handleReset">
-              <el-icon><RefreshLeft /></el-icon>
-              重置
-            </el-button>
-            <el-button type="success" @click="handleExport">
-              <el-icon><Download /></el-icon>
-              导出
-            </el-button>
-          </div>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <el-card class="tabs-card" shadow="never">
-      <el-tabs v-model="activeTab" class="custom-tabs compact-tabs" @tab-change="handleTabChange">
+    <div class="tabs-header">
+      <el-tabs v-model="activeTab" class="main-tabs" @tab-change="handleTabChange">
         <el-tab-pane name="promotion">
           <template #label>
             <span class="tab-label">
@@ -111,57 +9,64 @@
               推广明细
             </span>
           </template>
-          <PromotionDetails />
         </el-tab-pane>
-
-        <el-tab-pane name="overview" lazy>
+        <el-tab-pane name="overview">
           <template #label>
             <span class="tab-label">
               <el-icon><PieChart /></el-icon>
               数据概览
             </span>
           </template>
-
-          <div v-loading="statsLoading" element-loading-text="加载中..." class="overview-charts">
-            <el-row :gutter="20">
-              <el-col :span="8">
-                <el-card shadow="hover" class="chart-card">
-                  <template #header>
-                    <div class="chart-header">
-                      <el-icon><PieChart /></el-icon>
-                      <span>充值状态分布</span>
-                    </div>
-                  </template>
-                  <div ref="rechargeStatusChartRef" class="chart-inner" />
-                </el-card>
-              </el-col>
-              <el-col :span="8">
-                <el-card shadow="hover" class="chart-card">
-                  <template #header>
-                    <div class="chart-header">
-                      <el-icon><Histogram /></el-icon>
-                      <span>每日新增用户 vs 充值笔数</span>
-                    </div>
-                  </template>
-                  <div ref="dailyCompareChartRef" class="chart-inner" />
-                </el-card>
-              </el-col>
-              <el-col :span="8">
-                <el-card shadow="hover" class="chart-card">
-                  <template #header>
-                    <div class="chart-header">
-                      <el-icon><TrendCharts /></el-icon>
-                      <span>趋势分析</span>
-                    </div>
-                  </template>
-                  <div ref="trendChartRef" class="chart-inner chart-inner--trend" />
-                </el-card>
-              </el-col>
-            </el-row>
-          </div>
         </el-tab-pane>
       </el-tabs>
-    </el-card>
+      <div class="header-time">
+        <el-icon><Clock /></el-icon>
+        <span>{{ localTimeText }}</span>
+      </div>
+    </div>
+
+    <div class="tab-content-area">
+      <PromotionDetails v-show="activeTab === 'promotion'" />
+      <div v-show="activeTab === 'overview'" v-loading="statsLoading" element-loading-text="加载中..." class="overview-wrap">
+        <div class="overview-charts">
+          <el-row :gutter="20">
+            <el-col :span="8">
+              <el-card shadow="hover" class="chart-card">
+                <template #header>
+                  <div class="chart-header">
+                    <el-icon><PieChart /></el-icon>
+                    <span>充值状态分布</span>
+                  </div>
+                </template>
+                <div ref="rechargeStatusChartRef" class="chart-inner" />
+              </el-card>
+            </el-col>
+            <el-col :span="8">
+              <el-card shadow="hover" class="chart-card">
+                <template #header>
+                  <div class="chart-header">
+                    <el-icon><Histogram /></el-icon>
+                    <span>每日新增用户 vs 充值笔数</span>
+                  </div>
+                </template>
+                <div ref="dailyCompareChartRef" class="chart-inner" />
+              </el-card>
+            </el-col>
+            <el-col :span="8">
+              <el-card shadow="hover" class="chart-card">
+                <template #header>
+                  <div class="chart-header">
+                    <el-icon><TrendCharts /></el-icon>
+                    <span>趋势分析</span>
+                  </div>
+                </template>
+                <div ref="trendChartRef" class="chart-inner chart-inner--trend" />
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+      </div>
+    </div>
 
     <p class="hint hint--footer">
       推广明细 Tab 对接 <code>/api/promotion-details</code>（<code>schema-promotion.sql</code>）；数据概览与
@@ -173,36 +78,23 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import {
-  Search,
-  RefreshLeft,
-  Download,
   DataLine,
   PieChart,
   Histogram,
   TrendCharts,
+  Clock,
 } from '@element-plus/icons-vue'
 import echarts from '@/utils/echarts'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
-import { useCountries } from '@/composables/useCountries'
 import PromotionDetails from './dashboard/PromotionDetails.vue'
-
-const { countries, countryMultiOptions, formatAccountCountryLabel } = useCountries()
 
 const activeTab = ref('promotion')
 const dateRange = ref([])
 const statsLoading = ref(false)
-const filterSubmitting = ref(false)
 
-const filterForm = ref({
-  promotion_id: '',
-  promotion_name: '',
-  drama_id: '',
-  drama_name: '',
-  account: '',
-  media: [],
-  country: [],
-})
+const localTimeText = ref('')
+let localTimeTimer = null
 
 const statsData = ref({
   total_users: 0,
@@ -283,12 +175,14 @@ function initRechargeStatusChart() {
   if (!rechargeStatusChart) rechargeStatusChart = echarts.init(rechargeStatusChartRef.value)
   rechargeStatusChart.setOption({
     tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
-    legend: { orient: 'vertical', left: 'left' },
+    legend: { orient: 'vertical', left: 'left', textStyle: { fontSize: 11 } },
     series: [
       {
         name: '充值状态',
         type: 'pie',
-        radius: '60%',
+        radius: '55%',
+        center: ['50%', '50%'],
+        label: { fontSize: 11 },
         data: [
           { value: rs.success || 0, name: '成功', itemStyle: { color: '#67c23a' } },
           { value: rs.pending || 0, name: '待支付', itemStyle: { color: '#e6a23c' } },
@@ -308,10 +202,10 @@ function initDailyCompareChart() {
   if (!dailyCompareChart) dailyCompareChart = echarts.init(dailyCompareChartRef.value)
   dailyCompareChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: ['新增用户', '充值笔数'] },
-    grid: { left: 44, right: 20, bottom: 48, top: 32 },
-    xAxis: { type: 'category', data: dates, axisLabel: { rotate: dates.length > 8 ? 28 : 0 } },
-    yAxis: { type: 'value', minInterval: 1 },
+    legend: { data: ['新增用户', '充值笔数'], textStyle: { fontSize: 11 } },
+    grid: { left: 48, right: 20, bottom: 52, top: 36 },
+    xAxis: { type: 'category', data: dates, axisLabel: { rotate: dates.length > 8 ? 28 : 0, fontSize: 11 } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { fontSize: 11 } },
     series: [
       { name: '新增用户', type: 'bar', data: users, itemStyle: { color: '#409eff' } },
       { name: '充值笔数', type: 'bar', data: recharge, itemStyle: { color: '#67c23a' } },
@@ -329,12 +223,12 @@ function initTrendChart() {
   if (!trendChart) trendChart = echarts.init(trendChartRef.value)
   trendChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-    legend: { data: ['新增用户', '充值笔数', '实付金额'] },
-    grid: { left: 52, right: 52, bottom: 48, top: 56 },
-    xAxis: { type: 'category', boundaryGap: false, data: dates },
+    legend: { data: ['新增用户', '充值笔数', '实付金额'], textStyle: { fontSize: 11 } },
+    grid: { left: 52, right: 52, bottom: 52, top: 56 },
+    xAxis: { type: 'category', boundaryGap: false, data: dates, axisLabel: { fontSize: 11 } },
     yAxis: [
-      { type: 'value', name: '数量', minInterval: 1 },
-      { type: 'value', name: '金额(元)', splitLine: { show: false } },
+      { type: 'value', name: '数量', minInterval: 1, axisLabel: { fontSize: 11 }, nameTextStyle: { fontSize: 11 } },
+      { type: 'value', name: '金额(元)', splitLine: { show: false }, axisLabel: { fontSize: 11 }, nameTextStyle: { fontSize: 11 } },
     ],
     series: [
       { name: '新增用户', type: 'line', smooth: true, data: users, itemStyle: { color: '#409eff' } },
@@ -378,49 +272,22 @@ async function handleTabChange(name) {
   }
 }
 
-async function handleDateChange() {
-  await fetchStats()
-  if (activeTab.value === 'overview') {
-    disposeCharts()
-    await nextTick()
-    initAllCharts()
-  }
-}
-
-async function handleFilter() {
-  filterSubmitting.value = true
-  try {
-    await fetchStats()
-    disposeCharts()
-    await nextTick()
-    initAllCharts()
-  } finally {
-    filterSubmitting.value = false
-  }
-}
-
-async function handleReset() {
-  filterForm.value = {
-    promotion_id: '',
-    promotion_name: '',
-    drama_id: '',
-    drama_name: '',
-    account: '',
-    media: [],
-    country: [],
-  }
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 6)
-  dateRange.value = [start.toISOString().split('T')[0], end.toISOString().split('T')[0]]
-  await handleFilter()
-}
-
-function handleExport() {
-  ElMessage.success('导出功能开发中…')
+function updateLocalTime() {
+  const now = new Date()
+  localTimeText.value = now.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
 }
 
 onMounted(async () => {
+  updateLocalTime()
+  localTimeTimer = setInterval(updateLocalTime, 1000)
   dateRange.value = [daysAgoStr(6), todayStr()]
   await fetchStats()
   window.addEventListener('resize', resizeCharts)
@@ -429,64 +296,79 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', resizeCharts)
   disposeCharts()
+  clearInterval(localTimeTimer)
 })
 </script>
 
 <style scoped>
 /* #090：高度由 Layout + .dashboard-page-layout（全局 flex）承担 */
 .dashboard-root {
+  position: relative;
   background: #f0f2f5;
-}
-
-.filter-card {
-  flex-shrink: 0;
-  border-radius: 8px;
-}
-
-.filter-form {
-  margin-top: 0;
-}
-
-.filter-form :deep(.el-form-item__label) {
-  font-weight: 500;
-  color: #606266;
-}
-
-.tabs-card {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 8px;
-}
-
-.custom-tabs {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.custom-tabs :deep(.el-tabs__header) {
-  margin-bottom: 8px;
-  flex-shrink: 0;
-}
-
-.custom-tabs :deep(.el-tabs__content) {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.custom-tabs :deep(.el-tab-pane) {
   height: 100%;
+  overflow: hidden;
 }
 
-.custom-tabs :deep(.el-tabs__item) {
+.tabs-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 12px;
+  margin-bottom: 8px;
+}
+
+.main-tabs {
+  flex: 1;
+  min-height: 40px;
+}
+
+.main-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.main-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.main-tabs :deep(.el-tabs__item) {
   font-size: 13px;
   font-weight: 500;
   padding: 0 16px;
   height: 40px;
+}
+
+.main-tabs :deep(.el-tabs__active-bar) {
+  height: 2px;
+}
+
+.header-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #909399;
+  flex-shrink: 0;
+  padding-left: 12px;
+}
+
+.tab-content-area {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  bottom: 20px;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
+}
+
+.tab-content-area > * {
+  height: 100%;
+  border-radius: 8px;
 }
 
 .tab-label {
@@ -496,27 +378,38 @@ onUnmounted(() => {
 }
 
 .chart-card {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   border-radius: 12px;
+}
+
+.chart-card :deep(.el-card__body) {
+  padding: 8px 10px !important;
+}
+
+.chart-card :deep(.el-card__header) {
+  padding: 6px 10px !important;
 }
 
 .chart-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .chart-inner {
   width: 100%;
-  height: 300px;
+  height: 220px;
 }
 .chart-inner--trend {
-  height: 320px;
+  height: 240px;
 }
 .overview-charts {
-  min-height: 320px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .pagination-container {

@@ -3,7 +3,13 @@ package com.drama.service;
 import com.drama.entity.AdAccount;
 import com.drama.exception.BusinessException;
 import com.drama.mapper.AdAccountMapper;
+import com.drama.util.EncryptUtil;
 import com.drama.util.ExcelExportUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.io.IOException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -14,10 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdAccountService {
@@ -37,6 +41,7 @@ public class AdAccountService {
             "direct", "直营");
 
     private final AdAccountMapper adAccountMapper;
+    private final EncryptUtil encryptUtil;
 
     public List<Map<String, String>> entitiesOptions() {
         List<Map<String, String>> merged = new ArrayList<>();
@@ -267,6 +272,34 @@ public class AdAccountService {
         a.setAccountName(an != null ? String.valueOf(an).trim() : "");
         a.setMediaAlias(ma != null ? String.valueOf(ma) : "");
         a.setAccountAgent(ag != null ? String.valueOf(ag) : "");
+
+        // Token 加密
+        Object accessToken = body.get("access_token");
+        if (accessToken != null && !String.valueOf(accessToken).trim().isEmpty()) {
+            String encrypted = encryptUtil.encrypt(String.valueOf(accessToken).trim());
+            a.setAccessTokenEncrypted(encrypted);
+            log.debug("AccessToken 已加密: accountId={}", aid);
+        }
+        Object refreshToken = body.get("refresh_token");
+        if (refreshToken != null && !String.valueOf(refreshToken).trim().isEmpty()) {
+            String encrypted = encryptUtil.encrypt(String.valueOf(refreshToken).trim());
+            a.setRefreshTokenEncrypted(encrypted);
+        }
+
         return a;
+    }
+
+    public String decryptAccessToken(String encrypted) {
+        if (encrypted == null || encrypted.isEmpty()) {
+            return null;
+        }
+        return encryptUtil.decrypt(encrypted);
+    }
+
+    public String decryptRefreshToken(String encrypted) {
+        if (encrypted == null || encrypted.isEmpty()) {
+            return null;
+        }
+        return encryptUtil.decrypt(encrypted);
     }
 }

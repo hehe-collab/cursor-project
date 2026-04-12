@@ -1,9 +1,11 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.Data;
 
 /** 终端用户（C 端） */
+@Schema(description = "C端用户")
 @Data
 public class User {
 

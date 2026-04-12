@@ -8,14 +8,18 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface TagMapper {
+
     Tag selectById(@Param("id") Integer id);
 
     List<Tag> selectAll();
 
-    long countByParam(@Param("name") String name);
+    long countByParam(@Param("name") String name, @Param("isHot") Boolean isHot);
 
     List<Tag> selectByParam(
-            @Param("name") String name, @Param("offset") int offset, @Param("limit") int limit);
+            @Param("name") String name,
+            @Param("isHot") Boolean isHot,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
 
     TagStatsRow selectStats();
 

@@ -1,6 +1,6 @@
 <template>
   <div class="promotion-details">
-    <el-card class="filter-card" shadow="never">
+    <el-card class="filter-card" :body-style="{ padding: '12px' }" shadow="never">
       <el-form :inline="true" :model="filters" class="filter-form" size="small" @submit.prevent="handleSearch">
         <el-form-item label="日期范围">
           <el-date-picker
@@ -57,20 +57,20 @@
         <el-form-item label="账户">
           <el-input v-model="filters.accountId" placeholder="账户ID" clearable class="filter-w-xs" />
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
-          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-          <el-button :icon="Download" @click="handleExport">导出</el-button>
-          <el-button :icon="RefreshRight" :loading="syncLoading" @click="handleSync">同步数据</el-button>
-        </el-form-item>
       </el-form>
+      <div class="filter-actions">
+        <el-button type="primary" size="small" :icon="Search" @click="handleSearch">查询</el-button>
+        <el-button plain size="small" :icon="Refresh" @click="handleReset">重置</el-button>
+        <el-button type="success" size="small" :icon="Download" :loading="exportLoading" @click="handleExport">导出</el-button>
+        <el-button plain size="small" :icon="RefreshRight" :loading="syncLoading" @click="handleSync">同步数据</el-button>
+      </div>
       <div class="local-time">
         <el-icon><Clock /></el-icon>
         <span>{{ localTimeText }}</span>
       </div>
     </el-card>
 
-    <el-card class="table-card" shadow="never">
+    <div class="table-card">
       <div class="table-wrapper">
       <el-table
         v-loading="loading"
@@ -78,92 +78,92 @@
         border
         stripe
         size="small"
-        height="100%"
         :row-class-name="tableRowClassName"
         :header-cell-style="{ background: '#f5f7fa', fontWeight: 'bold' }"
+        class="table-flex"
       >
-        <el-table-column prop="date" label="日期" width="108" fixed="left">
+        <el-table-column prop="date" label="日期" width="80" fixed="left" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             <span v-if="isSummaryRow($index)" class="summary-label">汇总</span>
             <span v-else>{{ row.date }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="promotionId" label="推广ID" width="120" show-overflow-tooltip>
+        <el-table-column prop="promotionId" label="推广ID" width="95" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             {{ isSummaryRow($index) ? '-' : row.promotionId }}
           </template>
         </el-table-column>
-        <el-table-column prop="promotionName" label="推广名称" min-width="160" show-overflow-tooltip>
+        <el-table-column prop="promotionName" label="推广名称" width="120" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             {{ isSummaryRow($index) ? '-' : row.promotionName }}
           </template>
         </el-table-column>
-        <el-table-column prop="dramaName" label="剧" min-width="120" show-overflow-tooltip>
+        <el-table-column prop="dramaName" label="剧" width="100" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             {{ isSummaryRow($index) ? '-' : row.dramaName }}
           </template>
         </el-table-column>
-        <el-table-column prop="accountId" label="账户" width="100">
+        <el-table-column prop="accountId" label="账户" width="75" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             {{ isSummaryRow($index) ? '-' : row.accountId }}
           </template>
         </el-table-column>
-        <el-table-column prop="accountName" label="名称" min-width="120" show-overflow-tooltip>
+        <el-table-column prop="accountName" label="名称" width="100" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             {{ isSummaryRow($index) ? '-' : row.accountName }}
           </template>
         </el-table-column>
-        <el-table-column prop="balance" label="余额" width="88" align="right">
+        <el-table-column prop="balance" label="余额" width="75" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             {{ isSummaryRow($index) ? '-' : formatNumber(row.balance, 2) }}
           </template>
         </el-table-column>
-        <el-table-column prop="campaignName" label="系列/广告组" min-width="120" show-overflow-tooltip>
+        <el-table-column prop="campaignName" label="系列/广告组" width="120" align="center" show-overflow-tooltip>
           <template #default="{ row, $index }">
             {{ isSummaryRow($index) ? '-' : row.campaignName }}
           </template>
         </el-table-column>
-        <el-table-column prop="cost" label="消耗" width="88" align="right">
+        <el-table-column prop="cost" label="消耗" width="75" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ formatNumber(row.cost, 2) }}</template>
         </el-table-column>
-        <el-table-column prop="speed" label="时速" width="88" align="right">
+        <el-table-column prop="speed" label="时速" width="75" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ formatNumber(row.speed, 2) }}</template>
         </el-table-column>
-        <el-table-column prop="roi" label="ROI" width="80" align="right">
+        <el-table-column prop="roi" label="ROI" width="65" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ formatNumber(row.roi, 4) }}</template>
         </el-table-column>
-        <el-table-column prop="userCount" label="用户数" width="80" align="right">
+        <el-table-column prop="userCount" label="用户数" width="65" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ row.userCount ?? 0 }}</template>
         </el-table-column>
-        <el-table-column prop="rechargeAmount" label="充值金额" width="100" align="right">
+        <el-table-column prop="rechargeAmount" label="充值金额" width="80" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ formatNumber(row.rechargeAmount, 2) }}</template>
         </el-table-column>
-        <el-table-column prop="profit" label="利润" width="100" align="right">
+        <el-table-column prop="profit" label="利润" width="80" align="center" show-overflow-tooltip>
           <template #default="{ row }">
             <span :class="Number(row.profit) >= 0 ? 'profit-positive' : 'profit-negative'">
               {{ formatNumber(row.profit, 2) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="orderCount" label="订单数" width="80" align="right">
+        <el-table-column prop="orderCount" label="订单数" width="65" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ row.orderCount ?? 0 }}</template>
         </el-table-column>
-        <el-table-column prop="firstRechargeCount" label="首充数" width="80" align="right">
+        <el-table-column prop="firstRechargeCount" label="首充数" width="65" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ row.firstRechargeCount ?? 0 }}</template>
         </el-table-column>
-        <el-table-column prop="firstRechargeRate" label="首充率" width="88" align="right">
+        <el-table-column prop="firstRechargeRate" label="首充率" width="70" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ formatPercent(row.firstRechargeRate) }}</template>
         </el-table-column>
-        <el-table-column prop="repeatRechargeCount" label="复充数" width="80" align="right">
+        <el-table-column prop="repeatRechargeCount" label="复充数" width="65" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ row.repeatRechargeCount ?? 0 }}</template>
         </el-table-column>
-        <el-table-column prop="cpm" label="千次曝光" width="88" align="right">
+        <el-table-column prop="cpm" label="千次曝光" width="75" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ formatNumber(row.cpm, 2) }}</template>
         </el-table-column>
-        <el-table-column prop="avgRechargePerUser" label="人均消耗" width="100" align="right">
+        <el-table-column prop="avgRechargePerUser" label="人均消耗" width="80" align="center" show-overflow-tooltip>
           <template #default="{ row }">{{ formatNumber(row.avgRechargePerUser, 2) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="88" fixed="right" align="center">
+        <el-table-column label="操作" width="58" fixed="right" align="center">
           <template #default="{ row, $index }">
             <el-button type="primary" link @click="showProfitChart(row, $index)">利润图</el-button>
           </template>
@@ -183,7 +183,7 @@
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
       />
-    </el-card>
+    </div>
 
     <el-dialog
       v-model="chartDialogVisible"
@@ -489,8 +489,106 @@ function handleReset() {
   loadData()
 }
 
-function handleExport() {
-  ElMessage.info('导出功能开发中…')
+const exportLoading = ref(false)
+
+async function handleExport() {
+  if (!dateRange.value?.length || dateRange.value.length !== 2) {
+    ElMessage.warning('请先选择日期范围')
+    return
+  }
+  exportLoading.value = true
+  try {
+    const params = {
+      start_date: dateRange.value[0],
+      end_date: dateRange.value[1],
+      promotion_id: filters.promotionId || undefined,
+      promotion_name: filters.promotionName || undefined,
+      platform: filters.platform || undefined,
+      drama_id: filters.dramaId || undefined,
+      drama_name: filters.dramaName || undefined,
+      country: filters.country || undefined,
+      account_id: filters.accountId || undefined,
+      page: 1,
+      page_size: 10000,
+    }
+    const res = await getPromotionDetails(params)
+    if (res.code !== 0 || !res.data) {
+      ElMessage.error(res?.message || '导出失败')
+      return
+    }
+    const rows = res.data.list || []
+    const sum = res.data.summary
+
+    const columns = [
+      { key: 'date', label: '日期' },
+      { key: 'promotionId', label: '推广ID' },
+      { key: 'promotionName', label: '推广名称' },
+      { key: 'dramaName', label: '剧' },
+      { key: 'accountId', label: '账户' },
+      { key: 'accountName', label: '名称' },
+      { key: 'balance', label: '余额' },
+      { key: 'campaignName', label: '系列/广告组' },
+      { key: 'cost', label: '消耗' },
+      { key: 'speed', label: '时速' },
+      { key: 'roi', label: 'ROI' },
+      { key: 'userCount', label: '用户数' },
+      { key: 'rechargeAmount', label: '充值金额' },
+      { key: 'profit', label: '利润' },
+      { key: 'orderCount', label: '订单数' },
+      { key: 'firstRechargeCount', label: '首充数' },
+      { key: 'firstRechargeRate', label: '首充率' },
+      { key: 'repeatRechargeCount', label: '复充数' },
+      { key: 'cpm', label: '千次曝光' },
+      { key: 'avgRechargePerUser', label: '人均消耗' },
+    ]
+
+    const escape = (v) => {
+      if (v === null || v === undefined) return ''
+      const s = String(v)
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"'
+      }
+      return s
+    }
+
+    const lines = []
+    lines.push(columns.map((c) => escape(c.label)).join(','))
+
+    if (sum) {
+      const summaryRow = columns.map((c) => {
+        if (c.key === 'date') return escape('汇总')
+        if (['promotionId','promotionName','dramaName','accountId','accountName','balance','campaignName'].includes(c.key)) return '-'
+        if (c.key === 'firstRechargeRate') return escape(formatPercent(sum[c.key]))
+        return escape(sum[c.key] ?? '')
+      })
+      lines.push(summaryRow.join(','))
+    }
+
+    for (const row of rows) {
+      const line = columns.map((c) => {
+        if (c.key === 'firstRechargeRate') return escape(formatPercent(row[c.key]))
+        return escape(row[c.key] ?? '')
+      })
+      lines.push(line.join(','))
+    }
+
+    const csv = '\uFEFF' + lines.join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `推广明细_${dateRange.value[0]}_${dateRange.value[1]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    ElMessage.success(`导出成功，共 ${rows.length} 条`)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 async function handleSync() {
@@ -713,11 +811,32 @@ function formatDateTime(date) {
 }
 .filter-card {
   flex-shrink: 0;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   border-radius: 8px;
 }
 .filter-form {
-  margin-bottom: 0;
+  margin-bottom: 0 !important;
+}
+
+.filter-form :deep(.el-button) {
+  border-radius: 4px;
+}
+
+.filter-actions {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  padding-top: 8px !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.filter-actions .el-button {
+  border-radius: 4px;
+}
+
+.filter-form :deep(.el-form-item) {
+  margin-bottom: 8px !important;
 }
 .filter-daterange {
   width: 260px;
@@ -735,13 +854,20 @@ function formatDateTime(date) {
   flex-direction: column;
   overflow: hidden;
   border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border: 1px solid #ebeef5;
 }
-.table-card :deep(.el-card__body) {
+.promotion-details .table-flex {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+.promotion-details .table-flex :deep(.el-table__body-wrapper),
+.promotion-details .table-flex :deep(.el-scrollbar__wrap) {
+  overflow-y: auto;
 }
 .promotion-details .table-wrapper {
   flex: 1 1 auto;
@@ -768,6 +894,25 @@ function formatDateTime(date) {
 .profit-negative {
   color: #f56c6c;
   font-weight: 600;
+}
+:deep(.el-table) {
+  font-size: 11px;
+}
+:deep(.el-table th.el-table__cell) {
+  font-size: 11px;
+  padding: 3px 0;
+}
+:deep(.el-table td.el-table__cell) {
+  padding: 2px 0;
+}
+:deep(.el-table .cell) {
+  padding-left: 3px;
+  padding-right: 3px;
+  line-height: 1.35;
+}
+:deep(.compact-pagination) {
+  font-size: 11px;
+  margin-top: 4px;
 }
 .chart-header {
   display: flex;
@@ -808,14 +953,13 @@ function formatDateTime(date) {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--el-border-color-lighter);
-  font-size: 13px;
-  color: #606266;
+  margin-top: 4px !important;
+  padding: 4px 0 2px !important;
+  font-size: 12px;
+  color: #909399;
 }
 .local-time .el-icon {
-  font-size: 16px;
-  color: #409eff;
+  font-size: 14px;
+  color: #909399;
 }
 </style>

@@ -1,5 +1,6 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /** TikTok API 同步 / 调用日志（对齐 tiktok_sync_logs） */
+@Schema(description = "TikTok API同步日志")
 @Data
 @Builder
 @NoArgsConstructor

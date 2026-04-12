@@ -3,6 +3,9 @@ package com.drama.controller;
 import com.drama.common.Result;
 import com.drama.entity.TikTokConversionLog;
 import com.drama.service.TikTokConversionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** TikTok 回传管理（{@code /api/tiktok/conversions}，需 Bearer） */
+@Tag(name = "TikTok回传", description = "TikTok 事件回传日志与统计")
 @Slf4j
 @RestController
 @RequestMapping("/api/tiktok/conversions")
@@ -25,19 +29,20 @@ public class TikTokConversionController {
 
     private final TikTokConversionService conversionService;
 
+    @Operation(summary = "获取回传日志列表", description = "获取TikTok事件回传日志列表")
     @GetMapping
     public Result<Map<String, Object>> getConversionLogs(
-            @RequestParam(required = false) String advertiserId,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize) {
+            @Parameter(description = "广告主ID") @RequestParam(required = false) String advertiserId,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int pageSize) {
         try {
             List<TikTokConversionLog> logs = conversionService.getConversionLogs(advertiserId, page, pageSize);
+            int total = conversionService.countConversionLogs(advertiserId);
             Map<String, Object> data = new HashMap<>();
             data.put("list", logs);
             data.put("page", page);
             data.put("pageSize", pageSize);
-            // Mapper 未单独 count：与当前 Service 一致，total 为本页条数
-            data.put("total", logs.size());
+            data.put("total", total);
             return Result.success(data);
         } catch (Exception e) {
             log.error("Failed to get conversion logs: {}", e.getMessage(), e);
@@ -45,6 +50,7 @@ public class TikTokConversionController {
         }
     }
 
+    @Operation(summary = "获取回传日志详情", description = "根据ID获取回传日志详细信息")
     @GetMapping("/{id:\\d+}")
     public Result<TikTokConversionLog> getConversionLogById(@PathVariable Long id) {
         try {
@@ -56,6 +62,7 @@ public class TikTokConversionController {
         }
     }
 
+    @Operation(summary = "根据事件ID获取回传日志", description = "根据事件ID获取回传日志详情")
     @GetMapping("/event/{eventId}")
     public Result<TikTokConversionLog> getConversionLogByEventId(@PathVariable String eventId) {
         try {
@@ -70,6 +77,7 @@ public class TikTokConversionController {
         }
     }
 
+    @Operation(summary = "发送回传事件", description = "向TikTok发送回传事件")
     @PostMapping
     public Result<TikTokConversionLog> sendConversionEvent(@RequestBody TikTokConversionLog conversionLog) {
         try {
@@ -81,8 +89,9 @@ public class TikTokConversionController {
         }
     }
 
+    @Operation(summary = "重试失败的回传", description = "重试发送失败的回传事件")
     @PostMapping("/retry")
-    public Result<Void> retryFailedConversions(@RequestParam(defaultValue = "100") int limit) {
+    public Result<Void> retryFailedConversions(@Parameter(description = "重试数量限制") @RequestParam(defaultValue = "100") int limit) {
         try {
             conversionService.retryFailedConversions(limit);
             return Result.success(null);
@@ -92,9 +101,11 @@ public class TikTokConversionController {
         }
     }
 
+    @Operation(summary = "获取回传统计", description = "获取回传事件的统计信息")
     @GetMapping("/stats")
     public Result<Map<String, Object>> getConversionStats(
-            @RequestParam String advertiserId, @RequestParam(required = false) String eventType) {
+            @Parameter(description = "广告主ID") @RequestParam String advertiserId,
+            @Parameter(description = "事件类型") @RequestParam(required = false) String eventType) {
         try {
             int count = conversionService.countConversions(advertiserId, eventType);
             Map<String, Object> stats = new HashMap<>();

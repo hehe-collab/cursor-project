@@ -56,4 +56,8 @@
     SELECT COUNT(*) FROM tiktok_conversion_logs
     WHERE advertiser_id = #{advertiserId} AND event_type = #{eventType} AND status = 'success'
   </select>
+
+  <select id="countByAdvertiserId" resultType="int">
+    SELECT COUNT(*) FROM tiktok_conversion_logs WHERE advertiser_id = #{advertiserId}
+  </select>
 </mapper>

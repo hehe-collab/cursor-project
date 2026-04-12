@@ -3,6 +3,9 @@ package com.drama.controller;
 import com.drama.common.Result;
 import com.drama.entity.TikTokAd;
 import com.drama.service.TikTokAdService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "TikTok广告", description = "广告的同步与 CRUD")
 @Slf4j
 @RestController
 @RequestMapping("/api/tiktok/ads")
@@ -25,11 +29,12 @@ public class TikTokAdController {
 
     private final TikTokAdService adService;
 
+    @Operation(summary = "获取广告列表", description = "获取TikTok广告列表")
     @GetMapping
     public Result<List<TikTokAd>> getAds(
-            @RequestParam(required = false) String advertiserId,
-            @RequestParam(required = false) String campaignId,
-            @RequestParam(required = false) String adgroupId) {
+            @Parameter(description = "广告主ID") @RequestParam(required = false) String advertiserId,
+            @Parameter(description = "广告系列ID") @RequestParam(required = false) String campaignId,
+            @Parameter(description = "广告组ID") @RequestParam(required = false) String adgroupId) {
         try {
             return Result.success(adService.getAds(advertiserId, campaignId, adgroupId));
         } catch (Exception e) {
@@ -38,6 +43,7 @@ public class TikTokAdController {
         }
     }
 
+    @Operation(summary = "获取广告详情", description = "根据ID获取广告详细信息")
     @GetMapping("/{id:\\d+}")
     public Result<TikTokAd> getAdById(@PathVariable Long id) {
         try {
@@ -48,6 +54,7 @@ public class TikTokAdController {
         }
     }
 
+    @Operation(summary = "根据广告ID获取详情", description = "根据TikTok广告ID获取详细信息")
     @GetMapping("/ad/{adId}")
     public Result<TikTokAd> getAdByAdId(@PathVariable String adId) {
         try {
@@ -58,6 +65,7 @@ public class TikTokAdController {
         }
     }
 
+    @Operation(summary = "同步广告", description = "从TikTok同步广告到本地")
     @PostMapping("/sync")
     public Result<List<TikTokAd>> syncAds(@RequestBody Map<String, String> params) {
         try {
@@ -74,6 +82,7 @@ public class TikTokAdController {
         }
     }
 
+    @Operation(summary = "创建广告", description = "创建一个新的TikTok广告")
     @PostMapping
     public Result<TikTokAd> createAd(@RequestBody TikTokAd ad) {
         try {
@@ -84,6 +93,7 @@ public class TikTokAdController {
         }
     }
 
+    @Operation(summary = "更新广告状态", description = "更新指定广告的启用状态")
     @PutMapping("/{adId}/status")
     public Result<TikTokAd> updateAdStatus(
             @PathVariable String adId, @RequestBody Map<String, String> params) {
@@ -99,6 +109,7 @@ public class TikTokAdController {
         }
     }
 
+    @Operation(summary = "删除广告", description = "删除指定的广告")
     @DeleteMapping("/{adId}")
     public Result<Void> deleteAd(@PathVariable String adId) {
         try {

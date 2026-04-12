@@ -1,5 +1,6 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -8,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /** TikTok 广告系列（对齐 tiktok_campaigns.operation_status） */
+@Schema(description = "TikTok广告系列")
 @Data
 @Builder
 @NoArgsConstructor

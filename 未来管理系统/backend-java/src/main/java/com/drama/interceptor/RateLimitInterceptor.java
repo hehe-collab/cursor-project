@@ -15,21 +15,24 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class RateLimitInterceptor implements HandlerInterceptor {
 
-    private final RateLimiter globalRateLimiter = RateLimiter.create(100.0);
+    /** 全局限流（QPS）。SPA 首页会并发多路 /api，不宜过低。 */
+    private final RateLimiter globalRateLimiter = RateLimiter.create(200.0);
     private final ConcurrentHashMap<String, RateLimiter> ipRateLimiters = new ConcurrentHashMap<>();
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws IOException {
-        if (!globalRateLimiter.tryAcquire(100, TimeUnit.MILLISECONDS)) {
+        // 等待略长，避免看板首屏多接口并发时误判（仍防刷接口）
+        if (!globalRateLimiter.tryAcquire(500, TimeUnit.MILLISECONDS)) {
             log.warn("全局限流触发");
             sendRateLimitResponse(response, "系统繁忙，请稍后再试");
             return false;
         }
         String clientIp = getClientIp(request);
+        // 单 IP 约 120/s，与 SPA 多请求并行兼容；恶意刷量仍会触发全局限流
         RateLimiter ipLimiter =
-                ipRateLimiters.computeIfAbsent(clientIp, k -> RateLimiter.create(30.0));
-        if (!ipLimiter.tryAcquire(100, TimeUnit.MILLISECONDS)) {
+                ipRateLimiters.computeIfAbsent(clientIp, k -> RateLimiter.create(120.0));
+        if (!ipLimiter.tryAcquire(500, TimeUnit.MILLISECONDS)) {
             log.warn("IP 限流触发: {}", clientIp);
             sendRateLimitResponse(response, "请求过于频繁，请稍后再试");
             return false;

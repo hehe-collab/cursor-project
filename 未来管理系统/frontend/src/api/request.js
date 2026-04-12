@@ -55,6 +55,7 @@ function handle401Json(message) {
     is401Handling = true
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('permissions')
     ElMessage.error(message || '登录已过期')
     router.push('/login').finally(() => {
       is401Handling = false

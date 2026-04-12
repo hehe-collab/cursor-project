@@ -32,7 +32,7 @@ a:hover { color: var(--primary-light); }
 /* 主内容区 */
 .main {
   background: var(--bg-page) !important;
-  padding: 24px !important;
+  padding: 0 !important;
 }
 
 /* 页面卡片 - 柔和阴影 + 悬停 */

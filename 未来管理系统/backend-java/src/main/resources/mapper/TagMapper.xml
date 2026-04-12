@@ -3,14 +3,18 @@
 <mapper namespace="com.drama.mapper.TagMapper">
 
   <sql id="TagColumns">
-    t.id, t.name, t.created_at, t.updated_at,
-    (SELECT COUNT(*) FROM drama_tags dt WHERE dt.tag_id = t.id) AS drama_count
+    t.id, t.name, t.color, t.sort_order, t.is_hot, t.usage_count,
+    (SELECT COUNT(*) FROM drama_tags dt WHERE dt.tag_id = t.id) AS drama_count,
+    t.created_at, t.updated_at
   </sql>
 
-  <sql id="WhereName">
+  <sql id="WhereClause">
     <where>
       <if test="name != null and name != ''">
         AND t.name LIKE CONCAT('%', #{name}, '%')
+      </if>
+      <if test="isHot != null">
+        AND t.is_hot = #{isHot}
       </if>
     </where>
   </sql>
@@ -20,18 +24,17 @@
   </select>
 
   <select id="selectAll" resultType="com.drama.entity.Tag">
-    SELECT <include refid="TagColumns"/> FROM tags t ORDER BY t.id ASC
+    SELECT <include refid="TagColumns"/> FROM tags t ORDER BY sort_order ASC, id ASC
   </select>
 
   <select id="countByParam" resultType="long">
-    SELECT COUNT(*) FROM tags t
-    <include refid="WhereName"/>
+    SELECT COUNT(*) FROM tags t <include refid="WhereClause"/>
   </select>
 
   <select id="selectByParam" resultType="com.drama.entity.Tag">
     SELECT <include refid="TagColumns"/> FROM tags t
-    <include refid="WhereName"/>
-    ORDER BY t.id ASC
+    <include refid="WhereClause"/>
+    ORDER BY sort_order ASC, id ASC
     LIMIT #{limit} OFFSET #{offset}
   </select>
 
@@ -51,11 +54,25 @@
   </select>
 
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO tags (name) VALUES (#{name})
+    INSERT INTO tags (name, color, sort_order, is_hot, usage_count)
+    VALUES (
+      #{name},
+      IFNULL(#{color}, '#409EFF'),
+      IFNULL(#{sortOrder}, 0),
+      IFNULL(#{isHot}, 0),
+      IFNULL(#{usageCount}, 0)
+    )
   </insert>
 
   <update id="update">
-    UPDATE tags SET name = #{name}, updated_at = NOW() WHERE id = #{id}
+    UPDATE tags SET
+      name = #{name},
+      color = IFNULL(#{color}, '#409EFF'),
+      sort_order = IFNULL(#{sortOrder}, 0),
+      is_hot = IFNULL(#{isHot}, 0),
+      usage_count = IFNULL(#{usageCount}, 0),
+      updated_at = NOW()
+    WHERE id = #{id}
   </update>
 
   <delete id="deleteById">

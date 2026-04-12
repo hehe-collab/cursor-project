@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.AdminLogMapper">
+
+  <insert id="insert" parameterType="com.drama.entity.AdminLog">
+    INSERT INTO admin_logs (
+      admin_id, admin_username, operation_type, target_type, target_id,
+      operation_desc, request_method, request_url, request_params,
+      response_status, error_msg, ip_address, user_agent, execution_time
+    ) VALUES (
+      #{adminId}, #{adminUsername}, #{operationType}, #{targetType}, #{targetId},
+      #{operationDesc}, #{requestMethod}, #{requestUrl}, #{requestParams},
+      #{responseStatus}, #{errorMsg}, #{ipAddress}, #{userAgent}, #{executionTime}
+    )
+  </insert>
+
+  <select id="selectPage" resultType="com.drama.entity.AdminLog">
+    SELECT * FROM admin_logs
+    <where>
+      <if test="adminId != null">
+        AND admin_id = #{adminId}
+      </if>
+      <if test="operationType != null and operationType != ''">
+        AND operation_type = #{operationType}
+      </if>
+      <if test="targetType != null and targetType != ''">
+        AND target_type = #{targetType}
+      </if>
+      <if test="startDate != null">
+        AND DATE(created_at) &gt;= #{startDate}
+      </if>
+      <if test="endDate != null">
+        AND DATE(created_at) &lt;= #{endDate}
+      </if>
+    </where>
+    ORDER BY created_at DESC
+    LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="count" resultType="int">
+    SELECT COUNT(*) FROM admin_logs
+    <where>
+      <if test="adminId != null">
+        AND admin_id = #{adminId}
+      </if>
+      <if test="operationType != null and operationType != ''">
+        AND operation_type = #{operationType}
+      </if>
+      <if test="targetType != null and targetType != ''">
+        AND target_type = #{targetType}
+      </if>
+      <if test="startDate != null">
+        AND DATE(created_at) &gt;= #{startDate}
+      </if>
+      <if test="endDate != null">
+        AND DATE(created_at) &lt;= #{endDate}
+      </if>
+    </where>
+  </select>
+
+  <select id="countByOperationType" resultType="map">
+    SELECT
+      operation_type AS operationType,
+      COUNT(*) AS count
+    FROM admin_logs
+    <where>
+      <if test="startDate != null">
+        AND DATE(created_at) &gt;= #{startDate}
+      </if>
+      <if test="endDate != null">
+        AND DATE(created_at) &lt;= #{endDate}
+      </if>
+    </where>
+    GROUP BY operation_type
+    ORDER BY count DESC
+  </select>
+
+</mapper>

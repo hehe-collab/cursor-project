@@ -11,6 +11,9 @@
     <result column="account_name" property="accountName"/>
     <result column="media_alias" property="mediaAlias"/>
     <result column="account_agent" property="accountAgent"/>
+    <result column="access_token_encrypted" property="accessTokenEncrypted"/>
+    <result column="refresh_token_encrypted" property="refreshTokenEncrypted"/>
+    <result column="token_expires_at" property="tokenExpiresAt"/>
     <result column="created_by" property="createdBy"/>
     <result column="created_by_name" property="createdByName"/>
     <result column="created_at" property="createdAt"/>
@@ -55,9 +58,11 @@
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO ad_accounts (
       media, country, subject_name, account_id, account_name, media_alias, account_agent,
+      access_token_encrypted, refresh_token_encrypted, token_expires_at,
       created_by, created_by_name, created_at, updated_at
     ) VALUES (
       #{media}, #{country}, #{subjectName}, #{accountId}, #{accountName}, #{mediaAlias}, #{accountAgent},
+      #{accessTokenEncrypted}, #{refreshTokenEncrypted}, #{tokenExpiresAt},
       #{createdBy}, #{createdByName}, NOW(), NOW()
     )
   </insert>
@@ -71,6 +76,9 @@
       account_name = #{accountName},
       media_alias = #{mediaAlias},
       account_agent = #{accountAgent},
+      access_token_encrypted = #{accessTokenEncrypted},
+      refresh_token_encrypted = #{refreshTokenEncrypted},
+      token_expires_at = #{tokenExpiresAt},
       updated_at = NOW()
     WHERE id = #{id}
   </update>

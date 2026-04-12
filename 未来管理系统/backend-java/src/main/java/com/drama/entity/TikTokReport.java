@@ -1,5 +1,6 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -9,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /** TikTok 报表快照（对齐 tiktok_reports） */
+@Schema(description = "TikTok数据报表")
 @Data
 @Builder
 @NoArgsConstructor

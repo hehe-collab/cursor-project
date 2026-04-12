@@ -2,9 +2,11 @@ package com.drama.entity;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.Data;
 
+@Schema(description = "回传配置")
 @Data
 public class CallbackConfig {
 

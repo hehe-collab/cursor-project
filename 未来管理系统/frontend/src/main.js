@@ -11,7 +11,9 @@ import VueVirtualScroller from 'vue-virtual-scroller'
 import VueLazyload from 'vue3-lazyload'
 import App from './App.vue'
 import router from './router'
+import permissionDirective from '@/directives/permission'
 import { monitorPageLoad, getPerformanceReport } from '@/utils/performance'
+import { cleanObject } from '@/utils/xss'
 import { monitorGlobalError, getErrorReport } from '@/utils/errorMonitor'
 
 /** #091：懒加载占位（内联 SVG，避免额外静态资源） */
@@ -27,6 +29,22 @@ app.use(VueVirtualScroller)
 app.use(VueLazyload, {
   loading: LAZY_LOADING,
   error: LAZY_ERROR,
+})
+
+// 全局权限指令 v-permission
+app.directive('permission', permissionDirective)
+
+// 全局混入：自动清理表单输入中的 XSS
+app.mixin({
+  methods: {
+    $cleanInput(value) {
+      if (typeof value !== 'string') return value
+      return cleanObject({ temp: value }).temp
+    },
+    $cleanObject(obj) {
+      return cleanObject(obj)
+    }
+  }
 })
 
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

@@ -20,8 +20,10 @@ const COLUMN_MAP = {
   '标题': 'titles',
   '优化目标': 'optimizationTarget',
   '出价': 'bid',
-  /** 3.0：项目「每日预算」；2.0 曾用于广告组与出价并列，3.0 仅项目层 */
+  /** 3.0：项目「每日预算」；2.0 曾用于广告组与出价并列，3.0 仅项目层；可空，有数字才填 */
   '预算': 'budget',
+  /** 3.0：广告组「个数」字段（数字输入框），直接填数字文本 */
+  '个数': 'count',
   '开始日期': 'startDate',
   '开始时间': 'startTime',
   '年龄': 'age',
@@ -189,6 +191,9 @@ function readTasks(filePath) {
         materialIds: parseMaterialIds(row.materialIds || firstRow.materialIds),
         optimizationTarget: String(row.optimizationTarget || firstRow.optimizationTarget || '价值').trim(),
         bid: String(row.bid || firstRow.bid || '').trim(),
+        /** 3.0：广告组「个数」字段，可空；有数字才填 */
+        count: String(row.count ?? firstRow.count ?? '').trim(),
+        /** 3.0：项目「每日预算」；可空，有数字才填 */
         budget: String(row.budget || firstRow.budget || '').trim(),
         startDate: formatStartDate(row.startDate || firstRow.startDate),
         startTime: formatStartTime(row.startTime || firstRow.startTime),
@@ -242,7 +247,6 @@ function readTasks(filePath) {
     if (!firstAcc.projectName) missing.push('项目名称');
     if (!firstAcc.materialKeyword && firstAcc.materialIds.length === 0) missing.push('素材关键词或素材ID（至少填写一项）');
     if (!firstAcc.bid) missing.push('出价');
-    if (!firstAcc.budget) missing.push('预算');
     if (!firstAcc.startDate) missing.push('开始日期');
     if (!firstAcc.startTime) missing.push('开始时间');
 
@@ -269,7 +273,7 @@ function printTaskSummary(taskGroups) {
     const first = group.accounts[0];
     console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${first?.projectName || '-'}`);
     console.log(
-      `   优化目标: ${first?.optimizationTarget || '-'} | 出价: ${first?.bid || '-'} | 预算: ${first?.budget || '-'} | 基于目标增加预算: ${first?.increaseBudgetByGoalEnabled ? '开' : '关'}`
+      `   优化目标: ${first?.optimizationTarget || '-'} | 出价: ${first?.bid || '-'} | 预算: ${first?.budget || '-'} | 个数: ${first?.count || '-'} | 基于目标增加预算: ${first?.increaseBudgetByGoalEnabled ? '开' : '关'}`
     );
     console.log(`   开始时间: ${first?.startDate || '-'} ${first?.startTime || '-'} | 年龄: ${first?.age || '18+'}`);
     

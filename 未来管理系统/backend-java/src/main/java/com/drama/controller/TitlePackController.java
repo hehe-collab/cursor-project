@@ -4,6 +4,9 @@ import com.drama.common.Result;
 import com.drama.entity.Admin;
 import com.drama.mapper.AdminMapper;
 import com.drama.service.TitlePackService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "标题包", description = "标题包的 CRUD 与导出")
 @RestController
 @RequestMapping("/api/title-pack")
 @RequiredArgsConstructor
@@ -30,9 +34,11 @@ public class TitlePackController {
     private final TitlePackService titlePackService;
     private final AdminMapper adminMapper;
 
+    @Operation(summary = "导出标题包", description = "导出标题包到 Excel 文件")
     @GetMapping("/export")
     public ResponseEntity<byte[]> export(
-            @RequestParam(required = false) String titlePackId, @RequestParam(required = false) String title)
+            @Parameter(description = "标题包ID") @RequestParam(required = false) String titlePackId,
+            @Parameter(description = "标题") @RequestParam(required = false) String title)
             throws java.io.IOException {
         byte[] bytes = titlePackService.exportExcel(titlePackId, title);
         return ResponseEntity.ok()
@@ -42,17 +48,19 @@ public class TitlePackController {
                 .body(bytes);
     }
 
+    @Operation(summary = "获取标题包列表", description = "获取标题包列表，支持筛选和分页")
     @GetMapping
     public Result<Map<String, Object>> list(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(required = false) String titlePackId,
-            @RequestParam(required = false) String title) {
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int pageSize,
+            @Parameter(description = "标题包ID") @RequestParam(required = false) String titlePackId,
+            @Parameter(description = "标题") @RequestParam(required = false) String title) {
         int ps = Math.min(Math.max(pageSize, 1), 1000);
         int p = Math.max(page, 1);
         return Result.success(titlePackService.listPage(p, ps, titlePackId, title));
     }
 
+    @Operation(summary = "创建标题包", description = "创建一个新的标题包")
     @PostMapping
     public Result<Map<String, Integer>> create(
             @RequestBody Map<String, Object> body,
@@ -64,6 +72,7 @@ public class TitlePackController {
         return Result.success("新增成功", new LinkedHashMap<>(Map.of("id", id)));
     }
 
+    @Operation(summary = "更新标题包", description = "更新指定标题包的信息")
     @PutMapping("/{id:\\d+}")
     public Result<Void> update(@PathVariable int id, @RequestBody Map<String, Object> body) {
         String[] nc = normalizeNameContent(body);
@@ -71,6 +80,7 @@ public class TitlePackController {
         return Result.success("修改成功", null);
     }
 
+    @Operation(summary = "批量删除标题包", description = "批量删除多条标题包")
     @DeleteMapping("/batch")
     public Result<Void> batchDelete(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
@@ -85,6 +95,7 @@ public class TitlePackController {
         return Result.success("批量删除成功", null);
     }
 
+    @Operation(summary = "删除标题包", description = "删除指定的标题包")
     @DeleteMapping("/{id:\\d+}")
     public Result<Void> delete(@PathVariable int id) {
         titlePackService.deleteOne(id);

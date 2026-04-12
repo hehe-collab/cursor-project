@@ -892,12 +892,27 @@ async function selectStartTimeAdGroupV3(page, dialog, row, date, time) {
 }
 
 async function selectAgeAdGroupV3(page, row, age) {
-  const ageSelect = row.locator('td').nth(8).locator('.el-select, .el-input').first();
+  const ageSelect = row.locator('td').nth(10).locator('.el-select, .el-input').first();
   await ageSelect.click();
   await shortDelay();
   const dropdown = page.locator('.el-select-dropdown:visible').last();
   await dropdown.locator('.el-select-dropdown__item').filter({ hasText: age }).click();
-  log(`    年龄: ${age}`);
+  log(`    年龄: ${age}`, 'OK');
+}
+
+/** 3.0 广告组「个数」字段（索引8，数字输入框），可空 */
+async function inputCountAdGroupV3(row, count) {
+  const countStr = String(count ?? '').trim();
+  if (!countStr) {
+    log(`    个数: 为空，跳过`);
+    return;
+  }
+  const input = row.locator('td').nth(8).locator('.el-input__inner, input').first();
+  await input.click();
+  await input.fill('');
+  await shortDelay();
+  await input.fill(countStr);
+  log(`    个数: ${countStr}`, 'OK');
 }
 
 /** 广告组/广告弹窗内商品库、商品下拉（列索引按 3.0 表头） */
@@ -1040,14 +1055,21 @@ async function setupAdGroup(page, taskGroup) {
       await withRetry(() => selectAgeAdGroupV3(page, row, account.age), `年龄`);
     }
 
-    if (!account.projectProductLibraryEnabled) {
-      if (!account.productStore) {
-        log('    项目未开商品库且 Excel 未填「商品库」，可能无法提交', 'WARN');
-      } else {
+    if (account.count) {
+      await withRetry(() => inputCountAdGroupV3(row, account.count), `个数`);
+    }
+
+    /** 3.0 商品库逻辑：项目商品库开关开启时，才在广告组侧填写商品库 */
+    if (account.projectProductLibraryEnabled) {
+      if (account.productStore) {
         await withRetry(
-          () => selectCatalogDropdownByColumn(page, row, 9, account.productStore),
+          () => selectCatalogDropdownByColumn(page, row, 11, account.productStore),
           `广告组商品库 [${account.productStore}]`
         );
+      }
+    } else {
+      if (!account.productStore) {
+        log('    项目未开商品库且 Excel 未填「商品库」，可能无法提交', 'WARN');
       }
     }
   }
@@ -2102,7 +2124,8 @@ async function setupAdModalV3(page, taskGroup) {
     if (account.identity) {
       await withRetry(() => selectIdentityAdV3(page, row, account.identity), `认证身份`);
     }
-    if (!account.projectProductLibraryEnabled) {
+    /** 3.0 商品库逻辑：项目商品库开关开启时，才在广告侧填写商品库和商品 */
+    if (account.projectProductLibraryEnabled) {
       if (account.productStore) {
         await withRetry(
           () => selectCatalogDropdownByColumn(page, row, 6, account.productStore),

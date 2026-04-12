@@ -37,6 +37,13 @@ public class TikTokConversionService {
         return List.of();
     }
 
+    public int countConversionLogs(String advertiserId) {
+        if (!StringUtils.hasText(advertiserId)) {
+            return 0;
+        }
+        return conversionLogMapper.countByAdvertiserId(advertiserId);
+    }
+
     public TikTokConversionLog getConversionLogById(Long id) {
         return getById(id);
     }

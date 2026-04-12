@@ -32,6 +32,13 @@ public class GlobalExceptionHandler {
         return Result.error(400, msg);
     }
 
+    /** 限流拒绝：返回 HTTP 429 + 业务 code 429 */
+    @ExceptionHandler(RateLimitException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public Result<Void> handleRateLimit(RateLimitException e) {
+        return Result.error(429, e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.OK)
     public Result<Void> handleAny(Exception e) {

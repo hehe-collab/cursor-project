@@ -1,5 +1,6 @@
 package com.drama.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -8,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /** TikTok OAuth / 账户（#096 + #095-4 DDL）。库表无 admin_id 字段，不设 adminId。 */
+@Schema(description = "TikTok授权账户")
 @Data
 @Builder
 @NoArgsConstructor

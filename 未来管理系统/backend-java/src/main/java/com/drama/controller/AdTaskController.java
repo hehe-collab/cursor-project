@@ -2,6 +2,9 @@ package com.drama.controller;
 
 import com.drama.common.Result;
 import com.drama.service.AdTaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "广告任务", description = "广告任务的创建与导出")
 @RestController
 @RequestMapping("/api/ad-task")
 @RequiredArgsConstructor
@@ -25,8 +29,9 @@ public class AdTaskController {
 
     private final AdTaskService adTaskService;
 
+    @Operation(summary = "导出广告任务", description = "导出广告任务到 Excel 文件")
     @GetMapping("/export")
-    public ResponseEntity<byte[]> export(@RequestParam Map<String, String> query) throws IOException {
+    public ResponseEntity<byte[]> export(@Parameter(description = "查询参数") @RequestParam Map<String, String> query) throws IOException {
         byte[] bytes = adTaskService.exportExcel(query);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"ad_tasks.xlsx\"")
@@ -35,14 +40,15 @@ public class AdTaskController {
                 .body(bytes);
     }
 
+    @Operation(summary = "获取广告任务列表", description = "获取广告任务列表，支持筛选和分页")
     @GetMapping
     public Result<?> list(
-            @RequestParam(required = false) String task_id,
-            @RequestParam(required = false) String account_id,
-            @RequestParam(required = false) String account_name,
-            @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int pageSize) {
+            @Parameter(description = "任务ID") @RequestParam(required = false) String task_id,
+            @Parameter(description = "账户ID") @RequestParam(required = false) String account_id,
+            @Parameter(description = "账户名称") @RequestParam(required = false) String account_name,
+            @Parameter(description = "任务状态") @RequestParam(required = false) String status,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int pageSize) {
         Map<String, String> q = new HashMap<>();
         if (task_id != null) {
             q.put("task_id", task_id);
@@ -59,6 +65,7 @@ public class AdTaskController {
         return Result.success("success", adTaskService.listFiltered(q, page, pageSize));
     }
 
+    @Operation(summary = "获取广告任务详情", description = "根据ID获取广告任务详细信息")
     @GetMapping("/{id}")
     public Result<?> one(@PathVariable("id") String id) {
         Map<String, Object> task = adTaskService.getOne(id);
@@ -68,6 +75,7 @@ public class AdTaskController {
         return Result.success(task);
     }
 
+    @Operation(summary = "创建广告任务", description = "创建一个新的广告任务")
     @PostMapping
     public Result<?> create(
             @RequestBody Map<String, Object> body,

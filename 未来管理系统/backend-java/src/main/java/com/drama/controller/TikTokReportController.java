@@ -3,6 +3,9 @@ package com.drama.controller;
 import com.drama.common.Result;
 import com.drama.entity.TikTokReport;
 import com.drama.service.TikTokReportService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** TikTok 数据报告（{@code /api/tiktok/reports}，需 Bearer） */
+@Tag(name = "TikTok报表", description = "TikTok 广告数据报表查询与同步")
 @Slf4j
 @RestController
 @RequestMapping("/api/tiktok/reports")
@@ -28,12 +32,13 @@ public class TikTokReportController {
 
     private final TikTokReportService reportService;
 
+    @Operation(summary = "获取报表列表", description = "获取TikTok广告数据报表")
     @GetMapping
     public Result<List<TikTokReport>> getReports(
-            @RequestParam String advertiserId,
-            @RequestParam(required = false) String dimensions,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @Parameter(description = "广告主ID") @RequestParam String advertiserId,
+            @Parameter(description = "维度") @RequestParam(required = false) String dimensions,
+            @Parameter(description = "开始日期") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @Parameter(description = "结束日期") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         try {
             if (startDate == null) {
                 startDate = LocalDate.now().minusDays(7);
@@ -49,6 +54,7 @@ public class TikTokReportController {
         }
     }
 
+    @Operation(summary = "获取报表详情", description = "根据ID获取报表详细信息")
     @GetMapping("/{id:\\d+}")
     public Result<TikTokReport> getReportById(@PathVariable Long id) {
         try {
@@ -60,6 +66,7 @@ public class TikTokReportController {
         }
     }
 
+    @Operation(summary = "同步报表数据", description = "从TikTok同步广告数据报表到本地")
     @PostMapping("/sync")
     public Result<List<TikTokReport>> syncReports(@RequestBody Map<String, Object> params) {
         try {
@@ -82,12 +89,13 @@ public class TikTokReportController {
         }
     }
 
+    @Operation(summary = "获取报表汇总", description = "获取TikTok广告数据报表的汇总统计")
     @GetMapping("/summary")
     public Result<Map<String, Object>> getReportSummary(
-            @RequestParam String advertiserId,
-            @RequestParam(required = false) String dimensions,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @Parameter(description = "广告主ID") @RequestParam String advertiserId,
+            @Parameter(description = "维度") @RequestParam(required = false) String dimensions,
+            @Parameter(description = "开始日期") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @Parameter(description = "结束日期") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         try {
             if (startDate == null) {
                 startDate = LocalDate.now().minusDays(7);

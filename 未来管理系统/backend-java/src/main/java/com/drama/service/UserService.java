@@ -1,5 +1,6 @@
 package com.drama.service;
 
+import com.drama.config.CacheConfig;
 import com.drama.dto.UserQueryParam;
 import com.drama.dto.UserStatsRow;
 import com.drama.entity.User;
@@ -13,6 +14,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +29,11 @@ public class UserService {
 
     private final UserMapper userMapper;
 
+    /**
+     * 用户统计（带缓存，1分钟过期）
+     * 避免频繁查询大表
+     */
+    @Cacheable(value = CacheConfig.CACHE_USER_STATS, key = "#q.hashCode()", unless = "#result == null")
     public Map<String, Object> stats(UserQueryParam q) {
         UserStatsRow row =
                 userMapper.selectStatsAggregate(
@@ -91,6 +99,7 @@ public class UserService {
         return data;
     }
 
+    @CacheEvict(value = CacheConfig.CACHE_USER_STATS, allEntries = true)
     @Transactional
     public Map<String, Object> create(Map<String, Object> body) {
         User u = new User();
@@ -118,6 +127,7 @@ public class UserService {
         return toApiUser(saved);
     }
 
+    @CacheEvict(value = CacheConfig.CACHE_USER_STATS, allEntries = true)
     @Transactional
     public void update(int id, Map<String, Object> body) {
         User existing = userMapper.selectById(id);
@@ -157,6 +167,7 @@ public class UserService {
         userMapper.updateById(existing);
     }
 
+    @CacheEvict(value = CacheConfig.CACHE_USER_STATS, allEntries = true)
     @Transactional
     public void delete(int id) {
         User existing = userMapper.selectById(id);
