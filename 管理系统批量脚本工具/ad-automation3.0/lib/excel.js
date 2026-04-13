@@ -10,6 +10,8 @@ const COLUMN_MAP = {
   '主体': 'entity',
   '账户ID': 'accountId',
   'Pixel': 'pixel',
+  /** 3.0：项目弹窗「已有项目」下拉展示名；空或「空则新增」等为新建项目 */
+  '已有项目': 'existingProject',
   '项目名称': 'projectName',
   /** 3.0：项目弹窗内「商品库」开关；开=true 则广告组/广告侧不选商品库，关=false 则必选 */
   '项目商品库': 'projectProductLibrary',
@@ -20,8 +22,10 @@ const COLUMN_MAP = {
   '标题': 'titles',
   '优化目标': 'optimizationTarget',
   '出价': 'bid',
-  /** 3.0：项目「每日预算」；2.0 曾用于广告组与出价并列，3.0 仅项目层；可空，有数字才填 */
+  /** 3.0：项目「每日预算」；可空表示不限制项目预算；与「广告组预算」至少填其一（选用已有项目时仅广告组预算生效） */
   '预算': 'budget',
+  /** 3.0：广告组「预算」，在出价与个数之间；可空 */
+  '广告组预算': 'adGroupBudget',
   /** 3.0：广告组「个数」字段（数字输入框），直接填数字文本 */
   '个数': 'count',
   '开始日期': 'startDate',
@@ -35,6 +39,21 @@ const COLUMN_MAP = {
   '基于目标增加预算': 'increaseBudgetByGoal',
   '提交次数': 'submitCount',
 };
+
+function hasPositiveBudgetNumeric(val) {
+  const s = String(val ?? '').trim().replace(/,/g, '');
+  if (!s) return false;
+  const n = parseFloat(s);
+  return !Number.isNaN(n) && n > 0;
+}
+
+/** 选用已有项目：非空且非「空则新增」等占位 */
+function useExistingProjectRow(val) {
+  const s = String(val ?? '').trim();
+  if (!s) return false;
+  if (/^(空则新增|新增|[-－—_]+)$/.test(s)) return false;
+  return true;
+}
 
 /**
  * 读取 Excel 文件并解析为任务组列表
@@ -173,12 +192,20 @@ function readTasks(filePath) {
       if (ibgVal === undefined || ibgVal === '') ibgVal = firstRow.increaseBudgetByGoal;
       const increaseBudgetByGoalEnabled = parseIncreaseBudgetByGoal(ibgVal);
 
+      let existingProjectRaw = row.existingProject;
+      if (existingProjectRaw === undefined || existingProjectRaw === '') {
+        existingProjectRaw = firstRow.existingProject;
+      }
+      const existingProject = String(existingProjectRaw ?? '').trim();
+
       const account = {
         accountId: String(row.accountId).trim(),
         pixel: String(row.pixel || firstRow.pixel || '').trim(),
         linkKeyword: String(row.linkKeyword || '').trim(),
         titles,
         enable,
+        /** 3.0：已有项目下拉展示名；空或占位为新建项目 */
+        existingProject,
         // 以下字段全部支持逐行独立配置，空则继承首行
         projectName: String(row.projectName || firstRow.projectName || '').trim(),
         /** 3.0：项目弹窗是否开启商品库（也可按行覆盖） */
@@ -191,8 +218,10 @@ function readTasks(filePath) {
         materialIds: parseMaterialIds(row.materialIds || firstRow.materialIds),
         optimizationTarget: String(row.optimizationTarget || firstRow.optimizationTarget || '价值').trim(),
         bid: String(row.bid || firstRow.bid || '').trim(),
-        /** 3.0：广告组「个数」字段，可空；有数字才填 */
-        count: String(row.count ?? firstRow.count ?? '').trim(),
+        /** 3.0：广告组「预算」，可空；空字符串继承首行（与「预算」列一致，避免 Excel 空格读成 '' 时 ?? 不回落） */
+        adGroupBudget: String(row.adGroupBudget || firstRow.adGroupBudget || '').trim(),
+        /** 3.0：广告组「个数」字段，可空；空字符串继承首行（与「广告组预算」一致） */
+        count: String(row.count || firstRow.count || '').trim(),
         /** 3.0：项目「每日预算」；可空，有数字才填 */
         budget: String(row.budget || firstRow.budget || '').trim(),
         startDate: formatStartDate(row.startDate || firstRow.startDate),
@@ -205,6 +234,9 @@ function readTasks(filePath) {
 
       if (!account.adName) {
         account.adName = account.projectName;
+      }
+      if (!account.adName && useExistingProjectRow(account.existingProject)) {
+        account.adName = account.existingProject;
       }
 
       if (!account.accountId) {
@@ -244,11 +276,29 @@ function readTasks(filePath) {
     const firstAcc = accounts[0];
     const missing = [];
     if (!taskGroup.entity) missing.push('主体');
-    if (!firstAcc.projectName) missing.push('项目名称');
-    if (!firstAcc.materialKeyword && firstAcc.materialIds.length === 0) missing.push('素材关键词或素材ID（至少填写一项）');
+    if (!useExistingProjectRow(firstAcc.existingProject) && !firstAcc.projectName) {
+      missing.push('项目名称（新建项目时必填）');
+    }
+    if (!firstAcc.materialKeyword && firstAcc.materialIds.length === 0) {
+      missing.push('素材关键词或素材ID（至少填写一项）');
+    }
     if (!firstAcc.bid) missing.push('出价');
     if (!firstAcc.startDate) missing.push('开始日期');
     if (!firstAcc.startTime) missing.push('开始时间');
+
+    const hasProjB = hasPositiveBudgetNumeric(firstAcc.budget);
+    const hasAgB = hasPositiveBudgetNumeric(firstAcc.adGroupBudget);
+    if (useExistingProjectRow(firstAcc.existingProject)) {
+      if (!hasAgB) {
+        throw new Error(
+          `任务 ${taskId}：已填写「已有项目」时，项目内字段将跳过，请在 Excel 中填写「广告组预算」`
+        );
+      }
+    } else if (!hasProjB && !hasAgB) {
+      throw new Error(
+        `任务 ${taskId}：「预算」（项目每日预算）与「广告组预算」至少填其一且须为大于 0 的数字`
+      );
+    }
 
     if (missing.length > 0) {
       log(`任务 ${taskId} 缺少必填字段: ${missing.join(', ')}`, 'WARN');
@@ -271,9 +321,12 @@ function printTaskSummary(taskGroups) {
 
   for (const group of taskGroups) {
     const first = group.accounts[0];
-    console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${first?.projectName || '-'}`);
+    const exLabel = useExistingProjectRow(first?.existingProject)
+      ? `已有项目:${first.existingProject}`
+      : '新建项目';
+    console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${exLabel} / ${first?.projectName || '-'}`);
     console.log(
-      `   优化目标: ${first?.optimizationTarget || '-'} | 出价: ${first?.bid || '-'} | 预算: ${first?.budget || '-'} | 个数: ${first?.count || '-'} | 基于目标增加预算: ${first?.increaseBudgetByGoalEnabled ? '开' : '关'}`
+      `   优化目标: ${first?.optimizationTarget || '-'} | 出价: ${first?.bid || '-'} | 项目预算: ${first?.budget || '-'} | 广告组预算: ${first?.adGroupBudget || '-'} | 个数: ${first?.count || '-'} | 基于目标增加预算: ${first?.increaseBudgetByGoalEnabled ? '开' : '关'}`
     );
     console.log(`   开始时间: ${first?.startDate || '-'} ${first?.startTime || '-'} | 年龄: ${first?.age || '18+'}`);
     
@@ -290,5 +343,10 @@ function printTaskSummary(taskGroups) {
   console.log('\n' + '='.repeat(70) + '\n');
 }
 
-module.exports = { readTasks, printTaskSummary };
+module.exports = {
+  readTasks,
+  printTaskSummary,
+  useExistingProjectRow,
+  hasPositiveBudgetNumeric,
+};
 

@@ -10,7 +10,7 @@
  *   - 验证必填字段是否完整
  */
 
-const { readTasks, printTaskSummary } = require('./lib/excel');
+const { readTasks, printTaskSummary, useExistingProjectRow, hasPositiveBudgetNumeric } = require('./lib/excel');
 const { log } = require('./lib/utils');
 const config = require('./config');
 
@@ -43,6 +43,7 @@ function testExcelData() {
       // 基本信息
       console.log(`\n📋 基本信息:`);
       console.log(`  主体:           ${task.entity}`);
+      console.log(`  已有项目:       ${firstAcc?.existingProject || '（新建）'}`);
       console.log(`  项目名称:       ${firstAcc?.projectName || '-'}`);
       console.log(`  账户数量:       ${task.accounts.length}`);
       
@@ -86,7 +87,8 @@ function testExcelData() {
       console.log(
         `  基于目标增加预算: ${firstAcc?.increaseBudgetByGoalEnabled ? '开' : '关'}`
       );
-      console.log(`  预算:           ${firstAcc?.budget || '-'}`);
+      console.log(`  项目每日预算:   ${firstAcc?.budget || '-'}`);
+      console.log(`  广告组预算:     ${firstAcc?.adGroupBudget || '-'}`);
       console.log(`  提交次数:       ${task.submitCount}`);
       
       // 可选设置
@@ -120,9 +122,15 @@ function testExcelData() {
       const bidNum = bidStr ? parseFloat(bidStr.replace(/,/g, '')) : NaN;
       const bidOk = Boolean(bidStr) && !Number.isNaN(bidNum) && bidNum > 0;
 
+      const useExisting = useExistingProjectRow(firstAcc?.existingProject);
+      const projB = hasPositiveBudgetNumeric(firstAcc?.budget);
+      const agB = hasPositiveBudgetNumeric(firstAcc?.adGroupBudget);
+      const budgetRuleOk = useExisting ? agB : projB || agB;
+      const projectNameOk = useExisting || !!String(firstAcc?.projectName || '').trim();
+
       const checks = [
         { name: '主体', value: task.entity, valid: !!task.entity },
-        { name: '项目名称', value: firstAcc?.projectName, valid: !!firstAcc?.projectName },
+        { name: '项目名称/已有项目', value: useExisting ? `已有:${firstAcc.existingProject}` : firstAcc?.projectName, valid: projectNameOk },
         { name: '素材检索', value: materialSearchValue, valid: hasMaterialSearch },
         { name: '标题（所有账户）', value: allAccountsHaveTitles ? '有' : '部分缺失', valid: allAccountsHaveTitles },
         {
@@ -130,7 +138,11 @@ function testExcelData() {
           value: bidStr || '（未填）',
           valid: bidOk,
         },
-        { name: '预算', value: firstAcc?.budget, valid: !!firstAcc?.budget },
+        {
+          name: '项目预算/广告组预算',
+          value: `项目:${firstAcc?.budget || '-'} / 广告组:${firstAcc?.adGroupBudget || '-'}`,
+          valid: budgetRuleOk,
+        },
         { name: '开始日期', value: firstAcc?.startDate, valid: !!firstAcc?.startDate && dateValid },
         { name: '开始时间', value: firstAcc?.startTime, valid: !!firstAcc?.startTime && timeValid },
       ];

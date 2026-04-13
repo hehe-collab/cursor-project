@@ -424,13 +424,63 @@ async function fillProjectNameV3(row, projectName) {
 }
 
 async function fillDailyBudgetProjectV3(row, budget) {
+  const s = String(budget ?? '').trim();
+  if (!s || Number.isNaN(parseFloat(s.replace(/,/g, '')))) {
+    log(`    每日预算: 为空，跳过（不限制项目预算）`, 'INFO');
+    return;
+  }
   const input = row.locator('td').nth(4).locator('.el-input__inner, input').first();
   await input.click();
   await input.fill('');
   await shortDelay();
-  await input.fill(String(budget));
+  await input.fill(s);
   await shortDelay();
-  log(`    每日预算: ${budget}`);
+  log(`    每日预算: ${s}`);
+}
+
+function escapeRegExpForSelect(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** 项目弹窗第 2 列：选用已有项目（下拉展示名） */
+async function selectExistingProjectByDisplayName(page, row, displayName) {
+  const name = String(displayName).trim();
+  const cell = row.locator('td').nth(2);
+  const select = cell.locator('.el-select, .el-input').first();
+  await select.click();
+  await shortDelay();
+  const dropdown = page.locator('.el-select-dropdown:visible').last();
+  const re = new RegExp(escapeRegExpForSelect(name));
+  const option = dropdown.locator('.el-select-dropdown__item').filter({ hasText: re });
+  await option.first().waitFor({ state: 'visible', timeout: 12000 });
+  await option.first().click();
+  await mediumDelay();
+  log(`    已有项目: ${name}`, 'OK');
+}
+
+/** 新建项目：将「已有项目」列设为「空则新增」（若下拉存在该选项） */
+async function ensureNewProjectInDropdown(page, row) {
+  const cell = row.locator('td').nth(2);
+  const select = cell.locator('.el-select, .el-input').first();
+  await select.click();
+  await shortDelay();
+  const dropdown = page.locator('.el-select-dropdown:visible').last();
+  const opt = dropdown.locator('.el-select-dropdown__item').filter({ hasText: /空则新增/ }).first();
+  if (await opt.isVisible({ timeout: 4000 }).catch(() => false)) {
+    await opt.click();
+    await mediumDelay();
+    log(`    已有项目: 空则新增`, 'OK');
+  } else {
+    await page.keyboard.press('Escape');
+    await shortDelay();
+  }
+}
+
+function useExistingProjectAccount(account) {
+  const s = String(account?.existingProject ?? '').trim();
+  if (!s) return false;
+  if (/^(空则新增|新增|[-－—_]+)$/.test(s)) return false;
+  return true;
 }
 
 async function toggleElSwitchInCell(row, colIndex, enable, logLabel) {
@@ -516,12 +566,25 @@ async function setupProject(page, taskGroup) {
 
     log(`  设置账户 ${i + 1}/${rowCount}: ${account.accountId}`);
 
-    await fillProjectNameV3(row, account.projectName);
-    await fillDailyBudgetProjectV3(row, account.budget);
-    await toggleElSwitchInCell(row, 5, !!account.increaseBudgetByGoalEnabled, '基于目标增加预算');
-    await toggleElSwitchInCell(row, 6, account.projectProductLibraryEnabled, '项目商品库');
-    const enableValue = account.enable !== undefined ? account.enable : taskGroup.enable;
-    await toggleElSwitchInCell(row, 7, enableValue !== false, '启用');
+    if (useExistingProjectAccount(account)) {
+      try {
+        await selectExistingProjectByDisplayName(page, row, account.existingProject);
+      } catch (err) {
+        await pauseForUser(`选用已有项目失败: ${account.existingProject}\n${err.message}\n请手动选择后按 Enter`);
+      }
+    } else {
+      try {
+        await ensureNewProjectInDropdown(page, row);
+      } catch {
+        /* 忽略 */
+      }
+      await fillProjectNameV3(row, account.projectName);
+      await fillDailyBudgetProjectV3(row, account.budget);
+      await toggleElSwitchInCell(row, 5, !!account.increaseBudgetByGoalEnabled, '基于目标增加预算');
+      await toggleElSwitchInCell(row, 6, account.projectProductLibraryEnabled, '项目商品库');
+      const enableValue = account.enable !== undefined ? account.enable : taskGroup.enable;
+      await toggleElSwitchInCell(row, 7, enableValue !== false, '启用');
+    }
   }
 
   const confirmBtn = dialog.locator('button').filter({ hasText: '确定' }).or(
@@ -665,8 +728,18 @@ async function toggleEnableInRow(row, enable) {
 }
 
 // ============================================================
-//  3.0 广告组表（Smart+2.0）：名称(3) Pixel(4) 优化目标(5) 出价(6) 开始时间(7) 年龄(8) 商品库(9)
+//  3.0 广告组表（Smart+2.0）：名称(3) Pixel(4) 优化目标(5) 出价(6) 广告组预算(7) 个数(8) 开始时间(9) 年龄(10) 商品库(11)…
 // ============================================================
+
+function resolveAdGroupTableName(account) {
+  const a = String(account?.projectName || '').trim();
+  if (a) return a;
+  const b = String(account?.existingProject || '').trim();
+  if (b) return b;
+  const c = String(account?.adName || '').trim();
+  if (c) return c;
+  return '未命名';
+}
 
 async function ensureTabSmartPlus20(dialog) {
   const tab = dialog.locator('.el-tabs__item').filter({ hasText: /Smart\+2\.0/ }).first();
@@ -727,6 +800,21 @@ async function inputBidAdGroupV3(page, row, bid, optimizationTarget) {
   await bidInput.fill('');
   await bidInput.fill(bidVal);
   log(`    出价: ${bidVal}`);
+}
+
+/** 广告组「预算」列（出价与个数之间），可空 */
+async function inputAdGroupBudgetV3(row, budget) {
+  const s = String(budget ?? '').trim();
+  if (!s) {
+    log(`    广告组预算: 为空，跳过`);
+    return;
+  }
+  const input = row.locator('td').nth(7).locator('.el-input__inner, input').first();
+  await input.click();
+  await input.fill('');
+  await shortDelay();
+  await input.fill(s);
+  log(`    广告组预算: ${s}`, 'OK');
 }
 
 /** 将 Excel 中的日期规范为 YYYY-MM-DD */
@@ -838,7 +926,7 @@ async function selectStartTimeAdGroupV3(page, dialog, row, date, time) {
   const panelScope = dialog || page;
   let timeCell = row.locator('td:has(.el-date-editor)').first();
   if ((await timeCell.count()) === 0) {
-    timeCell = row.locator('td').nth(7);
+    timeCell = row.locator('td').nth(9);
   }
   let innerInput = timeCell.locator('.el-date-editor input.el-input__inner').first();
   if ((await innerInput.count()) === 0) {
@@ -1030,9 +1118,10 @@ async function setupAdGroup(page, taskGroup) {
 
     log(`\n  ── 广告组 账户 ${i + 1}/${rowCount}: ${account.accountId} ──`);
 
+    const agName = resolveAdGroupTableName(account);
     await withRetry(
-      () => fillAdGroupNameV3(row, account.projectName),
-      `广告组名称 [${account.projectName}]`
+      () => fillAdGroupNameV3(row, agName),
+      `广告组名称 [${agName}]`
     );
     await withRetry(
       () => selectPixelAdGroupV3(page, row, account.pixel),
@@ -1047,6 +1136,13 @@ async function setupAdGroup(page, taskGroup) {
       `出价 [${account.bid}]`
     );
     await withRetry(
+      () => inputAdGroupBudgetV3(row, account.adGroupBudget),
+      `广告组预算 [${account.adGroupBudget || ''}]`
+    );
+    if (account.count) {
+      await withRetry(() => inputCountAdGroupV3(row, account.count), `个数`);
+    }
+    await withRetry(
       () => selectStartTimeAdGroupV3(page, dialog, row, account.startDate, account.startTime),
       `开始时间 [${account.startDate} ${account.startTime}]`
     );
@@ -1055,15 +1151,11 @@ async function setupAdGroup(page, taskGroup) {
       await withRetry(() => selectAgeAdGroupV3(page, row, account.age), `年龄`);
     }
 
-    if (account.count) {
-      await withRetry(() => inputCountAdGroupV3(row, account.count), `个数`);
-    }
-
     /** 3.0 商品库逻辑：项目商品库开关开启时，才在广告组侧填写商品库 */
     if (account.projectProductLibraryEnabled) {
       if (account.productStore) {
         await withRetry(
-          () => selectCatalogDropdownByColumn(page, row, 11, account.productStore),
+          () => selectCatalogDropdownByColumn(page, row, 12, account.productStore),
           `广告组商品库 [${account.productStore}]`
         );
       }
@@ -1083,16 +1175,106 @@ async function setupAdGroup(page, taskGroup) {
   log('广告组设置完成', 'OK');
 }
 
-// ── Step 9-11: 选择推广链接 ──
+// ── 推广链接弹窗：加载结束 + 行数稳定（避免未刷新完就点「添加」误选首行）──
 
-async function selectPromotionLink(page, adGroupDialog, row, linkKeyword) {
+/** 与素材弹窗一致：轮询可见 mask，避免 waitFor(hidden) 长时间阻塞 */
+async function waitPromotionLinkDialogLoadingDone(linkDialog, page, timeout = 8000) {
+  const masks = linkDialog.locator('.el-loading-mask');
+  if ((await masks.count()) === 0) {
+    await page.waitForTimeout(80);
+    return;
+  }
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const visible = await masks.filter({ visible: true }).count();
+    if (visible === 0) {
+      await page.waitForTimeout(80);
+      return;
+    }
+    await page.waitForTimeout(120);
+  }
+  const still = await masks.filter({ visible: true }).count();
+  if (still > 0) {
+    log(`    推广链接弹窗 loading 仍可见（${still} 个），已等待 ${timeout}ms，继续`, 'WARN');
+  }
+  await page.waitForTimeout(80);
+}
+
+/**
+ * 左侧「搜索结果」表（右侧为已选列表，空表时行数为 0；不能混用两个表的 row 计数）
+ */
+function getPromotionLinkSearchResultRows(linkDialog) {
+  const firstDataTable = linkDialog.locator('.el-dialog__body .el-table').first();
+  return firstDataTable.locator('.el-table__body-wrapper .el-table__row, tbody tr.el-table__row');
+}
+
+/**
+ * 行数稳定：「0 行」不视为稳定，避免接口未返回时连续两次读到 0 就提前结束（误判为无数据）。
+ */
+async function waitStablePromotionLinkTableRowCount(linkDialog, page, opts = {}) {
+  const maxMs = opts.maxWaitMs ?? 8000;
+  const interval = opts.intervalMs ?? 280;
+  const stableNeed = opts.stableNeed ?? 2;
+  const deadline = Date.now() + maxMs;
+  const tableRows = opts.tableRows ?? getPromotionLinkSearchResultRows(linkDialog);
+  let last = -1;
+  let streak = 0;
+  while (Date.now() < deadline) {
+    const n = await tableRows.count();
+    if (n === 0) {
+      last = -1;
+      streak = 0;
+      await page.waitForTimeout(interval);
+      continue;
+    }
+    if (n === last) {
+      streak++;
+      if (streak >= stableNeed) return n;
+    } else {
+      last = n;
+      streak = 1;
+    }
+    await page.waitForTimeout(interval);
+  }
+  return await tableRows.count();
+}
+
+/**
+ * 在推广链接表格中找第一行 innerText 包含关键词的行（用于避免默认列表首行误选）
+ */
+async function findPromotionTableRowByKeyword(linkDialog, keyword, tableRows) {
+  const kw = String(keyword ?? '').trim();
+  if (!kw) return null;
+  const rows = tableRows ?? getPromotionLinkSearchResultRows(linkDialog);
+  const n = await rows.count();
+  for (let i = 0; i < n; i++) {
+    const tr = rows.nth(i);
+    const text = await tr.innerText();
+    if (text.includes(kw)) return tr;
+  }
+  return null;
+}
+
+async function clickAddOnPromotionRow(targetRow) {
+  await targetRow.scrollIntoViewIfNeeded();
+  const addBtn = targetRow
+    .locator('button, a, span, .el-button, .el-link')
+    .filter({ hasText: '添加' })
+    .first();
+  await addBtn.waitFor({ state: 'visible', timeout: 12000 });
+  await addBtn.click();
+}
+
+/**
+ * @param {{ isFirstLink?: boolean }} opts - 首条链接略延长等待（冷启动）
+ */
+async function selectPromotionLink(page, adGroupDialog, row, linkKeyword, opts = {}) {
+  const isFirstLink = opts.isFirstLink === true;
   log(`    选择推广链接: ${linkKeyword}`);
 
-  // ✅ 等待 Loading 遮罩消失（广告组弹窗内的接口加载）
   await waitForLoadingMaskDisappear(page);
 
   try {
-    // 方式1：找"未选择"文字并点击
     let clicked = false;
     try {
       const linkCell = row.locator('td').filter({ hasText: '未选择' }).first();
@@ -1100,10 +1282,8 @@ async function selectPromotionLink(page, adGroupDialog, row, linkKeyword) {
       clicked = true;
     } catch {}
 
-    // 方式2：找链接列的任意可点击元素（按钮、图标等）
     if (!clicked) {
       try {
-        // 链接列通常是第3列（索引2），找其中的按钮或可点击元素
         const linkCell = row.locator('td').nth(2);
         const clickableElements = linkCell.locator('button, .el-button, i, svg, span').first();
         await clickableElements.click({ timeout: 3000 });
@@ -1111,47 +1291,94 @@ async function selectPromotionLink(page, adGroupDialog, row, linkKeyword) {
       } catch {}
     }
 
-    // 方式3：直接点击第3列单元格
     if (!clicked) {
       await row.locator('td').nth(2).click();
     }
 
     await mediumDelay();
-    await page.waitForTimeout(800); // 额外等待弹窗出现
+    await page.waitForTimeout(800);
 
-    // 等待推广链接选择弹窗（尝试多种标题）
     let linkDialog = page.locator('.el-dialog:visible').filter({ hasText: '选择推广链接' });
     try {
       await linkDialog.waitFor({ state: 'visible', timeout: 3000 });
     } catch {
-      // 备选：找任意新出现的弹窗
       linkDialog = page.locator('.el-dialog:visible').last();
       await linkDialog.waitFor({ state: 'visible', timeout: 5000 });
     }
 
-    // 在推广名称输入框中搜索
+    const resultRows = getPromotionLinkSearchResultRows(linkDialog);
+
     const nameInput = linkDialog.locator('input[placeholder*="推广名称"], input[placeholder*="名称"]').or(
-      linkDialog.locator('.el-input__inner').nth(1) // 第二个输入框（第一个是推广ID）
+      linkDialog.locator('.el-input__inner').nth(1)
     );
+    await nameInput.click();
+    await shortDelay();
+    await nameInput.fill('');
+    await shortDelay();
     await nameInput.fill(linkKeyword);
     await shortDelay();
 
-    // 点击搜索按钮
     const searchBtn = linkDialog.locator('button').filter({ hasText: '搜索' }).or(
       linkDialog.locator('.el-button--primary').first()
     );
-    await searchBtn.click();
-    await longDelay(); // 等待搜索结果
 
-    // 点击第一条结果的"+添加"按钮
-    const addBtn = linkDialog.locator('text=添加').first().or(
-      linkDialog.locator('.el-table__body-wrapper .el-table__row').first().locator('text=添加')
-    );
-    await addBtn.waitFor({ state: 'visible', timeout: 8000 });
-    await addBtn.click();
-    await shortDelay();
+    const runSearchAndPickMatchingRow = async (label) => {
+      await searchBtn.click();
+      await waitPromotionLinkDialogLoadingDone(linkDialog, page, isFirstLink ? 10000 : 8000);
+      const stableMax = isFirstLink ? 12000 : 8000;
+      const stableNeed = 2;
+      let rowCount = await waitStablePromotionLinkTableRowCount(linkDialog, page, {
+        maxWaitMs: stableMax,
+        intervalMs: isFirstLink ? 300 : 260,
+        stableNeed,
+        tableRows: resultRows,
+      });
 
-    // 点击确认
+      if (rowCount === 0) {
+        log(`    推广链接表格行数为 0（${label}）`, 'WARN');
+        return null;
+      }
+
+      let targetRow = await findPromotionTableRowByKeyword(linkDialog, linkKeyword, resultRows);
+      if (!targetRow && rowCount > 0) {
+        log(`    推广链接：未找到含关键词的行，二次点击「搜索」刷新…（${label}，当前 ${rowCount} 行）`, 'WARN');
+        await searchBtn.click();
+        await waitPromotionLinkDialogLoadingDone(linkDialog, page, 8000);
+        rowCount = await waitStablePromotionLinkTableRowCount(linkDialog, page, {
+          maxWaitMs: 10000,
+          intervalMs: 300,
+          stableNeed: 2,
+          tableRows: resultRows,
+        });
+        targetRow = await findPromotionTableRowByKeyword(linkDialog, linkKeyword, resultRows);
+      }
+
+      if (!targetRow) {
+        log(`    表格共 ${rowCount} 行，但未找到包含关键词「${linkKeyword}」的行（${label}）`, 'WARN');
+        return null;
+      }
+
+      await clickAddOnPromotionRow(targetRow);
+      return true;
+    };
+
+    let ok = await runSearchAndPickMatchingRow('首次搜索');
+    if (!ok) {
+      log(`    推广链接：首次未匹配，重试一次搜索…`, 'WARN');
+      await nameInput.click();
+      await nameInput.fill('');
+      await shortDelay();
+      await nameInput.fill(linkKeyword);
+      await shortDelay();
+      ok = await runSearchAndPickMatchingRow('重试搜索');
+    }
+
+    if (!ok) {
+      throw new Error(
+        `推广链接搜索未得到包含关键词「${linkKeyword}」的结果，可能仍为默认列表或接口未返回`
+      );
+    }
+
     const confirmBtn = linkDialog.locator('.el-dialog__footer button').filter({ hasText: '确认' }).or(
       linkDialog.locator('.el-dialog__footer .el-button--primary')
     );
@@ -1160,26 +1387,37 @@ async function selectPromotionLink(page, adGroupDialog, row, linkKeyword) {
 
     log(`    推广链接已选择`, 'OK');
   } catch (err) {
-    // 重新抛出错误，让外层的 withRetry 能够捕获并自动重试
     throw err;
   }
 }
 
 // ── 素材弹窗：加载结束 + 行数稳定（避免未筛选完就点「本页全选」选满 30 条）──
 
-async function waitMaterialDialogLoadingDone(materialDialog, page, timeout = 12000) {
+/**
+ * 等素材弹窗内 loading 结束。不再依赖 mask 的 waitFor(hidden)（部分页面 mask 状态与 DOM 不同步会长时间阻塞）。
+ * 改为轮询「可见」的 .el-loading-mask，超时后继续并打日志，避免界面已有数据仍卡住。
+ */
+async function waitMaterialDialogLoadingDone(materialDialog, page, timeout = 8000) {
   const masks = materialDialog.locator('.el-loading-mask');
-  if ((await masks.count()) > 0) {
-    try {
-      await masks.first().waitFor({ state: 'hidden', timeout });
-    } catch {
-      const deadline = Date.now() + timeout;
-      while (Date.now() < deadline) {
-        const n = await materialDialog.locator('.el-loading-mask').filter({ visible: true }).count();
-        if (n === 0) break;
-        await page.waitForTimeout(120);
-      }
+  if ((await masks.count()) === 0) {
+    await page.waitForTimeout(80);
+    return;
+  }
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const visible = await masks.filter({ visible: true }).count();
+    if (visible === 0) {
+      await page.waitForTimeout(80);
+      return;
     }
+    await page.waitForTimeout(120);
+  }
+  const still = await masks.filter({ visible: true }).count();
+  if (still > 0) {
+    log(
+      `      素材弹窗 loading 仍可见（${still} 个），已等待 ${timeout}ms，继续后续步骤`,
+      'WARN'
+    );
   }
   await page.waitForTimeout(80);
 }
@@ -1197,6 +1435,12 @@ async function waitStableMaterialTableRowCount(materialDialog, page, opts = {}) 
   let streak = 0;
   while (Date.now() < deadline) {
     const n = await tableRows.count();
+    if (n === 0) {
+      last = -1;
+      streak = 0;
+      await page.waitForTimeout(interval);
+      continue;
+    }
     if (n === last) {
       streak++;
       if (streak >= stableNeed) return n;
@@ -1206,7 +1450,11 @@ async function waitStableMaterialTableRowCount(materialDialog, page, opts = {}) 
     }
     await page.waitForTimeout(interval);
   }
-  return await tableRows.count();
+  const final = await tableRows.count();
+  if (streak < stableNeed) {
+    log(`      表格行数在 ${maxMs}ms 内未连续稳定，采用当前 ${final} 行`, 'INFO');
+  }
+  return final;
 }
 
 // ── Step 12-14: 选择素材 ──
@@ -1448,31 +1696,42 @@ async function selectMaterials(
     await searchBtn.click();
     log(`        已点击搜索按钮，等待结果...`);
 
+    const tLoad = Date.now();
     await waitMaterialDialogLoadingDone(materialDialog, page);
+    log(`        素材弹窗 loading 结束 (${Date.now() - tLoad}ms)`);
 
     const tableRows = materialDialog.locator('.el-table__body-wrapper .el-table__row');
     const stableMs = isFirstLink ? 10000 : 6000;
-    const stableNeed = isFirstLink ? 3 : 2;
+    // 首链曾与 3 次连续相同叠加慢请求，易长时间无日志；改为 2 次与常规任务一致
+    const stableNeed = 2;
+    const tStable = Date.now();
     let rowCount = await waitStableMaterialTableRowCount(materialDialog, page, {
       maxWaitMs: stableMs,
-      intervalMs: isFirstLink ? 320 : 280,
+      intervalMs: isFirstLink ? 300 : 260,
       stableNeed,
     });
+    log(`        表格行数稳定: ${rowCount} 行 (${Date.now() - tStable}ms)`);
 
     if (useKeyword && rowCount === 30) {
       log(`      关键词模式下列数为 30（可能尚未完成筛选），缓冲后重新计数…`, 'WARN');
       await page.waitForTimeout(520);
+      const tLoad2 = Date.now();
       await waitMaterialDialogLoadingDone(materialDialog, page);
+      log(`        素材弹窗 loading 结束 (${Date.now() - tLoad2}ms)`);
       rowCount = await tableRows.count();
       if (rowCount === 30 && isFirstLink) {
         log(`      首条推广链接：二次点击「搜索」以刷新列表…`, 'WARN');
         await searchBtn.click();
+        const tLoad3 = Date.now();
         await waitMaterialDialogLoadingDone(materialDialog, page);
+        log(`        素材弹窗 loading 结束 (${Date.now() - tLoad3}ms)`);
+        const tStable2 = Date.now();
         rowCount = await waitStableMaterialTableRowCount(materialDialog, page, {
           maxWaitMs: 10000,
           intervalMs: 320,
           stableNeed: 2,
         });
+        log(`        表格行数稳定: ${rowCount} 行 (${Date.now() - tStable2}ms)`);
       }
     }
 
@@ -2103,7 +2362,7 @@ async function setupAdModalV3(page, taskGroup) {
     log(`\n  ── 广告 账户 ${i + 1}/${rowCount}: ${account.accountId} ──`);
 
     await withRetry(
-      () => selectPromotionLink(page, dialog, row, account.linkKeyword),
+      () => selectPromotionLink(page, dialog, row, account.linkKeyword, { isFirstLink: i === 0 }),
       `推广链接 [${account.linkKeyword}]`
     );
     const isFirstAccount = i === 0;

@@ -362,6 +362,34 @@
         <el-form-item label="预览集数" prop="preview_episodes">
           <el-input-number v-model="formData.preview_episodes" :min="0" style="width: 100%" />
         </el-form-item>
+
+        <el-divider content-position="left" style="margin: 12px 0 8px">UTM 追踪参数</el-divider>
+
+        <el-form-item label="UTM Source">
+          <el-select v-model="formData.utm_source" style="width: 100%">
+            <el-option label="tiktok" value="tiktok" />
+            <el-option label="meta" value="meta" />
+            <el-option label="google" value="google" />
+            <el-option label="facebook" value="facebook" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="UTM Medium">
+          <el-select v-model="formData.utm_medium" style="width: 100%">
+            <el-option label="paid" value="paid" />
+            <el-option label="organic" value="organic" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="TikTok 宏变量">
+          <el-switch
+            v-model="formData.use_tiktok_macros"
+            active-text="附加（utm_campaign/utm_id/ad_id/click_id）"
+            inactive-text="不附加"
+          />
+        </el-form-item>
+
+        <el-form-item label="链接预览">
+          <div class="link-preview-box">{{ previewUrl }}</div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -385,7 +413,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, watchEffect } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Plus, Edit, Delete, Download, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
@@ -472,6 +500,9 @@ const defaultForm = () => ({
   free_episodes: 11,
   preview_episodes: 11,
   drama_name: '',
+  utm_source: 'tiktok',
+  utm_medium: 'paid',
+  use_tiktok_macros: true,
 })
 
 const formData = ref(defaultForm())
@@ -489,6 +520,24 @@ const rules = {
 
 const dramaOptions = ref([])
 const planGroupOptions = ref([])
+
+/** 弹窗内链接预览 */
+const previewUrl = computed(() => {
+  const f = formData.value
+  const drama = dramaOptions.value.find(
+    (d) => d.id === f.drama_id || String(d.id) === String(f.drama_id),
+  )
+  const dramaPublicId = drama?.public_id || ''
+  const utmSource = f.utm_source || 'tiktok'
+  const utmMedium = f.utm_medium || 'paid'
+  let url = `https://app.hookedshorts.com?promo_id={生成后填入}`
+  if (dramaPublicId) url += `&drama_id=${dramaPublicId}`
+  url += `&utm_source=${utmSource}&utm_medium=${utmMedium}`
+  if (f.use_tiktok_macros) {
+    url += '&utm_campaign=__AID_NAME__&utm_id=__AID__&ad_id=__ADGID__&click_id=__CLICKID__'
+  }
+  return url
+})
 
 const copyDialogVisible = ref(false)
 const copyLoading = ref(false)
@@ -660,6 +709,9 @@ const handleEditRow = async (row) => {
     free_episodes: row.free_episodes ?? 11,
     preview_episodes: row.preview_episodes ?? 11,
     drama_name: row.drama_name || '',
+    utm_source: row.utm_source || 'tiktok',
+    utm_medium: row.utm_medium || 'paid',
+    use_tiktok_macros: row.use_tiktok_macros !== false,
   }
   dialogVisible.value = true
 }
@@ -683,6 +735,9 @@ const handleSubmit = async () => {
       free_episodes: formData.value.free_episodes,
       preview_episodes: formData.value.preview_episodes,
       drama_name: formData.value.drama_name,
+      utm_source: formData.value.utm_source || 'tiktok',
+      utm_medium: formData.value.utm_medium || 'paid',
+      use_tiktok_macros: formData.value.use_tiktok_macros,
     }
     if (formData.value.id) {
       const res = await request.put(`/delivery-links/${formData.value.id}`, payload)
@@ -815,7 +870,7 @@ const handleExport = async () => {
 }
 
 const handleCopyLink = (row) => {
-  const url = `https://aody3m.dramabagus.com/play?promo_id=${row.promo_id}`
+  const url = row.full_url || buildFallbackUrl(row)
   navigator.clipboard.writeText(url).then(
     () => {
       ElMessage.success('链接已复制到剪贴板')
@@ -832,6 +887,22 @@ const handleCopyLink = (row) => {
       ElMessage.success('链接已复制到剪贴板')
     }
   )
+}
+
+/** 兼容旧数据：当后端未返回 full_url 时，前端自行拼接 */
+function buildFallbackUrl(row) {
+  const promoId = row.promo_id || ''
+  const dramaId = row.drama_public_id || row.drama_id || ''
+  const utmSource = row.utm_source || 'tiktok'
+  const utmMedium = row.utm_medium || 'paid'
+  const useMacros = row.use_tiktok_macros !== false
+  let url = `https://app.hookedshorts.com?promo_id=${promoId}`
+  if (dramaId) url += `&drama_id=${dramaId}`
+  url += `&utm_source=${utmSource}&utm_medium=${utmMedium}`
+  if (useMacros) {
+    url += '&utm_campaign=__AID_NAME__&utm_id=__AID__&ad_id=__ADGID__&click_id=__CLICKID__'
+  }
+  return url
 }
 
 const handleCopy = (row) => {
@@ -946,5 +1017,16 @@ onMounted(() => {
 .searching-tag {
   margin-left: 8px;
   vertical-align: middle;
+}
+.link-preview-box {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--el-border-color);
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  word-break: break-all;
+  line-height: 1.6;
 }
 </style>

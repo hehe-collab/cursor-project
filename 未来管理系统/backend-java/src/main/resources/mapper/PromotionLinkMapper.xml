@@ -23,6 +23,9 @@
     <result column="created_by" property="createdBy"/>
     <result column="created_at" property="createdAt"/>
     <result column="updated_at" property="updatedAt"/>
+    <result column="utm_source" property="utmSource"/>
+    <result column="utm_medium" property="utmMedium"/>
+    <result column="use_tiktok_macros" property="useTiktokMacros"/>
   </resultMap>
 
   <select id="selectAllOrderByIdDesc" resultMap="RowMap">
@@ -45,6 +48,10 @@
     SELECT * FROM promotion_links WHERE id = #{id}
   </select>
 
+  <select id="selectByPromoteId" resultMap="RowMap">
+    SELECT * FROM promotion_links WHERE promote_id = #{promoteId} LIMIT 1
+  </select>
+
   <select id="countByPromoteIdExcludeId" resultType="int">
     SELECT COUNT(*) FROM promotion_links
     WHERE promote_id = #{promoteId}
@@ -57,11 +64,14 @@
     INSERT INTO promotion_links (
       promote_id, platform, country, promote_name, drama_id, plan_group_id,
       bean_count, free_episodes, preview_episodes, domain, drama_name, status,
-      stat, amount, spend, target, created_by, created_at, updated_at
+      stat, amount, spend, target, created_by, utm_source, utm_medium, use_tiktok_macros,
+      created_at, updated_at
     ) VALUES (
       #{promoteId}, #{platform}, #{country}, #{promoteName}, #{dramaId}, #{planGroupId},
       #{beanCount}, #{freeEpisodes}, #{previewEpisodes}, #{domain}, #{dramaName}, #{status},
-      #{stat}, #{amount}, #{spend}, #{target}, #{createdBy}, NOW(), NOW()
+      #{stat}, #{amount}, #{spend}, #{target}, #{createdBy},
+      #{utmSource}, #{utmMedium}, #{useTiktokMacros},
+      NOW(), NOW()
     )
   </insert>
 
@@ -83,6 +93,9 @@
       amount = #{amount},
       spend = #{spend},
       target = #{target},
+      utm_source = #{utmSource},
+      utm_medium = #{utmMedium},
+      use_tiktok_macros = #{useTiktokMacros},
       updated_at = NOW()
     WHERE id = #{id}
   </update>

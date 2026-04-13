@@ -14,6 +14,8 @@ public interface PromotionLinkMapper {
 
     PromotionLink selectById(@Param("id") int id);
 
+    PromotionLink selectByPromoteId(@Param("promoteId") String promoteId);
+
     int countByPromoteIdExcludeId(@Param("promoteId") String promoteId, @Param("excludeId") Integer excludeId);
 
     int insert(PromotionLink row);

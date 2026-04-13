@@ -8,6 +8,9 @@ import org.apache.ibatis.annotations.Param;
 public interface UserWatchHistoryMapper {
     UserWatchHistory selectById(@Param("id") Long id);
 
+    UserWatchHistory selectLatestByUserDrama(
+            @Param("userPk") Integer userPk, @Param("dramaId") Integer dramaId);
+
     int insert(UserWatchHistory row);
 
     int update(UserWatchHistory row);

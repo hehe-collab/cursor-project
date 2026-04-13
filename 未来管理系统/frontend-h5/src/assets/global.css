@@ -1,0 +1,31 @@
+/* 移动端基础重置 */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #app {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* 禁止用户选中文字（视频播放器体验） */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 防止移动端点击高亮 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Vant 主题色覆盖 */
+:root {
+  --van-primary-color: #ff4757;
+  --van-button-primary-background: #ff4757;
+  --van-button-primary-border-color: #ff4757;
+}

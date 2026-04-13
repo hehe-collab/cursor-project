@@ -40,6 +40,8 @@ public interface UserMapper {
 
     List<User> selectByIds(@Param("ids") List<Integer> ids);
 
+    User selectByDeviceId(@Param("deviceId") String deviceId);
+
     int insert(User row);
 
     int updateById(User row);

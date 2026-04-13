@@ -41,6 +41,8 @@ public class PromotionLinkService {
     /** 新建推广链接业务 ID：16 位，数字 + 大小写字母（62 字符集） */
     private static final String PROMO_CHARS =
             "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    /** 推广链接落地页域名 */
+    private static final String PROMO_BASE_DOMAIN = "app.hookedshorts.com";
 
     private final PromotionLinkMapper promotionLinkMapper;
     private final AdminMapper adminMapper;
@@ -267,6 +269,9 @@ public class PromotionLinkService {
         dst.setAmount(src.getAmount());
         dst.setSpend(src.getSpend());
         dst.setTarget(src.getTarget());
+        dst.setUtmSource(src.getUtmSource() != null ? src.getUtmSource() : "tiktok");
+        dst.setUtmMedium(src.getUtmMedium() != null ? src.getUtmMedium() : "paid");
+        dst.setUseTiktokMacros(src.getUseTiktokMacros() != null ? src.getUseTiktokMacros() : 1);
     }
 
     @Transactional
@@ -290,6 +295,11 @@ public class PromotionLinkService {
         row.setDramaName(stringVal(body.get("drama_name")));
         row.setStatus("active");
         row.setCreatedBy(creator);
+        String utmSrc = firstNonBlank(stringVal(body.get("utm_source")), "tiktok");
+        row.setUtmSource(utmSrc);
+        row.setUtmMedium(firstNonBlank(stringVal(body.get("utm_medium")), "paid"));
+        Object macrosRaw = body.get("use_tiktok_macros");
+        row.setUseTiktokMacros(parseBoolAsInt(macrosRaw, 1));
         promotionLinkMapper.insert(row);
         PromotionLink saved = promotionLinkMapper.selectById(row.getId());
         return saved != null ? toClientRow(saved, dramaPublicMapForLinks(List.of(saved))) : Map.of("id", row.getId());
@@ -374,6 +384,15 @@ public class PromotionLinkService {
             Object en = body.get("enabled");
             boolean on = en instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(en));
             e.setStatus(on ? "active" : "inactive");
+        }
+        if (body.containsKey("utm_source")) {
+            e.setUtmSource(firstNonBlank(stringVal(body.get("utm_source")), "tiktok"));
+        }
+        if (body.containsKey("utm_medium")) {
+            e.setUtmMedium(firstNonBlank(stringVal(body.get("utm_medium")), "paid"));
+        }
+        if (body.containsKey("use_tiktok_macros")) {
+            e.setUseTiktokMacros(parseBoolAsInt(body.get("use_tiktok_macros"), 1));
         }
     }
 
@@ -508,7 +527,39 @@ public class PromotionLinkService {
         m.put("created_by", createdBy);
         m.put("created_at", createdAtStr);
         m.put("enabled", "active".equals(st));
+        String utmSrc = r.getUtmSource() != null && !r.getUtmSource().isBlank() ? r.getUtmSource() : "tiktok";
+        String utmMed = r.getUtmMedium() != null && !r.getUtmMedium().isBlank() ? r.getUtmMedium() : "paid";
+        int useMacros = r.getUseTiktokMacros() != null ? r.getUseTiktokMacros() : 1;
+        m.put("utm_source", utmSrc);
+        m.put("utm_medium", utmMed);
+        m.put("use_tiktok_macros", useMacros == 1);
+        m.put("full_url", buildPromotionUrl(r.getPromoteId(), dramaPub, utmSrc, utmMed, useMacros));
         return m;
+    }
+
+    /**
+     * 构建完整推广 URL。
+     * 格式：https://app.hookedshorts.com?promo_id=xxx&drama_id=xxx
+     *       &utm_source=tiktok&utm_medium=paid&utm_campaign=__AID_NAME__
+     *       &utm_id=__AID__&ad_id=__ADGID__&click_id=__CLICKID__
+     */
+    private static String buildPromotionUrl(
+            String promoId, String dramaPublicId, String utmSource, String utmMedium, int useMacros) {
+        StringBuilder sb = new StringBuilder("https://");
+        sb.append(PROMO_BASE_DOMAIN);
+        sb.append("?promo_id=").append(promoId != null ? promoId : "");
+        if (dramaPublicId != null && !dramaPublicId.isBlank()) {
+            sb.append("&drama_id=").append(dramaPublicId);
+        }
+        sb.append("&utm_source=").append(utmSource);
+        sb.append("&utm_medium=").append(utmMedium);
+        if (useMacros == 1) {
+            sb.append("&utm_campaign=__AID_NAME__");
+            sb.append("&utm_id=__AID__");
+            sb.append("&ad_id=__ADGID__");
+            sb.append("&click_id=__CLICKID__");
+        }
+        return sb.toString();
     }
 
     private static Object firstNonBlankObj(Object a, Object b) {
@@ -601,6 +652,17 @@ public class PromotionLinkService {
             }
         }
         return 0;
+    }
+
+    /** 将前端传来的 boolean/int/string 统一转为 0 或 1，defaultVal 为默认值（0 或 1）。 */
+    private static int parseBoolAsInt(Object o, int defaultVal) {
+        if (o == null) return defaultVal;
+        if (o instanceof Boolean b) return b ? 1 : 0;
+        if (o instanceof Number n) return n.intValue() != 0 ? 1 : 0;
+        String s = String.valueOf(o).trim().toLowerCase();
+        if ("true".equals(s) || "1".equals(s) || "yes".equals(s)) return 1;
+        if ("false".equals(s) || "0".equals(s) || "no".equals(s)) return 0;
+        return defaultVal;
     }
 
     private String resolveCreatorLabel(Integer adminId) {

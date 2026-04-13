@@ -35,6 +35,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/login",
                         "/api/auth/logout",
                         "/api/recharge-groups/frontend",
+                        "/api/h5/**",
                         "/api/upload/files/**")
                 .order(1);
         registry.addInterceptor(accessLogInterceptor)

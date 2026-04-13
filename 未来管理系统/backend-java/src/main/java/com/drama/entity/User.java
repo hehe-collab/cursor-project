@@ -20,6 +20,8 @@ public class User {
     private String promoteName;
     private Integer coinBalance;
     private String token;
+    /** H5 匿名用户设备标识 */
+    private String deviceId;
     private String country;
     private String newUserId;
     private LocalDateTime createdAt;

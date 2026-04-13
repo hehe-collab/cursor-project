@@ -41,11 +41,11 @@
 
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO users (
-      user_code, username, phone, avatar, status, promote_id, promote_name, coin_balance, token, country, new_user_id,
-      created_at, updated_at
+      user_code, username, phone, avatar, status, promote_id, promote_name, coin_balance,
+      token, device_id, country, new_user_id, created_at, updated_at
     ) VALUES (
-      #{userCode}, #{username}, #{phone}, #{avatar}, #{status}, #{promoteId}, #{promoteName}, #{coinBalance}, #{token}, #{country}, #{newUserId},
-      NOW(), NOW()
+      #{userCode}, #{username}, #{phone}, #{avatar}, #{status}, #{promoteId}, #{promoteName}, #{coinBalance},
+      #{token}, #{deviceId}, #{country}, #{newUserId}, NOW(), NOW()
     )
   </insert>
 
@@ -59,6 +59,7 @@
       promote_name = #{promoteName},
       coin_balance = #{coinBalance},
       token = #{token},
+      device_id = #{deviceId},
       country = #{country},
       new_user_id = #{newUserId},
       updated_at = NOW()
@@ -102,6 +103,10 @@
       #{id}
     </foreach>
     ORDER BY id DESC
+  </select>
+
+  <select id="selectByDeviceId" resultType="com.drama.entity.User">
+    SELECT * FROM users WHERE device_id = #{deviceId} LIMIT 1
   </select>
 
   <select id="selectNewUserAggByDate" resultType="com.drama.dto.PromotionUserNewAggRow">

@@ -4,6 +4,12 @@
   <select id="selectById" resultType="com.drama.entity.UserWatchHistory">
     SELECT * FROM user_watch_history WHERE id = #{id}
   </select>
+  <select id="selectLatestByUserDrama" resultType="com.drama.entity.UserWatchHistory">
+    SELECT * FROM user_watch_history
+    WHERE user_pk = #{userPk} AND drama_id = #{dramaId}
+    ORDER BY episode_num DESC, id DESC
+    LIMIT 1
+  </select>
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO user_watch_history (user_pk, drama_id, episode_num, progress_sec)
     VALUES (#{userPk}, #{dramaId}, #{episodeNum}, #{progressSec})
