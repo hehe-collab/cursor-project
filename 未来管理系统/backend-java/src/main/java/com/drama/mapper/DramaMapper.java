@@ -44,5 +44,7 @@ public interface DramaMapper {
 
     int update(Drama row);
 
+    int updateTaskStatus(@Param("id") Integer id, @Param("taskStatus") String taskStatus);
+
     int deleteById(@Param("id") Integer id);
 }

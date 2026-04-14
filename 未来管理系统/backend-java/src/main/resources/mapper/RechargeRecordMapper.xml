@@ -243,6 +243,17 @@
        OR LOWER(IFNULL(pay_status,'')) IN ('pending','unpaid')
   </select>
 
+  <select id="selectDistinctAccountOptions" resultType="map">
+    SELECT
+      ad_account_id AS accountId,
+      MAX(IFNULL(ad_account_name, '')) AS accountName,
+      COUNT(*) AS orderCount
+    FROM recharge_records
+    WHERE IFNULL(ad_account_id, '') != ''
+    GROUP BY ad_account_id
+    ORDER BY ad_account_id ASC
+  </select>
+
   <select id="countEarlierPaid" resultType="int">
     SELECT COUNT(*) FROM recharge_records
     WHERE user_id = #{userId}

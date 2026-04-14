@@ -56,7 +56,7 @@
             目标账户
           </div>
           <AccountSelector v-model="form.advertiserId" />
-          <div class="form-tip">请先在「账户管理」中添加 TikTok 账户</div>
+          <div class="form-tip">仅显示已在账户管理录入且 TikTok OAuth 为 active 的可执行账户</div>
         </div>
 
         <el-divider />

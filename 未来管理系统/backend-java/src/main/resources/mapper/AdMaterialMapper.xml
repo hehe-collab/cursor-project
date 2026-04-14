@@ -20,8 +20,26 @@
     SELECT * FROM ad_materials ORDER BY id DESC
   </select>
 
+  <select id="selectDistinctAccountOptions" resultType="map">
+    SELECT
+      m.account_id AS accountId,
+      MAX(IFNULL(a.account_name, '')) AS accountName,
+      MAX(IFNULL(a.subject_name, '')) AS subjectName,
+      COUNT(*) AS materialCount
+    FROM ad_materials m
+    LEFT JOIN ad_accounts a
+      ON a.account_id = m.account_id
+    WHERE IFNULL(m.account_id, '') != ''
+    GROUP BY m.account_id
+    ORDER BY m.account_id ASC
+  </select>
+
   <select id="selectById" resultMap="RowMap">
     SELECT * FROM ad_materials WHERE id = #{id}
+  </select>
+
+  <select id="selectByMaterialId" resultMap="RowMap">
+    SELECT * FROM ad_materials WHERE material_id = #{materialId} LIMIT 1
   </select>
 
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">

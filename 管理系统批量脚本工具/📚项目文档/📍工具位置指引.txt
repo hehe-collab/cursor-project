@@ -28,7 +28,7 @@
    
    🚀一键启动-素材推送2.0.sh    → 素材推送
    一键启动-推广链接2.0.sh       → 推广链接复制
-   （广告工具可进入 ad-automation2.0 后 npm start）
+   （广告工具可进入 ad-automation3.0 后 npm start）
 
 3. 完成！
 
@@ -46,7 +46,7 @@ cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具"
 ls -l
 
 # 进入具体工具
-cd ad-automation2.0         # 广告工具
+cd ad-automation3.0         # 广告工具
 cd material-push-tool2.0    # 推送工具
 cd promotion-link-tool2.0    # 链接工具
 
@@ -77,7 +77,7 @@ cat 📝快速命令参考.txt      # 快捷命令
 🎯 工具目录
 ══════════════════════════════════════════════════════════
 
-  • ad-automation2.0         # 广告批量建设
+  • ad-automation3.0         # 广告批量建设（3.0）
   • material-push-tool2.0     # 素材批量推送
   • promotion-link-tool2.0     # 推广链接复制
 

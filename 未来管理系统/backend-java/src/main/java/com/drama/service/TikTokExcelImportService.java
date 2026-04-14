@@ -4,7 +4,6 @@ import com.drama.entity.TikTokAd;
 import com.drama.entity.TikTokAdGroup;
 import com.drama.entity.TikTokCampaign;
 import com.drama.entity.TikTokExcelImport;
-import com.drama.mapper.TikTokAccountMapper;
 import com.drama.mapper.TikTokExcelImportMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
@@ -18,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -47,7 +47,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class TikTokExcelImportService {
 
     private final TikTokExcelImportMapper excelImportMapper;
-    private final TikTokAccountMapper accountMapper;
+    private final AdAccountService adAccountService;
     private final TikTokCampaignService campaignService;
     private final TikTokAdGroupService adGroupService;
     private final TikTokAdService adService;
@@ -192,6 +192,7 @@ public class TikTokExcelImportService {
             int totalCount = 0;
             int successCount = 0;
             int failedCount = 0;
+            Map<String, Map<String, Object>> executableAccounts = loadExecutableTikTokAccounts();
 
             try (FileInputStream fis = new FileInputStream(file);
                     Workbook workbook = new XSSFWorkbook(fis)) {
@@ -210,12 +211,11 @@ public class TikTokExcelImportService {
 
                     // 多账户模式校验账户存在
                     if ("multiple".equals(importMode)) {
-                        var account = accountMapper.selectByAdvertiserId(advId);
-                        if (account == null) {
+                        if (!executableAccounts.containsKey(advId)) {
                             for (UnifiedRow r : rows) {
                                 failedCount++;
-                                addError(errorLogs, r.rowNum, advId, "广告账户不存在: " + advId, r.rowData);
-                                log.error("Unified row {} advertiser {} not found", r.rowNum, advId);
+                                addError(errorLogs, r.rowNum, advId, "广告账户不可执行: " + advId, r.rowData);
+                                log.error("Unified row {} advertiser {} is not executable", r.rowNum, advId);
                             }
                             continue;
                         }
@@ -227,6 +227,9 @@ public class TikTokExcelImportService {
                                         : excelImport.getAdvertiserId();
                         if (!StringUtils.hasText(effectiveAdvId)) {
                             throw new IllegalStateException("单账户模式缺少 advertiserId");
+                        }
+                        if (!executableAccounts.containsKey(effectiveAdvId)) {
+                            throw new IllegalStateException("单账户模式所选账户不可执行: " + effectiveAdvId);
                         }
                         // 重写所有行的 advertiserId（用新列表替换，因为 record 字段是 final）
                         for (int i = 0; i < rows.size(); i++) {
@@ -527,6 +530,7 @@ public class TikTokExcelImportService {
             int totalCount = 0;
             int successCount = 0;
             int failedCount = 0;
+            Map<String, Map<String, Object>> executableAccounts = loadExecutableTikTokAccounts();
 
             try (FileInputStream fis = new FileInputStream(file);
                     Workbook workbook = new XSSFWorkbook(fis)) {
@@ -539,18 +543,17 @@ public class TikTokExcelImportService {
                         String advId = entry.getKey();
                         List<RowContext> rows = entry.getValue();
 
-                        // 校验账户是否存在
-                        var account = accountMapper.selectByAdvertiserId(advId);
-                        if (account == null) {
+                        // 校验账户是否属于可执行口径
+                        if (!executableAccounts.containsKey(advId)) {
                             for (RowContext rc : rows) {
                                 failedCount++;
                                 Map<String, Object> err = new HashMap<>();
                                 err.put("row_number", rc.rowNum);
                                 err.put("advertiser_id", advId);
-                                err.put("error_message", "广告账户不存在: " + advId);
+                                err.put("error_message", "广告账户不可执行: " + advId);
                                 err.put("row_data", rc.rowData);
                                 errorLogs.add(err);
-                                log.error("Row {} advertiser {} not found", rc.rowNum, advId);
+                                log.error("Row {} advertiser {} is not executable", rc.rowNum, advId);
                             }
                             continue;
                         }
@@ -582,6 +585,9 @@ public class TikTokExcelImportService {
                                     : excelImport.getAdvertiserId();
                     if (!StringUtils.hasText(advertiserId)) {
                         throw new IllegalStateException("单账户模式缺少 advertiserId");
+                    }
+                    if (!executableAccounts.containsKey(advertiserId)) {
+                        throw new IllegalStateException("单账户模式所选账户不可执行: " + advertiserId);
                     }
 
                     for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -739,6 +745,19 @@ public class TikTokExcelImportService {
             return null;
         }
         return new BigDecimal(raw.replace(",", "").trim());
+    }
+
+    private Map<String, Map<String, Object>> loadExecutableTikTokAccounts() {
+        return adAccountService.executableOptions("tiktok", "active").stream()
+                .collect(Collectors.toMap(
+                        item -> stringVal(item.get("accountId")),
+                        item -> item,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+    }
+
+    private static String stringVal(Object value) {
+        return value != null ? String.valueOf(value) : "";
     }
 
     @Transactional

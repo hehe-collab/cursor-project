@@ -1,25 +1,27 @@
 package com.drama.service;
 
 import com.drama.entity.AdAccount;
+import com.drama.entity.TikTokAccount;
 import com.drama.exception.BusinessException;
 import com.drama.mapper.AdAccountMapper;
+import com.drama.mapper.TikTokAccountMapper;
 import com.drama.util.EncryptUtil;
 import com.drama.util.ExcelExportUtil;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.io.IOException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -41,6 +43,7 @@ public class AdAccountService {
             "direct", "直营");
 
     private final AdAccountMapper adAccountMapper;
+    private final TikTokAccountMapper tikTokAccountMapper;
     private final EncryptUtil encryptUtil;
 
     public List<Map<String, String>> entitiesOptions() {
@@ -61,8 +64,36 @@ public class AdAccountService {
         return adAccountMapper.selectDistinctCountries();
     }
 
+    public List<Map<String, Object>> executableOptions(String media, String oauthStatus) {
+        List<Map<String, Object>> rows = adAccountMapper.selectExecutableAccountOptions(media, oauthStatus);
+        Map<String, Map<String, Object>> dedup = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String accountId = stringVal(row.get("accountId"));
+            if (accountId.isBlank() || dedup.containsKey(accountId)) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", row.get("id"));
+            item.put("media", stringVal(row.get("media")));
+            item.put("country", stringVal(row.get("country")));
+            item.put("subjectName", stringVal(row.get("subjectName")));
+            item.put("accountId", accountId);
+            item.put("accountName", stringVal(row.get("accountName")));
+            item.put("mediaAlias", stringVal(row.get("mediaAlias")));
+            item.put("accountAgent", stringVal(row.get("accountAgent")));
+            item.put("advertiserId", stringVal(row.get("advertiserId")));
+            item.put("advertiserName", stringVal(row.get("advertiserName")));
+            item.put("oauthStatus", stringVal(row.get("oauthStatus")));
+            dedup.put(accountId, item);
+        }
+        return dedup.values().stream()
+                .sorted(Comparator.comparing(m -> stringVal(m.get("accountId")).toLowerCase()))
+                .toList();
+    }
+
     public Map<String, Object> listPage(int page, int pageSize, Map<String, String> filter) {
-        List<AdAccount> filtered = filterAccounts(adAccountMapper.selectAllOrderByIdDesc(), filter);
+        List<AdAccount> filtered =
+                filterAccounts(enrichAccountsWithOauth(adAccountMapper.selectAllOrderByIdDesc()), filter);
         int total = filtered.size();
         int from = Math.max(0, (page - 1) * pageSize);
         int to = Math.min(from + pageSize, total);
@@ -74,7 +105,8 @@ public class AdAccountService {
     }
 
     public byte[] exportExcel(Map<String, String> filter) throws IOException {
-        List<AdAccount> filtered = filterAccounts(adAccountMapper.selectAllOrderByIdDesc(), filter);
+        List<AdAccount> filtered =
+                filterAccounts(enrichAccountsWithOauth(adAccountMapper.selectAllOrderByIdDesc()), filter);
         String[] headers = {"账户媒体", "国家", "账户主体", "账户ID", "账户名称", "账户代理", "创建人", "创建时间"};
         List<Object[]> rows = new ArrayList<>();
         for (AdAccount acc : filtered) {
@@ -147,6 +179,13 @@ public class AdAccountService {
                     .filter(r -> r.getAccountName() != null && r.getAccountName().contains(s))
                     .collect(Collectors.toList());
         }
+        String oauthStatus = q.get("oauthStatus");
+        if (oauthStatus != null && !oauthStatus.isBlank()) {
+            String s = oauthStatus.trim().toLowerCase();
+            out = out.stream()
+                    .filter(r -> matchesOauthStatus(r, s))
+                    .collect(Collectors.toList());
+        }
         String keyword = q.get("keyword");
         if (keyword != null && !keyword.isBlank()) {
             String k = keyword.trim().toLowerCase();
@@ -158,6 +197,50 @@ public class AdAccountService {
                     .collect(Collectors.toList());
         }
         return out;
+    }
+
+    private List<AdAccount> enrichAccountsWithOauth(List<AdAccount> list) {
+        Map<String, TikTokAccount> oauthByAdvertiserId = new LinkedHashMap<>();
+        for (TikTokAccount row : tikTokAccountMapper.selectAllOrderByIdAsc()) {
+            String advertiserId = row.getAdvertiserId() != null ? row.getAdvertiserId().trim() : "";
+            if (!advertiserId.isEmpty()) {
+                oauthByAdvertiserId.put(advertiserId, row);
+            }
+        }
+        for (AdAccount account : list) {
+            fillOauthFields(account, oauthByAdvertiserId.get(normalizeAccountId(account.getAccountId())));
+        }
+        return list;
+    }
+
+    private void fillOauthFields(AdAccount account, TikTokAccount oauthRow) {
+        account.setOauthStatus("");
+        account.setOauthAdvertiserName("");
+        account.setOauthTokenExpiresAt(null);
+        account.setExecutable(Boolean.FALSE);
+        if (!isTikTokMedia(account.getMedia())) {
+            return;
+        }
+        if (oauthRow == null) {
+            account.setOauthStatus("unauthorized");
+            return;
+        }
+        String status = oauthRow.getStatus() != null ? oauthRow.getStatus().trim() : "";
+        account.setOauthStatus(status.isEmpty() ? "unauthorized" : status);
+        account.setOauthAdvertiserName(oauthRow.getAdvertiserName() != null ? oauthRow.getAdvertiserName() : "");
+        account.setOauthTokenExpiresAt(oauthRow.getTokenExpiresAt());
+        account.setExecutable("active".equalsIgnoreCase(status));
+    }
+
+    private boolean matchesOauthStatus(AdAccount row, String oauthStatus) {
+        if (!isTikTokMedia(row.getMedia())) {
+            return false;
+        }
+        String current = row.getOauthStatus() != null ? row.getOauthStatus().trim().toLowerCase() : "";
+        if ("unauthorized".equals(oauthStatus) || "none".equals(oauthStatus)) {
+            return current.isEmpty() || "unauthorized".equals(current);
+        }
+        return current.equals(oauthStatus);
     }
 
     private static String firstNonBlank(String a, String b) {
@@ -182,6 +265,14 @@ public class AdAccountService {
             case "meta" -> "Meta";
             default -> s;
         };
+    }
+
+    private static boolean isTikTokMedia(String media) {
+        return media != null && "tiktok".equalsIgnoreCase(media.trim());
+    }
+
+    private static String normalizeAccountId(String accountId) {
+        return accountId != null ? accountId.trim() : "";
     }
 
     @Transactional
@@ -301,5 +392,9 @@ public class AdAccountService {
             return null;
         }
         return encryptUtil.decrypt(encrypted);
+    }
+
+    private static String stringVal(Object v) {
+        return v != null ? String.valueOf(v) : "";
     }
 }

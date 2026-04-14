@@ -119,6 +119,12 @@
       updated_at = NOW()
     WHERE id = #{id}
   </update>
+  <update id="updateTaskStatus">
+    UPDATE dramas
+    SET task_status = #{taskStatus},
+        updated_at = NOW()
+    WHERE id = #{id}
+  </update>
   <delete id="deleteById">
     DELETE FROM dramas WHERE id = #{id}
   </delete>

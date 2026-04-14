@@ -14,6 +14,10 @@ public class DramaEpisode {
     private String title;
     private String videoId;
     private String videoUrl;
+    private String vodVideoId;
+    private String vodStatus;
+    private Long videoSize;
+    private String vodCoverUrl;
     private Integer duration;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

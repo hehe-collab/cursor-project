@@ -40,6 +40,14 @@ public class AdAccountController {
         return Result.success(adAccountService.entitiesOptions());
     }
 
+    @Operation(summary = "获取可执行账户选项", description = "获取已录入且已完成 OAuth 的可执行账户列表")
+    @GetMapping("/executable-options")
+    public Result<List<Map<String, Object>>> executableOptions(
+            @Parameter(description = "媒体平台，默认 tiktok") @RequestParam(required = false, defaultValue = "tiktok") String media,
+            @Parameter(description = "OAuth 状态，默认 active") @RequestParam(required = false, defaultValue = "active") String oauthStatus) {
+        return Result.success(adAccountService.executableOptions(media, oauthStatus));
+    }
+
     @Operation(summary = "获取国家列表", description = "获取所有可选国家列表")
     @GetMapping("/countries")
     public Result<List<String>> countries() {
@@ -58,9 +66,22 @@ public class AdAccountController {
             @Parameter(description = "账户ID") @RequestParam(required = false) String accountId,
             @Parameter(description = "SPID") @RequestParam(required = false) String spid,
             @Parameter(description = "账户名称") @RequestParam(required = false) String accountName,
+            @Parameter(description = "TikTok OAuth 状态") @RequestParam(required = false) String oauthStatus,
             @Parameter(description = "关键词") @RequestParam(required = false) String keyword)
             throws java.io.IOException {
-        Map<String, String> f = buildFilter(media, platform, platformAlias, country, subject, entityName, accountId, spid, accountName, keyword);
+        Map<String, String> f =
+                buildFilter(
+                        media,
+                        platform,
+                        platformAlias,
+                        country,
+                        subject,
+                        entityName,
+                        accountId,
+                        spid,
+                        accountName,
+                        oauthStatus,
+                        keyword);
         byte[] bytes = adAccountService.exportExcel(f);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"accounts.xlsx\"")
@@ -98,10 +119,23 @@ public class AdAccountController {
             @Parameter(description = "账户ID") @RequestParam(required = false) String accountId,
             @Parameter(description = "SPID") @RequestParam(required = false) String spid,
             @Parameter(description = "账户名称") @RequestParam(required = false) String accountName,
+            @Parameter(description = "TikTok OAuth 状态") @RequestParam(required = false) String oauthStatus,
             @Parameter(description = "关键词") @RequestParam(required = false) String keyword) {
         int ps = Math.min(Math.max(pageSize, 1), 1000);
         int p = Math.max(page, 1);
-        Map<String, String> f = buildFilter(media, platform, platformAlias, country, subject, entityName, accountId, spid, accountName, keyword);
+        Map<String, String> f =
+                buildFilter(
+                        media,
+                        platform,
+                        platformAlias,
+                        country,
+                        subject,
+                        entityName,
+                        accountId,
+                        spid,
+                        accountName,
+                        oauthStatus,
+                        keyword);
         return Result.success(adAccountService.listPage(p, ps, f));
     }
 
@@ -138,6 +172,7 @@ public class AdAccountController {
             String accountId,
             String spid,
             String accountName,
+            String oauthStatus,
             String keyword) {
         Map<String, String> f = new LinkedHashMap<>();
         if (media != null) f.put("media", media);
@@ -149,6 +184,7 @@ public class AdAccountController {
         if (accountId != null) f.put("accountId", accountId);
         if (spid != null) f.put("spid", spid);
         if (accountName != null) f.put("accountName", accountName);
+        if (oauthStatus != null) f.put("oauthStatus", oauthStatus);
         if (keyword != null) f.put("keyword", keyword);
         return f;
     }

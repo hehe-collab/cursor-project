@@ -18,8 +18,8 @@
   /Volumes/存钱罐/cursor项目/管理系统批量脚本工具/
 
 包含:
-  ✅ 6 个完整工具（3个1.0 + 3个2.0）
-  ✅ 3 个一键启动脚本
+  ✅ 广告批量 ad-automation3.0 + 素材/推广链接 2.0 工具
+  ✅ 素材与推广链接的一键启动脚本（广告工具见 README）
   ✅ 完整使用文档
   ✅ 快速参考指南
 
@@ -33,50 +33,49 @@
   1. Finder 打开文件夹:
      /Volumes/存钱罐/cursor项目/管理系统批量脚本工具
   
-  2. 双击启动脚本:
-     🚀一键启动-广告工具2.0.sh    → 广告批量建设
-     🚀一键启动-素材推送2.0.sh    → 素材推送
-     🚀一键启动-链接复制2.0.sh    → 链接复制
+  2. 启动方式:
+     • 广告批量：终端 cd 至 ad-automation3.0 后 npm start（见 README）
+     • 或双击：🚀一键启动-素材推送2.0.sh、一键启动-推广链接2.0.sh
   
   3. 完成！
 
 【方法 2: 终端命令】⭐⭐ 标准方法
 
-  # 广告工具 2.0
-  cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/ad-automation-2.0"
+  # 广告工具 3.0
+  cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/ad-automation3.0"
   npm start
 
   # 推送工具 2.0
-  cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/material-push-tool-2.0"
+  cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/material-push-tool2.0"
   npm start
 
-  # 链接工具 2.0
-  cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/promotion-link-tool-2.0"
+  # 推广链接工具 2.0
+  cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/promotion-link-tool2.0"
   npm start
 
 【方法 3: 快捷别名】⭐ 高级用户
 
   在 ~/.zshrc 中添加:
   
-  alias ad2='cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/ad-automation-2.0" && npm start'
+  alias ad3='cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/ad-automation3.0" && npm start'
   
   然后直接:
-  ad2    # 一键启动广告工具
+  ad3    # 一键启动广告工具
 
 ══════════════════════════════════════════════════════════════
 
 📝 Excel 文件（带2.0版本标识）
 ══════════════════════════════════════════════════════════════
 
-✅ ad-tasks-2.0.xlsx        (广告批量建设任务)
-✅ push-tasks-2.0.xlsx      (素材批量推送任务)
-✅ link-tasks-2.0.xlsx      (推广链接复制任务)
+✅ tasks-v3.0.xlsx          (广告批量建设任务，3.0)
+✅ push-tasks-v2.0.xlsx     (素材批量推送任务)
+✅ link-tasks-v2.0.xlsx     (推广链接复制任务)
 
 文件位置:
-  管理系统批量脚本工具/工具名-2.0/data/
+  ad-automation3.0/data/ 、material-push-tool2.0/data/ 、promotion-link-tool2.0/data/
 
-打开方式:
-  open "管理系统批量脚本工具/ad-automation-2.0/data/ad-tasks-2.0.xlsx"
+打开方式（示例）:
+  open "管理系统批量脚本工具/ad-automation3.0/data/tasks-v3.0.xlsx"
 
 ══════════════════════════════════════════════════════════════
 

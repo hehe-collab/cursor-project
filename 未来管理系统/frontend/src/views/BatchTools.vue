@@ -179,13 +179,17 @@
                 filterable
                 size="small"
                 style="width: 100%"
+                :loading="existingProjectsLoading"
               >
                 <el-option
-                  v-for="item in existingProjectOptions"
+                  v-for="item in projectOptionsForRow(row)"
                   :key="item.value"
                   :label="item.label"
                   :value="item.value"
                 />
+                <template #empty>
+                  <div class="select-empty-tip">{{ existingProjectEmptyText(row) }}</div>
+                </template>
               </el-select>
             </template>
           </el-table-column>
@@ -247,13 +251,17 @@
                 collapse-tags-tooltip
                 size="small"
                 style="width: 100%"
+                :loading="existingAdGroupsLoading"
               >
                 <el-option
-                  v-for="item in existingAdGroupOptions"
+                  v-for="item in adGroupOptionsForRow(row)"
                   :key="item.value"
                   :label="item.label"
                   :value="item.value"
                 />
+                <template #empty>
+                  <div class="select-empty-tip">{{ existingAdGroupEmptyText(row) }}</div>
+                </template>
               </el-select>
             </template>
           </el-table-column>
@@ -264,8 +272,19 @@
           </el-table-column>
           <el-table-column label="Pixel" min-width="140">
             <template #default="{ row }">
-              <el-select v-model="row.pixel" placeholder="请选择" filterable clearable size="small" style="width: 100%">
-                <el-option v-for="item in pixelOptions" :key="item.value" :label="item.label" :value="item.value" />
+              <el-select
+                v-model="row.pixel"
+                placeholder="请选择"
+                filterable
+                clearable
+                size="small"
+                style="width: 100%"
+                :loading="pixelsLoading"
+              >
+                <el-option v-for="item in pixelOptionsForRow(row)" :key="item.value" :label="item.label" :value="item.value" />
+                <template #empty>
+                  <div class="select-empty-tip">{{ pixelEmptyText(row) }}</div>
+                </template>
               </el-select>
             </template>
           </el-table-column>
@@ -314,6 +333,7 @@
                 clearable
                 size="small"
                 style="width: 100%"
+                :disabled="adGroupCatalogOptions.length === 0"
               >
                 <el-option
                   v-for="item in adGroupCatalogOptions"
@@ -321,6 +341,9 @@
                   :label="item.label"
                   :value="item.value"
                 />
+                <template #empty>
+                  <div class="select-empty-tip">商品库接口暂未接入，当前先保留为空。</div>
+                </template>
               </el-select>
             </template>
           </el-table-column>
@@ -456,28 +479,33 @@ import request from '../api/request'
 
 const router = useRouter()
 
-const DEFAULT_ENTITY_OPTIONS = [
-  { label: '测试一', value: '测试一' },
-  { label: '测试二', value: '测试二' },
-]
-
 const filterForm = reactive({
   entity: '',
   accounts: [],
 })
 
-const entityOptions = ref([...DEFAULT_ENTITY_OPTIONS])
 const allAccounts = ref([])
+const entityOptions = computed(() => {
+  const dedup = new Set()
+  return (allAccounts.value || [])
+    .map((item) => (item.subjectName || '').trim())
+    .filter((name) => {
+      if (!name || dedup.has(name)) return false
+      dedup.add(name)
+      return true
+    })
+    .map((name) => ({ label: name, value: name }))
+})
 
 const accountOptionsFiltered = computed(() => {
   const rows = allAccounts.value || []
   const entity = (filterForm.entity || '').trim()
   const filtered = entity
-    ? rows.filter((a) => (a.subject_name || '').trim() === entity)
+    ? rows.filter((a) => (a.subjectName || '').trim() === entity)
     : rows
   return filtered.map((a) => ({
     id: a.id,
-    label: `${a.account_name || '-'} (${a.account_id || '-'})`,
+    label: `${a.accountName || '-'} (${a.accountId || '-'})`,
   }))
 })
 
@@ -517,12 +545,15 @@ const titleOptions = ref([])
 const materialsLoading = ref(false)
 const titlesLoading = ref(false)
 
-/** 已有项目下拉（占位，后续可接真实接口） */
+/** 已有项目下拉（真实 TikTok 广告系列） */
 const existingProjectOptions = ref([])
-/** 广告组弹窗：已有广告组 / Pixel / 商品库（占位） */
+/** 广告组弹窗：已有广告组 / Pixel / 商品库 */
 const existingAdGroupOptions = ref([])
 const pixelOptions = ref([])
 const adGroupCatalogOptions = ref([])
+const existingProjectsLoading = ref(false)
+const existingAdGroupsLoading = ref(false)
+const pixelsLoading = ref(false)
 
 const useExistingTitle = computed(() => {
   if (currentCardType.value === 'adGroup') return '选择已有广告组'
@@ -535,15 +566,41 @@ const addDialogTitle = computed(() => {
   return '新增广告'
 })
 
-async function fetchEntityOptions() {
-  try {
-    const res = await request.get('/accounts/entities')
-    if (res.code === 0 && Array.isArray(res.data) && res.data.length) {
-      entityOptions.value = res.data
-    }
-  } catch {
-    entityOptions.value = [...DEFAULT_ENTITY_OPTIONS]
-  }
+function projectOptionsForRow(row) {
+  const advertiserId = String(row?.accountId || '').trim()
+  return existingProjectOptions.value.filter((item) => !advertiserId || item.advertiserId === advertiserId)
+}
+
+function adGroupOptionsForRow(row) {
+  const advertiserId = String(projectAccountId(row) || '').trim()
+  return existingAdGroupOptions.value.filter((item) => !advertiserId || item.advertiserId === advertiserId)
+}
+
+function pixelOptionsForRow(row) {
+  const advertiserId = String(projectAccountId(row) || '').trim()
+  return pixelOptions.value.filter((item) => !advertiserId || item.advertiserId === advertiserId)
+}
+
+function existingProjectEmptyText(row) {
+  return projectOptionsForRow(row).length
+    ? '暂无匹配项目'
+    : '当前账户下暂无已同步的广告系列，可手动填写新项目名称。'
+}
+
+function existingAdGroupEmptyText(row) {
+  return adGroupOptionsForRow(row).length
+    ? '暂无匹配广告组'
+    : '当前账户下暂无已同步的广告组，可手动填写新广告组名称。'
+}
+
+function pixelEmptyText(row) {
+  return pixelOptionsForRow(row).length
+    ? '暂无匹配 Pixel'
+    : '当前账户下暂无已同步的 Pixel。'
+}
+
+function projectAccountId(row) {
+  return row?.accountId || row?.account || ''
 }
 
 let accountsFetchPromise = null
@@ -554,20 +611,12 @@ async function loadAllAccounts() {
   }
   accountsFetchPromise = (async () => {
     try {
-      const first = await request.get('/accounts', { params: { page: 1, pageSize: 100 } })
-      if (first.code !== 0) return
-      let list = [...(first.data?.list || [])]
-      const total = first.data?.total ?? list.length
-      let page = 2
-      while (list.length < total && page <= 50) {
-        const r = await request.get('/accounts', { params: { page, pageSize: 100 } })
-        if (r.code !== 0) break
-        const chunk = r.data?.list || []
-        list = list.concat(chunk)
-        if (chunk.length < 100) break
-        page += 1
+      const res = await request.get('/accounts/executable-options', {
+        params: { media: 'tiktok', oauthStatus: 'active' },
+      })
+      if (res.code === 0) {
+        allAccounts.value = Array.isArray(res.data) ? res.data : []
       }
-      allAccounts.value = list
     } catch {
       allAccounts.value = []
       ElMessage.error('加载账户列表失败')
@@ -578,8 +627,8 @@ async function loadAllAccounts() {
   await accountsFetchPromise
 }
 
-async function loadMaterialOptions() {
-  if (materialOptions.value.length) return
+async function loadMaterialOptions(force = false) {
+  if (materialOptions.value.length && !force) return
   materialsLoading.value = true
   try {
     const res = await request.get('/ad-material', { params: { page: 1, pageSize: 200 } })
@@ -588,7 +637,9 @@ async function loadMaterialOptions() {
       materialOptions.value = list.map((m) => {
         const mid = m.materialId || m.material_id || (m.id != null ? `MAT${m.id}` : '')
         const name = m.materialName || m.material_name || m.name || mid
-        return { label: String(name), value: m.id != null ? m.id : mid }
+        const accountId = m.accountId || m.account_id || ''
+        const label = accountId ? `${name} (${accountId} / ${mid})` : `${name} (${mid})`
+        return { label: String(label), value: m.id != null ? m.id : mid }
       })
     }
   } catch {
@@ -620,7 +671,7 @@ async function loadTitleOptions() {
 function projectNameForAccount(a) {
   const e = (filterForm.entity || '').trim()
   if (e) return e
-  return (a?.subject_name || '').trim() || '—'
+  return (a?.subjectName || '').trim() || '—'
 }
 
 /** 弹窗与保存：无默认值，空则为 null */
@@ -633,54 +684,104 @@ function parseDailyBudget(v) {
 function existingProjectLabel(value) {
   if (value == null || value === '') return ''
   const o = existingProjectOptions.value.find((x) => x.value === value)
-  return o?.label || String(value)
+  return o?.name || o?.label || String(value)
 }
 
 async function loadExistingProjects() {
+  existingProjectsLoading.value = true
   try {
-    // TODO: 替换为真实接口，例如 request.get('/campaign/existing-options', …)
-    existingProjectOptions.value = [
-      { label: '项目A', value: 'project_a' },
-      { label: '项目B', value: 'project_b' },
-      { label: '项目C', value: 'project_c' },
-    ]
+    const res = await request.get('/tiktok/campaigns')
+    if (res.code === 0) {
+      existingProjectOptions.value = (Array.isArray(res.data) ? res.data : [])
+        .filter((item) => item?.campaignId)
+        .map((item) => {
+          const advertiserId = String(item.advertiserId || '').trim()
+          const campaignId = String(item.campaignId || '').trim()
+          const campaignName = String(item.campaignName || '').trim() || campaignId
+          const status = String(item.operationStatus || '').trim()
+          return {
+            advertiserId,
+            value: campaignId,
+            name: campaignName,
+            label: `${campaignName}${status ? ` (${campaignId} / ${status})` : ` (${campaignId})`}`,
+          }
+        })
+        .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+    } else {
+      existingProjectOptions.value = []
+    }
   } catch {
     existingProjectOptions.value = []
+  } finally {
+    existingProjectsLoading.value = false
   }
 }
 
 async function loadExistingAdGroups() {
+  existingAdGroupsLoading.value = true
   try {
-    // TODO: 接真实接口
-    existingAdGroupOptions.value = [
-      { label: '广告组A', value: 'adgroup_a' },
-      { label: '广告组B', value: 'adgroup_b' },
-      { label: '广告组C', value: 'adgroup_c' },
-    ]
+    const campaignNameById = new Map(existingProjectOptions.value.map((item) => [item.value, item.label]))
+    const res = await request.get('/tiktok/adgroups')
+    if (res.code === 0) {
+      existingAdGroupOptions.value = (Array.isArray(res.data) ? res.data : [])
+        .filter((item) => item?.adgroupId)
+        .map((item) => {
+          const advertiserId = String(item.advertiserId || '').trim()
+          const adgroupId = String(item.adgroupId || '').trim()
+          const adgroupName = String(item.adgroupName || '').trim() || adgroupId
+          const campaignLabel = campaignNameById.get(String(item.campaignId || '').trim())
+          return {
+            advertiserId,
+            campaignId: String(item.campaignId || '').trim(),
+            value: adgroupId,
+            label: campaignLabel
+              ? `${adgroupName} (${adgroupId}) / ${campaignLabel}`
+              : `${adgroupName} (${adgroupId})`,
+          }
+        })
+        .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+    } else {
+      existingAdGroupOptions.value = []
+    }
   } catch {
     existingAdGroupOptions.value = []
+  } finally {
+    existingAdGroupsLoading.value = false
   }
 }
 
 async function loadPixelOptions() {
+  pixelsLoading.value = true
   try {
-    pixelOptions.value = [
-      { label: 'THA-低-C', value: 'tha_low_c' },
-      { label: 'THA-高-C', value: 'tha_high_c' },
-      { label: 'VN-低-C', value: 'vn_low_c' },
-    ]
+    const res = await request.get('/tiktok/pixels')
+    if (res.code === 0) {
+      pixelOptions.value = (Array.isArray(res.data) ? res.data : [])
+        .filter((item) => item?.pixelId)
+        .map((item) => {
+          const advertiserId = String(item.advertiserId || '').trim()
+          const pixelId = String(item.pixelId || '').trim()
+          const pixelName = String(item.pixelName || '').trim() || pixelId
+          const pixelCode = String(item.pixelCode || '').trim()
+          return {
+            advertiserId,
+            value: pixelId,
+            label: pixelCode ? `${pixelName} (${pixelId} / ${pixelCode})` : `${pixelName} (${pixelId})`,
+          }
+        })
+        .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+    } else {
+      pixelOptions.value = []
+    }
   } catch {
     pixelOptions.value = []
+  } finally {
+    pixelsLoading.value = false
   }
 }
 
 async function loadAdGroupCatalogOptions() {
   try {
-    adGroupCatalogOptions.value = [
-      { label: '商品库A', value: 'library_a' },
-      { label: '商品库B', value: 'library_b' },
-      { label: '商品库C', value: 'library_c' },
-    ]
+    adGroupCatalogOptions.value = []
   } catch {
     adGroupCatalogOptions.value = []
   }
@@ -702,8 +803,8 @@ function syncProjectListFromAccounts() {
     return {
       id: pid,
       internalAccountId: internalId,
-      accountId: a?.account_id || '',
-      accountName: a?.account_name || '',
+      accountId: a?.accountId || '',
+      accountName: a?.accountName || '',
       campaignName: prev?.campaignName ?? '待配置',
       projectName: prev?.projectName ?? '',
       existingProject: prev?.existingProject ?? '',
@@ -800,8 +901,8 @@ function campaignRowToProject(row) {
   return {
     id: row.id,
     internalAccountId: internal,
-    accountId: row.accountId || a?.account_id || '',
-    accountName: row.account || row.accountName || a?.account_name || '',
+    accountId: row.accountId || a?.accountId || '',
+    accountName: row.account || row.accountName || a?.accountName || '',
     campaignName: resolvedName || row.campaignName || '待配置',
     projectName: resolvedName,
     existingProject: ep,
@@ -841,8 +942,8 @@ function buildCampaignTableFromAccounts() {
     return {
       id: pid,
       internalAccountId: internalId,
-      accountId: existing?.accountId || a?.account_id || '',
-      account: existing?.accountName || a?.account_name || '',
+      accountId: existing?.accountId || a?.accountId || '',
+      account: existing?.accountName || a?.accountName || '',
       existingProject: '',
       projectName: '',
       dailyBudget: null,
@@ -890,6 +991,7 @@ function ensureAdGroupRows() {
   /** 打开弹窗：仅保留账户/项目列，其余输入一律空白（与项目弹窗一致） */
   adGroupTableData.value = adGroupList.value.map((g) => ({
     id: g.id,
+    accountId: g.accountId,
     account: g.accountName || g.accountId || '',
     project: g.projectName || '—',
     existingAdGroups: [],
@@ -926,7 +1028,7 @@ function handleConfirmAdGroup() {
 }
 
 async function ensureAdTableRows() {
-  await Promise.all([loadMaterialOptions(), loadTitleOptions()])
+  await Promise.all([loadMaterialOptions(true), loadTitleOptions()])
   if (!projectList.value.length) {
     adTableData.value = []
     return false
@@ -984,8 +1086,8 @@ async function handleSubmitTask() {
   for (const internalId of ids) {
     const a = accountById(internalId)
     if (a) {
-      accountIds.push(a.account_id || '')
-      accountNames.push(a.account_name || '')
+      accountIds.push(a.accountId || '')
+      accountNames.push(a.accountName || '')
     }
   }
   let createdBy = 'admin'
@@ -1001,7 +1103,6 @@ async function handleSubmitTask() {
       account_names: accountNames.join(','),
       promotion_type: 'B-GF-zzz',
       created_by: createdBy,
-      status: 'success',
       config: {
         entity: filterForm.entity,
         accountInternalIds: ids,
@@ -1011,7 +1112,25 @@ async function handleSubmitTask() {
       },
     })
     const tid = res?.data?.task_id
-    ElMessage.success(tid ? `任务提交成功！任务ID: ${tid}` : '任务提交成功')
+      const execution = res?.data?.config?.execution
+      if (execution) {
+        const successCount = Number(execution.successCount || 0)
+        const failedCount = Number(execution.failedCount || 0)
+        const skippedCount = Number(execution.skippedCount || 0)
+        const detail = [`成功 ${successCount}`]
+        if (failedCount > 0) detail.push(`失败 ${failedCount}`)
+        if (skippedCount > 0) detail.push(`跳过 ${skippedCount}`)
+        const message = tid ? `任务ID: ${tid}，${detail.join('，')}` : detail.join('，')
+        if (execution.status === 'partial') {
+          ElMessage.warning(`任务已执行，部分完成。${message}`)
+        } else if (execution.status === 'failed') {
+          ElMessage.error(`任务执行失败。${message}`)
+        } else {
+          ElMessage.success(`任务已执行完成。${message}`)
+        }
+      } else {
+        ElMessage.success(tid ? `任务提交成功！任务ID: ${tid}` : '任务提交成功')
+      }
   } catch (e) {
     console.error(e)
   }
@@ -1021,15 +1140,16 @@ function handleViewTask() {
   router.push('/ad-task')
 }
 
-function openProjectCampaignDialog() {
+async function openProjectCampaignDialog() {
+  await loadExistingProjects()
   if (!buildCampaignTableFromAccounts()) return
   projectDialogVisible.value = true
 }
 
-function handleUseExisting(type) {
+async function handleUseExisting(type) {
   currentCardType.value = type
   if (type === 'project') {
-    openProjectCampaignDialog()
+    await openProjectCampaignDialog()
     return
   }
   const label = type === 'adGroup' ? '广告组' : '广告'
@@ -1060,8 +1180,8 @@ function handleConfirmUseExisting() {
     projectList.value.push({
       id: `cmp_${internalId}_exist_${r.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       internalAccountId: internalId,
-      accountId: a?.account_id || '',
-      accountName: a?.account_name || '',
+      accountId: a?.accountId || '',
+      accountName: a?.accountName || '',
       campaignName: r.name,
       projectName: projectNameForAccount(a),
       existingProject: '',
@@ -1097,8 +1217,8 @@ function handleConfirmAdd() {
   projectList.value.push({
     id: `cmp_${internalId}_line_${Date.now()}`,
     internalAccountId: internalId,
-    accountId: a?.account_id || '',
-    accountName: a?.account_name || '',
+    accountId: a?.accountId || '',
+    accountName: a?.accountName || '',
     campaignName: name,
     projectName: name,
     existingProject: '',
@@ -1142,7 +1262,7 @@ function handleClear(type) {
 async function handleSettings(type) {
   currentCardType.value = type
   if (type === 'project') {
-    openProjectCampaignDialog()
+    await openProjectCampaignDialog()
     return
   }
   if (!projectList.value.length) {
@@ -1150,6 +1270,7 @@ async function handleSettings(type) {
     return
   }
   if (type === 'adGroup') {
+    await Promise.all([loadExistingAdGroups(), loadPixelOptions()])
     if (!ensureAdGroupRows()) return
     adGroupDialogVisible.value = true
   } else {
@@ -1159,10 +1280,9 @@ async function handleSettings(type) {
 }
 
 onMounted(async () => {
-  await fetchEntityOptions()
   await loadAllAccounts()
+  await loadExistingProjects()
   await Promise.all([
-    loadExistingProjects(),
     loadExistingAdGroups(),
     loadPixelOptions(),
     loadAdGroupCatalogOptions(),
@@ -1290,5 +1410,12 @@ onMounted(async () => {
 
 .batch-dialog--wide :deep(.el-dialog__body) {
   padding-top: 12px;
+}
+
+.select-empty-tip {
+  padding: 10px 12px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
 }
 </style>

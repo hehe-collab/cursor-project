@@ -96,13 +96,24 @@ public class TikTokAdGroupService {
         body.put("advertiser_id", adGroup.getAdvertiserId());
         body.put("campaign_id", adGroup.getCampaignId());
         body.put("adgroup_name", adGroup.getAdgroupName());
-        body.put("placement_type", adGroup.getPlacementType());
-        body.put("placements", parseJsonStringList(adGroup.getPlacements()));
-        body.put("location_ids", parseJsonStringList(adGroup.getLocationIds()));
-        body.put("bid_type", adGroup.getBidType());
-        body.put("bid_price", adGroup.getBidPrice());
-        body.put("budget", adGroup.getBudget());
-        body.put("budget_mode", adGroup.getBudgetMode());
+        putIfHasText(body, "placement_type", adGroup.getPlacementType());
+        List<String> placements = parseJsonStringList(adGroup.getPlacements());
+        if (!placements.isEmpty()) {
+            body.put("placements", placements);
+        }
+        List<String> locationIds = parseJsonStringList(adGroup.getLocationIds());
+        if (!locationIds.isEmpty()) {
+            body.put("location_ids", locationIds);
+        }
+        putIfHasText(body, "billing_event", adGroup.getBillingEvent());
+        putIfHasText(body, "bid_type", adGroup.getBidType());
+        if (adGroup.getBidPrice() != null) {
+            body.put("bid_price", adGroup.getBidPrice());
+        }
+        if (adGroup.getBudget() != null) {
+            body.put("budget", adGroup.getBudget());
+        }
+        putIfHasText(body, "budget_mode", adGroup.getBudgetMode());
 
         TikTokApiResponseDTO<Map<String, Object>> response =
                 apiClient.post(
@@ -219,6 +230,12 @@ public class TikTokAdGroupService {
 
     private static String str(Object o) {
         return o == null ? null : o.toString();
+    }
+
+    private static void putIfHasText(Map<String, Object> body, String key, String value) {
+        if (StringUtils.hasText(value)) {
+            body.put(key, value);
+        }
     }
 
     private static BigDecimal decimal(Object o) {

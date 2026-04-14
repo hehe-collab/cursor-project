@@ -28,6 +28,13 @@ public class RechargeController {
     private final RechargeService rechargeService;
 
     /** 必须在 /{id} 之前；筛选参数与列表接口一致（不含分页） */
+    @Operation(summary = "获取充值账户选项", description = "获取充值记录中出现过的账户列表")
+    @GetMapping("/account-options")
+    public Result<java.util.List<Map<String, Object>>> accountOptions() {
+        return Result.success(rechargeService.accountOptions());
+    }
+
+    /** 必须在 /{id} 之前；筛选参数与列表接口一致（不含分页） */
     @Operation(summary = "获取充值统计", description = "获取充值记录的统计信息")
     @GetMapping("/stats")
     @RateLimit(key = "recharge:stats", max = 30, timeout = 60, limitType = RateLimit.LimitType.USER)

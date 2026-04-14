@@ -36,14 +36,22 @@ public class AdMaterialController {
         return Result.success("上传成功", data);
     }
 
+    @Operation(summary = "获取素材账户选项", description = "获取广告素材中已有的账户列表")
+    @GetMapping("/account-options")
+    public Result<java.util.List<Map<String, Object>>> accountOptions() {
+        return Result.success(adMaterialService.accountOptions());
+    }
+
     @Operation(summary = "提交上传任务", description = "提交广告素材上传任务")
     @PostMapping("/upload")
-    public Result<Void> upload(@RequestBody Map<String, Object> body) {
+    public Result<Map<String, Object>> upload(
+            @RequestBody Map<String, Object> body,
+            @RequestAttribute(value = "adminId", required = false) Integer adminId) {
         String accountId = body.get("accountId") != null ? String.valueOf(body.get("accountId")) : "";
         String folder = body.get("folder") != null ? String.valueOf(body.get("folder")) : "";
         String files = body.get("files") != null ? String.valueOf(body.get("files")) : "";
-        adMaterialService.logUploadTask(accountId, folder, files);
-        return Result.success("上传任务已提交", null);
+        Map<String, Object> summary = adMaterialService.uploadMaterials(accountId, folder, files, adminId);
+        return Result.success("素材上传完成", summary);
     }
 
     @Operation(summary = "提交同步任务", description = "提交广告素材同步任务")

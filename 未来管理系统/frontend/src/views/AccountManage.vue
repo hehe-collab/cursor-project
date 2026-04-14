@@ -20,6 +20,15 @@
             </el-select>
           </div>
         </el-form-item>
+        <el-form-item label="授权状态" label-width="70px">
+          <div class="filter-item-select">
+            <el-select v-model="filterForm.oauthStatus" placeholder="全部" clearable>
+              <el-option label="已授权可执行" value="active" />
+              <el-option label="已授权不可执行" value="inactive" />
+              <el-option label="未授权" value="unauthorized" />
+            </el-select>
+          </div>
+        </el-form-item>
         <el-form-item v-if="countries.length > 0" label="国家" label-width="50px">
           <div class="filter-item-select">
             <el-select v-model="filterForm.country" placeholder="全部" clearable>
@@ -103,6 +112,22 @@
         <el-table-column prop="subjectName" label="账户主体" min-width="180" show-overflow-tooltip />
         <el-table-column prop="accountId" label="账户ID" min-width="180" show-overflow-tooltip />
         <el-table-column prop="accountName" label="账户名称" min-width="150" show-overflow-tooltip />
+        <el-table-column label="TikTok授权" width="130">
+          <template #default="{ row }">
+            <el-tag v-if="isTikTokMedia(row.media)" :type="oauthStatusType(row.oauthStatus)">
+              {{ oauthStatusLabel(row.oauthStatus) }}
+            </el-tag>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="可执行" width="90">
+          <template #default="{ row }">
+            <el-tag v-if="isTikTokMedia(row.media)" :type="row.executable ? 'success' : 'info'">
+              {{ row.executable ? '是' : '否' }}
+            </el-tag>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
         <el-table-column label="账户代理" width="120" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatAccountAgent(row.accountAgent) }}
@@ -114,8 +139,17 @@
         <el-table-column label="创建时间" width="180">
           <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
+            <el-button
+              v-if="isTikTokMedia(row.media)"
+              link
+              type="success"
+              :loading="oauthLoadingId === row.id"
+              @click="handleTikTokAuthorize(row)"
+            >
+              {{ row.oauthStatus === 'active' ? '重新授权' : '去授权' }}
+            </el-button>
             <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
             <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
@@ -289,6 +323,7 @@ async function fetchEntityOptions() {
 
 const filterForm = reactive({
   platform: '',
+  oauthStatus: '',
   country: '',
   entityName: '',
   spid: '',
@@ -299,6 +334,7 @@ const tableData = ref([])
 const loading = ref(false)
 const tableRef = ref(null)
 const selectedRows = ref([])
+const oauthLoadingId = ref(null)
 
 const pagination = reactive({
   page: 1,
@@ -362,6 +398,7 @@ function buildAccountPayload(spidSingle) {
 function filterQueryParams() {
   const params = {}
   if (filterForm.platform) params.platform = filterForm.platform
+  if (filterForm.oauthStatus) params.oauthStatus = filterForm.oauthStatus
   if (filterForm.country) params.country = filterForm.country
   if (filterForm.entityName) params.entityName = filterForm.entityName
   if (filterForm.spid) params.spid = filterForm.spid
@@ -395,6 +432,7 @@ const handleQuery = async () => {
 const handleReset = () => {
   Object.assign(filterForm, {
     platform: '',
+    oauthStatus: '',
     country: '',
     entityName: '',
     spid: '',
@@ -406,6 +444,26 @@ const handleReset = () => {
 
 function handleSelectionChange(rows) {
   selectedRows.value = rows
+}
+
+function isTikTokMedia(media) {
+  return String(media || '').trim().toLowerCase() === 'tiktok'
+}
+
+function oauthStatusType(status) {
+  return {
+    active: 'success',
+    inactive: 'warning',
+    unauthorized: 'info',
+  }[String(status || '').trim().toLowerCase()] || 'info'
+}
+
+function oauthStatusLabel(status) {
+  return {
+    active: '已授权可执行',
+    inactive: '已授权不可执行',
+    unauthorized: '未授权',
+  }[String(status || '').trim().toLowerCase()] || '未授权'
 }
 
 const handleAdd = () => {
@@ -433,6 +491,36 @@ const handleEdit = (row) => {
     accountAgent: row.accountAgent || '',
   })
   dialogVisible.value = true
+}
+
+const handleTikTokAuthorize = async (row) => {
+  if (!row?.accountId) {
+    ElMessage.warning('缺少账户ID，无法发起授权')
+    return
+  }
+  oauthLoadingId.value = row.id
+  try {
+    const res = await request.get('/tiktok/oauth/authorize-url', {
+      params: {
+        state: `account:${row.accountId}`,
+      },
+    })
+    const url = res?.data
+    if (!url) {
+      ElMessage.error(res?.message || '未获取到授权链接')
+      return
+    }
+    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+    if (!opened) {
+      window.location.href = url
+      return
+    }
+    ElMessage.success('已打开 TikTok 授权页，授权完成后返回当前页点击查询即可刷新状态')
+  } catch {
+    ElMessage.error('获取 TikTok 授权链接失败')
+  } finally {
+    oauthLoadingId.value = null
+  }
 }
 
 const handleDelete = async (row) => {

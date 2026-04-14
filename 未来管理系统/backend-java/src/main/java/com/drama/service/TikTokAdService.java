@@ -101,13 +101,17 @@ public class TikTokAdService {
         body.put("advertiser_id", ad.getAdvertiserId());
         body.put("adgroup_id", ad.getAdgroupId());
         body.put("ad_name", ad.getAdName());
-        body.put("ad_text", ad.getAdText());
-        body.put("landing_page_url", ad.getLandingPageUrl());
-        body.put("display_name", ad.getDisplayName());
-        body.put("creative_type", ad.getCreativeType());
-        body.put("video_id", ad.getVideoId());
-        body.put("image_ids", parseImageIds(ad.getImageIds()));
-        body.put("call_to_action", ad.getCallToAction());
+        putIfHasText(body, "ad_text", ad.getAdText());
+        putIfHasText(body, "landing_page_url", ad.getLandingPageUrl());
+        putIfHasText(body, "display_name", ad.getDisplayName());
+        putIfHasText(body, "creative_type", ad.getCreativeType());
+        putIfHasText(body, "video_id", ad.getVideoId());
+        List<String> imageIds = parseImageIds(ad.getImageIds());
+        if (!imageIds.isEmpty()) {
+            body.put("image_ids", imageIds);
+        }
+        putIfHasText(body, "call_to_action", ad.getCallToAction());
+        putIfHasText(body, "pixel_id", ad.getPixelId());
 
         TikTokApiResponseDTO<Map<String, Object>> response =
                 apiClient.post(
@@ -216,5 +220,11 @@ public class TikTokAdService {
 
     private static String str(Object o) {
         return o == null ? null : o.toString();
+    }
+
+    private static void putIfHasText(Map<String, Object> body, String key, String value) {
+        if (StringUtils.hasText(value)) {
+            body.put(key, value);
+        }
     }
 }

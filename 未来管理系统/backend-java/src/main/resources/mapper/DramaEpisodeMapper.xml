@@ -7,9 +7,31 @@
   <select id="selectByDramaId" resultType="com.drama.entity.DramaEpisode">
     SELECT * FROM drama_episodes WHERE drama_id = #{dramaId} ORDER BY episode_num ASC
   </select>
+  <select id="selectByDramaIds" resultType="com.drama.entity.DramaEpisode">
+    SELECT * FROM drama_episodes
+    WHERE drama_id IN
+    <foreach collection="dramaIds" item="dramaId" open="(" separator="," close=")">
+      #{dramaId}
+    </foreach>
+    ORDER BY drama_id ASC, episode_num ASC
+  </select>
+  <select id="selectByVodStatuses" resultType="com.drama.entity.DramaEpisode">
+    SELECT * FROM drama_episodes
+    WHERE vod_status IN
+    <foreach collection="statuses" item="status" open="(" separator="," close=")">
+      #{status}
+    </foreach>
+    ORDER BY updated_at ASC
+  </select>
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO drama_episodes (drama_id, episode_num, title, video_id, video_url, duration)
-    VALUES (#{dramaId}, #{episodeNum}, #{title}, #{videoId}, #{videoUrl}, #{duration})
+    INSERT INTO drama_episodes (
+      drama_id, episode_num, title, video_id, video_url,
+      vod_video_id, vod_status, video_size, vod_cover_url, duration
+    )
+    VALUES (
+      #{dramaId}, #{episodeNum}, #{title}, #{videoId}, #{videoUrl},
+      #{vodVideoId}, #{vodStatus}, #{videoSize}, #{vodCoverUrl}, #{duration}
+    )
   </insert>
   <update id="update">
     UPDATE drama_episodes SET
@@ -18,6 +40,10 @@
       title = #{title},
       video_id = #{videoId},
       video_url = #{videoUrl},
+      vod_video_id = #{vodVideoId},
+      vod_status = #{vodStatus},
+      video_size = #{videoSize},
+      vod_cover_url = #{vodCoverUrl},
       duration = #{duration},
       updated_at = NOW()
     WHERE id = #{id}

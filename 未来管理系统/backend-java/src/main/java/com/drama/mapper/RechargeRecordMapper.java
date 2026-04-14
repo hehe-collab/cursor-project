@@ -4,6 +4,7 @@ import com.drama.dto.RechargeStatsRow;
 import com.drama.entity.RechargeRecord;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -75,6 +76,8 @@ public interface RechargeRecordMapper {
     long countAll();
 
     long countPendingApprox();
+
+    List<Map<String, Object>> selectDistinctAccountOptions();
 
     int countEarlierPaid(
             @Param("userId") String userId,

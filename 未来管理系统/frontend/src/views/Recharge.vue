@@ -64,7 +64,17 @@
         </el-form-item>
         <el-form-item label="账户ID" label-width="60px">
           <div class="filter-item-s">
-            <el-input v-model="filterForm.accountId" placeholder="广告账户" clearable />
+            <el-select v-model="filterForm.accountId" placeholder="充值历史账户" clearable filterable>
+              <el-option
+                v-for="item in accountOptions"
+                :key="item.accountId"
+                :label="item.label"
+                :value="item.accountId"
+              />
+              <template #empty>
+                <div class="select-empty-tip">{{ rechargeHistoryEmptyText }}</div>
+              </template>
+            </el-select>
           </div>
         </el-form-item>
         <el-form-item v-if="countries.length > 0" label="国家" label-width="50px">
@@ -135,6 +145,7 @@
           </div>
         </el-form-item>
       </el-form>
+      <div class="history-filter-tip">账户ID下拉仅显示充值记录里已出现过的历史账户，不直接联动账户管理授权状态。</div>
     </el-card>
 
     <el-card shadow="never" class="table-card">
@@ -310,6 +321,7 @@ import { useCountries } from '@/composables/useCountries'
 import VirtualTable from '@/components/VirtualTable.vue'
 import Loading from '@/components/Loading.vue'
 import { debounce } from '@/utils/performance'
+import { formatHistoryAccountOptions, buildHistoryAccountEmptyText } from '@/utils/accountOptionDisplay'
 
 const { countries, countryFilterOptions } = useCountries()
 
@@ -331,6 +343,8 @@ const stats = ref({
   total: 0,
   pending: 0,
 })
+const accountOptions = ref([])
+const rechargeHistoryEmptyText = buildHistoryAccountEmptyText('充值记录')
 
 const tableData = ref([])
 const loading = ref(false)
@@ -373,6 +387,20 @@ const pagination = ref({
 
 const detailVisible = ref(false)
 const currentOrder = ref({})
+
+async function loadAccountOptions() {
+  try {
+    const res = await request.get('/recharge/account-options')
+    if (res.code === 0) {
+      accountOptions.value = formatHistoryAccountOptions(res.data || [], {
+        countKey: 'orderCount',
+        countLabel: '笔充值',
+      })
+    }
+  } catch (e) {
+    console.error('加载充值账户选项失败:', e)
+  }
+}
 
 const loadStats = async () => {
   try {
@@ -540,6 +568,7 @@ const handleExportExcel = async () => {
 }
 
 onMounted(() => {
+  loadAccountOptions()
   handleQuery()
 })
 </script>
@@ -574,6 +603,17 @@ onMounted(() => {
 
 .table-wrapper--virtual {
   position: relative;
+}
+
+.history-filter-tip,
+.select-empty-tip {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.history-filter-tip {
+  margin-top: 8px;
 }
 
 </style>

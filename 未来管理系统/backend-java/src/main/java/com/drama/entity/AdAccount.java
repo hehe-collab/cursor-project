@@ -45,6 +45,18 @@ public class AdAccount {
     @Schema(description = "令牌过期时间")
     private LocalDateTime tokenExpiresAt;
 
+    @Schema(description = "TikTok OAuth 状态")
+    private String oauthStatus;
+
+    @Schema(description = "TikTok 授权账户名称")
+    private String oauthAdvertiserName;
+
+    @Schema(description = "TikTok OAuth 过期时间")
+    private LocalDateTime oauthTokenExpiresAt;
+
+    @Schema(description = "是否可执行")
+    private Boolean executable;
+
     @Schema(description = "创建人ID")
     private Integer createdBy;
 

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -50,6 +52,15 @@ public class TikTokApiClient {
             Map<String, Object> body,
             TypeReference<TikTokApiResponseDTO<T>> typeRef) {
         return request(advertiserId, accessToken, endpoint, HttpMethod.POST, null, body, typeRef);
+    }
+
+    public <T> TikTokApiResponseDTO<T> postMultipart(
+            String advertiserId,
+            String accessToken,
+            String endpoint,
+            MultiValueMap<String, Object> body,
+            TypeReference<TikTokApiResponseDTO<T>> typeRef) {
+        return requestMultipart(advertiserId, accessToken, endpoint, body, typeRef);
     }
 
     public <T> TikTokApiResponseDTO<T> put(
@@ -137,6 +148,83 @@ public class TikTokApiClient {
                     syncType,
                     endpointPathOnly(url),
                     method.name(),
+                    lastParamsSnapshot,
+                    null,
+                    null,
+                    "failed",
+                    last.getMessage(),
+                    null);
+            throw last;
+        }
+        throw new IllegalStateException("TikTok API request failed");
+    }
+
+    private <T> TikTokApiResponseDTO<T> requestMultipart(
+            String advertiserId,
+            String accessToken,
+            String endpoint,
+            MultiValueMap<String, Object> body,
+            TypeReference<TikTokApiResponseDTO<T>> typeRef) {
+        if (Boolean.FALSE.equals(tiktokConfig.getEnabled())) {
+            throw new IllegalStateException("TikTok API is disabled (tiktok.api.enabled=false)");
+        }
+
+        String url = tiktokConfig.getFullApiUrl(endpoint);
+        String syncType = extractSyncType(endpoint);
+        int max =
+                tiktokConfig.getMaxRetries() != null && tiktokConfig.getMaxRetries() >= 0
+                        ? tiktokConfig.getMaxRetries()
+                        : 3;
+        int gap =
+                tiktokConfig.getRetryInterval() != null && tiktokConfig.getRetryInterval() > 0
+                        ? tiktokConfig.getRetryInterval()
+                        : 1000;
+
+        RuntimeException last = null;
+        String lastParamsSnapshot = null;
+        try {
+            lastParamsSnapshot =
+                    objectMapper.writeValueAsString(toLoggableMap(body));
+        } catch (JsonProcessingException ignored) {
+            lastParamsSnapshot = null;
+        }
+
+        for (int attempt = 0; attempt <= max; attempt++) {
+            try {
+                return doOneMultipartRoundTrip(
+                        advertiserId,
+                        accessToken,
+                        body,
+                        typeRef,
+                        url,
+                        syncType,
+                        lastParamsSnapshot);
+            } catch (RestClientException e) {
+                last = new RuntimeException("TikTok API request failed: " + e.getMessage(), e);
+                log.warn(
+                        "TikTok API 网络失败 attempt={}/{} POST {} - {}",
+                        attempt,
+                        max,
+                        url,
+                        e.getMessage());
+                if (attempt < max) {
+                    sleepQuietly(gap);
+                }
+            } catch (JsonProcessingException e) {
+                throw new IllegalStateException("TikTok API 响应 JSON 无效", e);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                last = new RuntimeException("TikTok API request failed: " + e.getMessage(), e);
+                break;
+            }
+        }
+        if (last != null) {
+            recordSyncLog(
+                    advertiserId,
+                    syncType,
+                    endpointPathOnly(url),
+                    HttpMethod.POST.name(),
                     lastParamsSnapshot,
                     null,
                     null,
@@ -241,6 +329,75 @@ public class TikTokApiClient {
         }
     }
 
+    private <T> TikTokApiResponseDTO<T> doOneMultipartRoundTrip(
+            String advertiserId,
+            String accessToken,
+            MultiValueMap<String, Object> body,
+            TypeReference<TikTokApiResponseDTO<T>> typeRef,
+            String url,
+            String syncType,
+            String requestParamsJson)
+            throws Exception {
+        long start = System.currentTimeMillis();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        if (accessToken != null && !accessToken.isEmpty()) {
+            headers.set("Access-Token", accessToken);
+        }
+
+        boolean debug = Boolean.TRUE.equals(tiktokConfig.getDebug());
+        if (debug) {
+            log.info("TikTok API POST {} multipart={}", url, requestParamsJson);
+        }
+
+        HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+        ResponseEntity<String> responseEntity =
+                restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+        long duration = System.currentTimeMillis() - start;
+        String responseBody = responseEntity.getBody();
+
+        if (debug) {
+            log.info(
+                    "TikTok API 响应 status={} durationMs={} bodySnippet={}",
+                    responseEntity.getStatusCode(),
+                    duration,
+                    responseBody != null && responseBody.length() > 500
+                            ? responseBody.substring(0, 500) + "…"
+                            : responseBody);
+        }
+
+        try {
+            TikTokApiResponseDTO<T> parsed =
+                    objectMapper.readValue(
+                            responseBody != null ? responseBody : "{}", typeRef);
+            recordSyncLog(
+                    advertiserId,
+                    syncType,
+                    endpointPathOnly(url),
+                    HttpMethod.POST.name(),
+                    requestParamsJson,
+                    responseEntity.getStatusCode().value(),
+                    responseBody,
+                    "success",
+                    null,
+                    (int) duration);
+            return parsed;
+        } catch (JsonProcessingException e) {
+            recordSyncLog(
+                    advertiserId,
+                    syncType,
+                    endpointPathOnly(url),
+                    HttpMethod.POST.name(),
+                    requestParamsJson,
+                    responseEntity.getStatusCode().value(),
+                    responseBody,
+                    "failed",
+                    e.getMessage(),
+                    (int) duration);
+            throw e;
+        }
+    }
+
     private void sleepQuietly(int ms) {
         try {
             Thread.sleep(ms);
@@ -319,6 +476,9 @@ public class TikTokApiClient {
         if (e.contains("pixel")) {
             return "pixel";
         }
+        if (e.contains("file/image") || e.contains("file/video") || e.contains("material")) {
+            return "material";
+        }
         if (e.contains("conversion")) {
             return "conversion";
         }
@@ -329,5 +489,23 @@ public class TikTokApiClient {
             return "ad";
         }
         return "other";
+    }
+
+    private Map<String, Object> toLoggableMap(MultiValueMap<String, Object> body) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        if (body == null) {
+            return out;
+        }
+        for (Map.Entry<String, java.util.List<Object>> entry : body.entrySet()) {
+            java.util.List<Object> values = entry.getValue();
+            if (values == null || values.isEmpty()) {
+                out.put(entry.getKey(), null);
+            } else if (values.size() == 1) {
+                out.put(entry.getKey(), values.get(0));
+            } else {
+                out.put(entry.getKey(), values);
+            }
+        }
+        return out;
     }
 }

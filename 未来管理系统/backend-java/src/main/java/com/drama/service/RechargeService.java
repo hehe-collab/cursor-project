@@ -2,12 +2,15 @@ package com.drama.service;
 
 import com.drama.dto.RechargeQueryParam;
 import com.drama.dto.RechargeStatsRow;
+import com.drama.entity.AdAccount;
 import com.drama.entity.RechargeRecord;
 import com.drama.exception.BusinessException;
+import com.drama.mapper.AdAccountMapper;
 import com.drama.mapper.RechargeRecordMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +26,7 @@ public class RechargeService {
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    private final AdAccountMapper adAccountMapper;
     private final RechargeRecordMapper rechargeRecordMapper;
 
     /** 统计（与列表页相同筛选维度；{@code status} 一般不传以统计全量） */
@@ -53,6 +57,40 @@ public class RechargeService {
         m.put("total", m.get("total_count"));
         m.put("pending", m.get("pending_count"));
         return m;
+    }
+
+    public List<Map<String, Object>> accountOptions() {
+        Map<String, AdAccount> accountSnapshot = loadAccountSnapshot();
+        return rechargeRecordMapper.selectDistinctAccountOptions().stream()
+                .map(
+                        row -> {
+                            String accountId = str(row.get("accountId")).trim();
+                            AdAccount account = accountSnapshot.get(accountId);
+                            Map<String, Object> item = new LinkedHashMap<>();
+                            item.put("accountId", accountId);
+                            item.put(
+                                    "accountName",
+                                    firstNonBlank(
+                                            str(row.get("accountName")),
+                                            account != null ? account.getAccountName() : ""));
+                            item.put("subjectName", account != null ? str(account.getSubjectName()) : "");
+                            item.put("orderCount", row.get("orderCount"));
+                            return item;
+                        })
+                .filter(row -> !str(row.get("accountId")).isBlank())
+                .sorted(Comparator.comparing(row -> str(row.get("accountId"))))
+                .toList();
+    }
+
+    private Map<String, AdAccount> loadAccountSnapshot() {
+        Map<String, AdAccount> snapshot = new LinkedHashMap<>();
+        for (AdAccount account : adAccountMapper.selectAllOrderByIdDesc()) {
+            String accountId = str(account.getAccountId()).trim();
+            if (!accountId.isEmpty() && !snapshot.containsKey(accountId)) {
+                snapshot.put(accountId, account);
+            }
+        }
+        return snapshot;
     }
 
     @Transactional
@@ -365,6 +403,18 @@ public class RechargeService {
 
     private static String str(Object o) {
         return o == null ? "" : Objects.toString(o, "");
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
     }
 
     private static Long longOrNull(Object o) {

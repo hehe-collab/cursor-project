@@ -1,6 +1,6 @@
 # 🚀 管理系统批量脚本工具
 
-TikTok 广告自动化工具集合 - 3 个 2.0 工具
+TikTok 广告自动化工具集合：广告批量（3.0）+ 素材推送（2.0）+ 推广链接（2.0）
 
 ---
 
@@ -8,7 +8,7 @@ TikTok 广告自动化工具集合 - 3 个 2.0 工具
 
 | 工具 | 功能 | 目录 | Excel 文件 |
 |------|------|------|-----------|
-| ad-automation2.0 | 广告批量建设 | `ad-automation2.0/` | `data/tasks-v2.0.xlsx` |
+| ad-automation3.0 | 广告批量建设 | `ad-automation3.0/` | `data/tasks-v3.0.xlsx` |
 | material-push-tool2.0 | 素材批量推送 | `material-push-tool2.0/` | `data/push-tasks-v2.0.xlsx` |
 | promotion-link-tool2.0 | 推广链接复制 | `promotion-link-tool2.0/` | `data/link-tasks-v2.0.xlsx` |
 
@@ -18,8 +18,8 @@ TikTok 广告自动化工具集合 - 3 个 2.0 工具
 
 ### 广告批量建设
 ```bash
-cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/ad-automation2.0"
-open data/tasks-v2.0.xlsx
+cd "/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/ad-automation3.0"
+open data/tasks-v3.0.xlsx
 npm start
 ```
 
@@ -45,7 +45,7 @@ npm start
 - `🚀一键启动-素材推送2.0.sh` → 素材推送
 - `一键启动-推广链接2.0.sh` → 推广链接复制
 
-（广告工具可自行添加启动脚本）
+（广告工具可自行添加启动脚本，或进入 `ad-automation3.0` 后执行 `npm start`）
 
 ---
 
@@ -68,5 +68,5 @@ npm start
 ---
 
 **路径**: `/Volumes/存钱罐/cursor项目/管理系统批量脚本工具/`  
-**工具数量**: 3 个（2.0 版本）  
+**工具数量**: 3 个  
 **状态**: ✅ 全部可用

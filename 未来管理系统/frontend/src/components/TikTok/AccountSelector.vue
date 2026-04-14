@@ -11,19 +11,19 @@
   >
     <el-option
       v-for="item in accountOptions"
-      :key="item.advertiserId"
+      :key="item.accountId"
       :label="formatLabel(item)"
-      :value="item.advertiserId"
+      :value="item.accountId"
     >
       <span class="account-option">
-        <span class="account-name">{{ item.advertiserName || '未命名账户' }}</span>
-        <span class="account-id">{{ item.advertiserId }}</span>
+        <span class="account-name">{{ item.accountName || item.advertiserName || '未命名账户' }}</span>
+        <span class="account-id">{{ item.accountId }}</span>
       </span>
     </el-option>
     <template #empty>
       <div class="empty-tip">
         <span v-if="loading">加载中…</span>
-        <span v-else-if="accountOptions.length === 0">暂无可用账户，请先在账户管理添加 TikTok 账户</span>
+        <span v-else-if="accountOptions.length === 0">暂无可执行账户，请先在账户管理录入账号并确保 TikTok OAuth 为 active</span>
       </div>
     </template>
   </el-select>
@@ -31,12 +31,20 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { getAccountList } from '@/api/tiktok/account'
+import request from '@/api/request'
 
 const props = defineProps({
   modelValue: {
     type: String,
     default: '',
+  },
+  media: {
+    type: String,
+    default: 'tiktok',
+  },
+  oauthStatus: {
+    type: String,
+    default: 'active',
   },
   disabled: {
     type: Boolean,
@@ -56,21 +64,26 @@ watch(() => props.modelValue, (v) => {
 
 function handleChange(val) {
   emit('update:modelValue', val)
-  const account = accountOptions.value.find(a => a.advertiserId === val)
+  const account = accountOptions.value.find(a => a.accountId === val)
   emit('change', account || null)
 }
 
 function formatLabel(item) {
-  const name = item.advertiserName || '未命名'
-  return `${name} (${item.advertiserId})`
+  const name = item.accountName || item.advertiserName || '未命名'
+  return `${name} (${item.accountId})`
 }
 
 async function fetchAccounts() {
   loading.value = true
   try {
-    const res = await getAccountList({ status: 'active' })
+    const res = await request.get('/accounts/executable-options', {
+      params: {
+        media: props.media,
+        oauthStatus: props.oauthStatus,
+      },
+    })
     const list = res?.data || []
-    accountOptions.value = list.filter(a => a.advertiserId)
+    accountOptions.value = list.filter(a => a.accountId)
   } catch (e) {
     console.error('获取账户列表失败', e)
     accountOptions.value = []

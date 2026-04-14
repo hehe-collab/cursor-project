@@ -8,8 +8,8 @@ spring:
     password: ${MYSQL_PASSWORD:}
   servlet:
     multipart:
-      max-file-size: 100MB
-      max-request-size: 100MB
+      max-file-size: ${SPRING_MULTIPART_MAX_FILE_SIZE:2048MB}
+      max-request-size: ${SPRING_MULTIPART_MAX_REQUEST_SIZE:2048MB}
   jackson:
     time-zone: Asia/Shanghai
 
@@ -39,6 +39,9 @@ aliyun:
     access-key-id: ${ALIYUN_ACCESS_KEY_ID:}
     access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET:}
     region-id: ${ALIYUN_VOD_REGION:cn-shanghai}
+    template-group-id: ${ALIYUN_VOD_TEMPLATE_GROUP_ID:}
+    storage-location: ${ALIYUN_VOD_STORAGE_LOCATION:}
+    domain: ${ALIYUN_VOD_DOMAIN:}
 
 app:
   upload-dir: ${APP_UPLOAD_DIR:${UPLOAD_PATH:/Volumes/存钱罐/cursor项目/未来管理系统/uploads}}

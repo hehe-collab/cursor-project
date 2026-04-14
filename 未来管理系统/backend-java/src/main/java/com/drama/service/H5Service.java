@@ -35,6 +35,7 @@ public class H5Service {
     private final RechargePlanGroupService rechargePlanGroupService;
     private final RechargePlanService rechargePlanService;
     private final RechargeService rechargeService;
+    private final VodService vodService;
 
     public Map<String, Object> getDramaByPromo(String promoId, String deviceId) {
         PromotionLink link = requirePromotion(promoId);
@@ -102,12 +103,34 @@ public class H5Service {
 
         upsertWatchHistory(user.getId(), drama.getId(), Math.max(episodeNum, highestUnlocked));
 
+        String resolvedUrl = resolveEpisodePlayUrl(target);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("episode", episodeNum);
-        data.put("url", target.getVideoUrl() != null ? target.getVideoUrl() : "");
-        data.put("video_id", target.getVideoId() != null ? target.getVideoId() : "");
+        data.put("url", resolvedUrl);
+        data.put("video_id", firstNonBlank(target.getVodVideoId(), target.getVideoId()));
+        data.put("vod_video_id", target.getVodVideoId() != null ? target.getVodVideoId() : "");
+        data.put("vod_status", target.getVodStatus() != null ? target.getVodStatus() : "");
         data.put("remaining_beans", userMapper.selectById(user.getId()).getCoinBalance());
         return data;
+    }
+
+    private String resolveEpisodePlayUrl(DramaEpisode episode) {
+        String vodVideoId = firstNonBlank(episode.getVodVideoId(), episode.getVideoId());
+        if (!vodVideoId.isBlank() && vodService.isConfigured()) {
+            try {
+                String url = vodService.getPreferredPlayUrl(vodVideoId);
+                if (!url.isBlank()) {
+                    return url;
+                }
+            } catch (Exception ignored) {
+                // 如果 VOD 临时取地址失败，继续回退到手工配置的 video_url。
+            }
+        }
+        String fallback = episode.getVideoUrl() != null ? episode.getVideoUrl() : "";
+        if (!fallback.isBlank()) {
+            return fallback;
+        }
+        throw new BusinessException(404, "当前剧集还没有可播放的视频地址");
     }
 
     public Map<String, Object> getUserInfo(String deviceId) {
@@ -326,6 +349,18 @@ public class H5Service {
 
     private static String nullToEmpty(String s) {
         return s != null ? s : "";
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 
     private static String shortId(String s) {

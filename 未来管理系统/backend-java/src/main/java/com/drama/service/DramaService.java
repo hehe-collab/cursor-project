@@ -21,6 +21,7 @@ import com.drama.service.cache.DramaCacheSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +37,7 @@ public class DramaService {
     private final DramaEpisodeMapper dramaEpisodeMapper;
     private final DramaTagMapper dramaTagMapper;
     private final TagMapper tagMapper;
+    private final VodService vodService;
 
     public Map<String, Object> stats(String title, Integer categoryId, String status, Integer id, String publicId) {
         String t = title != null && !title.isBlank() ? title.trim() : null;
@@ -64,7 +66,10 @@ public class DramaService {
         String pub = publicId != null && !publicId.isBlank() ? publicId.trim() : null;
         long total = dramaMapper.countByParam(title, categoryId, dbStatus, id, pub);
         List<Drama> rows = dramaMapper.selectByParam(title, categoryId, dbStatus, id, pub, offset, ps);
-        List<Map<String, Object>> list = rows.stream().map(this::toApiListItem).collect(Collectors.toList());
+        Map<Integer, List<DramaEpisode>> episodeGroups = loadEpisodeGroups(rows);
+        List<Map<String, Object>> list = rows.stream()
+                .map(row -> toApiListItem(row, episodeGroups.get(row.getId())))
+                .collect(Collectors.toList());
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("total", total);
         data.put("page", p);
@@ -83,7 +88,7 @@ public class DramaService {
         List<DramaEpisode> eps = dramaEpisodeMapper.selectByDramaId(id);
         List<Map<String, Object>> epList =
                 eps.stream().map(this::episodeToApi).collect(Collectors.toList());
-        Map<String, Object> data = toApiDetail(d, categoryName);
+        Map<String, Object> data = toApiDetail(d, categoryName, eps);
         data.put("tags", tagNames);
         data.put("episodes", epList);
         return data;
@@ -113,15 +118,13 @@ public class DramaService {
         DramaEpisode e = new DramaEpisode();
         e.setDramaId(dramaId);
         e.setEpisodeNum(epNum);
-        e.setTitle(nullIfBlank(str(body.get("title"))));
-        e.setVideoId(nullIfBlank(str(body.get("video_id"))));
-        e.setVideoUrl(nullIfBlank(str(body.get("video_url"))));
-        e.setDuration(body.get("duration") != null ? intOrZero(body.get("duration")) : 0);
+        applyEpisodeBody(e, body);
         dramaEpisodeMapper.insert(e);
         DramaEpisode saved = dramaEpisodeMapper.selectById(e.getId());
         if (saved == null) {
             throw new BusinessException(500, "创建分集失败");
         }
+        refreshDramaTaskStatus(dramaId);
         return episodeToApi(saved);
     }
 
@@ -149,7 +152,21 @@ public class DramaService {
         if (body.containsKey("duration")) {
             existing.setDuration(intOrZero(body.get("duration")));
         }
+        if (body.containsKey("vod_video_id")) {
+            existing.setVodVideoId(nullIfBlank(str(body.get("vod_video_id"))));
+        }
+        if (body.containsKey("vod_status")) {
+            existing.setVodStatus(nullIfBlank(str(body.get("vod_status"))));
+        }
+        if (body.containsKey("video_size")) {
+            existing.setVideoSize(longOrZero(body.get("video_size")));
+        }
+        if (body.containsKey("vod_cover_url")) {
+            existing.setVodCoverUrl(nullIfBlank(str(body.get("vod_cover_url"))));
+        }
+        hydrateVodFields(existing);
         dramaEpisodeMapper.update(existing);
+        refreshDramaTaskStatus(dramaId);
     }
 
     @Transactional
@@ -159,6 +176,7 @@ public class DramaService {
             throw new BusinessException(404, "分集不存在");
         }
         dramaEpisodeMapper.deleteById(episodeId);
+        refreshDramaTaskStatus(dramaId);
     }
 
     @Transactional
@@ -196,6 +214,8 @@ public class DramaService {
         d.setPublicId(allocateUniquePublicId());
         dramaMapper.insert(d);
         Drama saved = dramaMapper.selectById(d.getId());
+        syncEpisodes(d.getId(), body.get("episodes"));
+        refreshDramaTaskStatus(d.getId());
         List<Integer> tagIds = intList(body.get("tag_ids"));
         if (tagIds != null) {
             for (Integer tid : tagIds) {
@@ -300,6 +320,10 @@ public class DramaService {
         }
         dramaMapper.update(existing);
         dramaCacheSupport.evictById(id);
+        if (body.containsKey("episodes")) {
+            syncEpisodes(id, body.get("episodes"));
+            refreshDramaTaskStatus(id);
+        }
         if (body.containsKey("tag_ids")) {
             dramaTagMapper.deleteByDramaId(id);
             List<Integer> tagIds = intList(body.get("tag_ids"));
@@ -327,7 +351,7 @@ public class DramaService {
         dramaMapper.deleteById(id);
     }
 
-    private Map<String, Object> toApiListItem(Drama d) {
+    private Map<String, Object> toApiListItem(Drama d, List<DramaEpisode> episodes) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", d.getId());
         m.put("public_id", d.getPublicId() != null ? d.getPublicId() : "");
@@ -345,13 +369,13 @@ public class DramaService {
         m.put("display_name", d.getDisplayName() != null ? d.getDisplayName() : "");
         m.put("display_text", d.getDisplayText() != null ? d.getDisplayText() : "");
         m.put("oss_path", d.getOssPath() != null ? d.getOssPath() : "");
-        m.put("task_status", d.getTaskStatus() != null ? d.getTaskStatus() : "");
+        m.put("task_status", resolveDramaTaskStatus(episodes));
         m.put("beans_per_episode", d.getBeansPerEpisode() != null ? d.getBeansPerEpisode() : 0);
         m.put("free_episodes", d.getFreeEpisodes() != null ? d.getFreeEpisodes() : 0);
         return m;
     }
 
-    private Map<String, Object> toApiDetail(Drama d, String categoryName) {
+    private Map<String, Object> toApiDetail(Drama d, String categoryName, List<DramaEpisode> episodes) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", d.getId());
         m.put("public_id", d.getPublicId() != null ? d.getPublicId() : "");
@@ -371,7 +395,7 @@ public class DramaService {
         m.put("display_name", d.getDisplayName() != null ? d.getDisplayName() : "");
         m.put("display_text", d.getDisplayText() != null ? d.getDisplayText() : "");
         m.put("oss_path", d.getOssPath() != null ? d.getOssPath() : "");
-        m.put("task_status", d.getTaskStatus() != null ? d.getTaskStatus() : "");
+        m.put("task_status", resolveDramaTaskStatus(episodes));
         return m;
     }
 
@@ -407,6 +431,146 @@ public class DramaService {
         return db;
     }
 
+    @Transactional
+    public void refreshDramaTaskStatus(Integer dramaId) {
+        if (dramaId == null) {
+            return;
+        }
+        Drama drama = dramaMapper.selectById(dramaId);
+        if (drama == null) {
+            return;
+        }
+        String nextStatus = resolveDramaTaskStatus(dramaEpisodeMapper.selectByDramaId(dramaId));
+        String currentStatus = drama.getTaskStatus() != null ? drama.getTaskStatus().trim() : "";
+        if (Objects.equals(currentStatus, nextStatus)) {
+            return;
+        }
+        dramaMapper.updateTaskStatus(dramaId, nextStatus);
+        dramaCacheSupport.evictById(dramaId);
+    }
+
+    private Map<Integer, List<DramaEpisode>> loadEpisodeGroups(List<Drama> dramas) {
+        List<Integer> dramaIds = dramas.stream()
+                .map(Drama::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        Map<Integer, List<DramaEpisode>> out = new LinkedHashMap<>();
+        if (dramaIds.isEmpty()) {
+            return out;
+        }
+        List<DramaEpisode> episodes = dramaEpisodeMapper.selectByDramaIds(dramaIds);
+        for (DramaEpisode episode : episodes) {
+            if (episode == null || episode.getDramaId() == null) {
+                continue;
+            }
+            out.computeIfAbsent(episode.getDramaId(), key -> new ArrayList<>()).add(episode);
+        }
+        return out;
+    }
+
+    private String resolveDramaTaskStatus(List<DramaEpisode> episodes) {
+        if (episodes == null || episodes.isEmpty()) {
+            return "";
+        }
+        boolean hasManual = false;
+        boolean hasNormal = false;
+        boolean hasUploading = false;
+        boolean hasTranscoding = false;
+        boolean hasCallback = false;
+        boolean hasFailed = false;
+        boolean hasProcessing = false;
+        for (DramaEpisode episode : episodes) {
+            if (episode == null) {
+                continue;
+            }
+            String normalized = normalizeTaskStatus(firstNonBlank(episode.getVodStatus()));
+            boolean hasVideo = StringUtils.hasText(firstNonBlank(episode.getVodVideoId(), episode.getVideoId()));
+            if (!StringUtils.hasText(normalized)) {
+                if (hasVideo) {
+                    hasUploading = true;
+                } else {
+                    hasManual = true;
+                }
+                continue;
+            }
+            switch (normalized) {
+                case "manual" -> hasManual = true;
+                case "completed" -> hasNormal = true;
+                case "uploading" -> hasUploading = true;
+                case "transcoding" -> hasTranscoding = true;
+                case "callback" -> hasCallback = true;
+                case "failed" -> hasFailed = true;
+                default -> hasProcessing = true;
+            }
+        }
+        if (hasFailed) {
+            return "failed";
+        }
+        if (hasCallback) {
+            return "callback";
+        }
+        if (hasTranscoding) {
+            return "transcoding";
+        }
+        if (hasUploading) {
+            return "uploading";
+        }
+        if (hasProcessing) {
+            return "进行中";
+        }
+        if (hasNormal && !hasManual) {
+            return "completed";
+        }
+        if (hasNormal) {
+            return "进行中";
+        }
+        return "";
+    }
+
+    private String normalizeTaskStatus(String status) {
+        String value = firstNonBlank(status).trim();
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String lower = value.toLowerCase();
+        if ("completed".equals(lower)
+                || "complete".equals(lower)
+                || "success".equals(lower)
+                || "succeeded".equals(lower)
+                || "normal".equals(lower)
+                || "完成".equals(value)) {
+            return "completed";
+        }
+        if ("failed".equals(lower)
+                || "error".equals(lower)
+                || "uploadfail".equals(lower)
+                || "transcodefail".equals(lower)
+                || "blocked".equals(lower)
+                || "illegal".equals(lower)
+                || "失败".equals(value)) {
+            return "failed";
+        }
+        if ("callback".equals(lower) || "callbacking".equals(lower) || "notifying".equals(lower)) {
+            return "callback";
+        }
+        if ("transcoding".equals(lower)
+                || "processing".equals(lower)
+                || "transcode".equals(lower)
+                || "snapshotting".equals(lower)) {
+            return "transcoding";
+        }
+        if ("uploading".equals(lower) || "upload".equals(lower) || "上传中".equals(value)) {
+            return "uploading";
+        }
+        if ("manual".equals(lower) || "pending".equals(lower) || "未开始".equals(value)) {
+            return "manual";
+        }
+        if ("进行中".equals(value)) {
+            return "processing";
+        }
+        return lower;
+    }
+
     private Map<String, Object> episodeToApi(DramaEpisode e) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", e.getId());
@@ -416,6 +580,10 @@ public class DramaService {
         m.put("title", e.getTitle() != null ? e.getTitle() : "");
         m.put("video_id", e.getVideoId() != null ? e.getVideoId() : "");
         m.put("video_url", e.getVideoUrl() != null ? e.getVideoUrl() : "");
+        m.put("vod_video_id", e.getVodVideoId() != null ? e.getVodVideoId() : "");
+        m.put("vod_status", e.getVodStatus() != null ? e.getVodStatus() : "");
+        m.put("video_size", e.getVideoSize() != null ? e.getVideoSize() : 0L);
+        m.put("vod_cover_url", e.getVodCoverUrl() != null ? e.getVodCoverUrl() : "");
         m.put("duration", e.getDuration() != null ? e.getDuration() : 0);
         if (e.getCreatedAt() != null) {
             m.put("created_at", DT.format(e.getCreatedAt()));
@@ -436,12 +604,118 @@ public class DramaService {
         return 0;
     }
 
+    private void syncEpisodes(Integer dramaId, Object rawEpisodes) {
+        if (!(rawEpisodes instanceof List<?> items)) {
+            return;
+        }
+        dramaEpisodeMapper.deleteByDramaId(dramaId);
+        for (Object item : items) {
+            Map<String, Object> row = toMap(item);
+            if (row == null) {
+                continue;
+            }
+            int episodeNum = episodeNumFromBody(row);
+            if (episodeNum <= 0) {
+                continue;
+            }
+            DramaEpisode episode = new DramaEpisode();
+            episode.setDramaId(dramaId);
+            episode.setEpisodeNum(episodeNum);
+            applyEpisodeBody(episode, row);
+            dramaEpisodeMapper.insert(episode);
+        }
+    }
+
+    private void applyEpisodeBody(DramaEpisode episode, Map<String, Object> body) {
+        episode.setTitle(nullIfBlank(str(body.get("title"))));
+        episode.setVideoId(nullIfBlank(str(body.get("video_id"))));
+        episode.setVideoUrl(nullIfBlank(str(body.get("video_url"))));
+        episode.setVodVideoId(
+                nullIfBlank(firstNonBlank(str(body.get("vod_video_id")), str(body.get("video_id")))));
+        episode.setVodStatus(nullIfBlank(str(body.get("vod_status"))));
+        episode.setVideoSize(longOrZero(body.get("video_size")));
+        episode.setVodCoverUrl(nullIfBlank(str(body.get("vod_cover_url"))));
+        episode.setDuration(body.get("duration") != null ? intOrZero(body.get("duration")) : 0);
+        hydrateVodFields(episode);
+    }
+
+    private void hydrateVodFields(DramaEpisode episode) {
+        String vodVideoId = nullIfBlank(firstNonBlank(episode.getVodVideoId(), episode.getVideoId()));
+        if (!StringUtils.hasText(vodVideoId)) {
+            if (!StringUtils.hasText(episode.getVodStatus())) {
+                episode.setVodStatus("manual");
+            }
+            return;
+        }
+        episode.setVodVideoId(vodVideoId);
+        if (!StringUtils.hasText(episode.getVideoId())) {
+            episode.setVideoId(vodVideoId);
+        }
+        if (!vodService.isConfigured()) {
+            if (!StringUtils.hasText(episode.getVodStatus())) {
+                episode.setVodStatus("uploading");
+            }
+            return;
+        }
+        try {
+            Map<String, Object> videoInfo = vodService.getVideoInfo(vodVideoId);
+            episode.setVodStatus(firstNonBlank(str(videoInfo.get("status")), episode.getVodStatus(), "uploading"));
+            if ((episode.getDuration() == null || episode.getDuration() <= 0) && videoInfo.get("duration") != null) {
+                episode.setDuration(intOrZero(videoInfo.get("duration")));
+            }
+            if ((episode.getVideoSize() == null || episode.getVideoSize() <= 0) && videoInfo.get("size") != null) {
+                episode.setVideoSize(longOrZero(videoInfo.get("size")));
+            }
+            if (!StringUtils.hasText(episode.getVodCoverUrl())) {
+                episode.setVodCoverUrl(nullIfBlank(str(videoInfo.get("coverUrl"))));
+            }
+        } catch (Exception e) {
+            if (!StringUtils.hasText(episode.getVodStatus())) {
+                episode.setVodStatus("uploading");
+            }
+        }
+    }
+
+    private Map<String, Object> toMap(Object raw) {
+        if (!(raw instanceof Map<?, ?> map)) {
+            return null;
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            out.put(String.valueOf(entry.getKey()), entry.getValue());
+        }
+        return out;
+    }
+
     private static long nzLong(Long v) {
         return v != null ? v : 0L;
     }
 
+    private static long longOrZero(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return value == null ? 0L : Long.parseLong(String.valueOf(value).trim());
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
     private static String nullIfBlank(String s) {
         return s == null || s.isBlank() ? null : s;
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 
     private static String str(Object o) {

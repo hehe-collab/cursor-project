@@ -44,6 +44,33 @@
     ORDER BY subject_name
   </select>
 
+  <select id="selectExecutableAccountOptions" resultType="map">
+    SELECT
+      a.id AS id,
+      a.media AS media,
+      a.country AS country,
+      a.subject_name AS subjectName,
+      a.account_id AS accountId,
+      a.account_name AS accountName,
+      a.media_alias AS mediaAlias,
+      a.account_agent AS accountAgent,
+      t.advertiser_id AS advertiserId,
+      t.advertiser_name AS advertiserName,
+      t.status AS oauthStatus
+    FROM ad_accounts a
+    INNER JOIN tiktok_accounts t
+      ON t.advertiser_id = a.account_id
+    WHERE a.account_id IS NOT NULL
+      AND TRIM(a.account_id) != ''
+      <if test="media != null and media != ''">
+        AND LOWER(TRIM(a.media)) = LOWER(TRIM(#{media}))
+      </if>
+      <if test="oauthStatus != null and oauthStatus != ''">
+        AND LOWER(TRIM(t.status)) = LOWER(TRIM(#{oauthStatus}))
+      </if>
+    ORDER BY a.id DESC
+  </select>
+
   <select id="selectById" resultMap="RowMap">
     SELECT * FROM ad_accounts WHERE id = #{id}
   </select>

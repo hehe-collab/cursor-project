@@ -1,6 +1,6 @@
 # DramaBagus 批量广告工具
 
-> 基于 ad-automation2.0，适配 **admin.dramabagus.com/tools/batch**。支持自动登录，第一版不启用 URL 轮询。
+> 与管理系统侧 `ad-automation3.0` 同源架构，适配 **admin.dramabagus.com/tools/batch**。支持自动登录，第一版不启用 URL 轮询。
 
 ## 📋 功能特点
 

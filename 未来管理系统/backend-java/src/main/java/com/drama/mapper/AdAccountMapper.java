@@ -2,6 +2,7 @@ package com.drama.mapper;
 
 import com.drama.entity.AdAccount;
 import java.util.List;
+import java.util.Map;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -16,6 +17,9 @@ public interface AdAccountMapper {
     List<String> selectDistinctCountries();
 
     List<String> selectDistinctSubjectNames();
+
+    List<Map<String, Object>> selectExecutableAccountOptions(
+            @Param("media") String media, @Param("oauthStatus") String oauthStatus);
 
     AdAccount selectById(@Param("id") int id);
 

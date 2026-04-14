@@ -499,10 +499,13 @@ const detailCoverUrl = computed(() => {
 
 function getTaskStatusText(status) {
   const map = {
+    manual: '未开始',
     uploading: '上传中',
     transcoding: '解码中',
     callback: '回调中',
     completed: '完成',
+    normal: '完成',
+    failed: '失败',
     完成: '完成',
     进行中: '进行中',
     '': '未开始',
@@ -512,10 +515,13 @@ function getTaskStatusText(status) {
 
 function getTaskStatusType(status) {
   const map = {
+    manual: 'info',
     uploading: 'warning',
     transcoding: 'warning',
     callback: 'info',
     completed: 'success',
+    normal: 'success',
+    failed: 'danger',
     完成: 'success',
     进行中: 'warning',
     '': 'info',

@@ -15,16 +15,18 @@
             <el-select
               v-model="filterForm.accountId"
               filterable
-              placeholder="请选择"
+              placeholder="素材历史账户"
               clearable
-              @focus="loadAllAccounts"
             >
               <el-option
-                v-for="item in accountOptions"
-                :key="item.value"
+                v-for="item in materialAccountOptions"
+                :key="item.accountId"
                 :label="item.label"
-                :value="item.value"
+                :value="item.accountId"
               />
+              <template #empty>
+                <div class="select-empty-tip">{{ materialHistoryEmptyText }}</div>
+              </template>
             </el-select>
           </div>
         </el-form-item>
@@ -54,6 +56,7 @@
           <el-button type="warning" @click="handleViewRecords">同步/上传记录</el-button>
         </div>
       </div>
+      <div class="history-filter-tip">顶部账户ID筛选只看素材库历史账户；上传素材弹窗里显示的是当前可执行的 TikTok 账户。</div>
     </el-card>
 
     <el-card class="table-card" shadow="never">
@@ -106,16 +109,18 @@
           <el-select
             v-model="uploadForm.accountId"
             filterable
-            placeholder="请选择"
+            placeholder="请选择可执行TikTok账户"
             style="width: 100%"
-            @focus="loadAllAccounts"
           >
             <el-option
-              v-for="item in accountOptions"
-              :key="item.value"
+              v-for="item in uploadAccountOptions"
+              :key="item.accountId"
               :label="item.label"
-              :value="item.value"
+              :value="item.accountId"
             />
+            <template #empty>
+              <div class="select-empty-tip">{{ executableUploadEmptyText }}</div>
+            </template>
           </el-select>
         </el-form-item>
         <el-form-item label="文件夹">
@@ -126,7 +131,7 @@
             v-model="uploadForm.files"
             type="textarea"
             :rows="5"
-            placeholder="请输入下载URL（换行相隔）"
+            placeholder="请输入 TikTok 可拉取的下载 URL（每行一个，需带图片/视频后缀）"
           />
         </el-form-item>
       </el-form>
@@ -157,10 +162,15 @@
       <el-table :data="recordData" border stripe v-loading="recordLoading">
         <el-table-column prop="accountId" label="账户ID" width="200" show-overflow-tooltip />
         <el-table-column prop="accountName" label="账户名称" min-width="200" show-overflow-tooltip />
+        <el-table-column label="类型" width="100">
+          <template #default="{ row }">
+            {{ row.taskType === 'upload' ? '上传' : row.taskType === 'sync' ? '同步' : row.taskType || '—' }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'success' ? 'success' : 'warning'">
-              {{ row.status === 'success' ? '成功' : '进行中' }}
+            <el-tag :type="recordStatusType(row.status)">
+              {{ recordStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -195,6 +205,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../api/request'
+import { formatHistoryAccountOptions, buildHistoryAccountEmptyText } from '@/utils/accountOptionDisplay'
 
 const filterForm = reactive({
   accountId: '',
@@ -202,10 +213,11 @@ const filterForm = reactive({
   materialName: '',
 })
 
-const accountOptions = ref([])
-/** 已成功拉取过全量账户后不再请求（点击筛选/上传下拉 @focus 时） */
-const accountsLoaded = ref(false)
-let accountsFetchPromise = null
+const materialHistoryEmptyText = buildHistoryAccountEmptyText('素材库历史')
+const executableUploadEmptyText = '这里只显示已在账户管理录入且 TikTok OAuth 为 active 的可执行账户。'
+
+const materialAccountOptions = ref([])
+const uploadAccountOptions = ref([])
 
 const tableData = ref([])
 const loading = ref(false)
@@ -237,46 +249,46 @@ const recordLoading = ref(false)
 const viewDialogVisible = ref(false)
 const viewData = ref({})
 
-function mapAccountsToOptions(list) {
-  return (list || [])
-    .map((a) => ({
-      label: `${a.account_id || ''} - ${a.account_name || ''}`,
-      value: a.account_id || '',
-    }))
-    .filter((x) => x.value)
+async function loadMaterialAccountOptions() {
+  try {
+    const res = await request.get('/ad-material/account-options')
+    if (res.code === 0) {
+      materialAccountOptions.value = formatHistoryAccountOptions(res.data || [], {
+        countKey: 'materialCount',
+        countLabel: '条素材',
+      })
+    }
+  } catch {
+    ElMessage.error('加载素材账户列表失败')
+  }
 }
 
-/** 点击下拉时加载全部账户；本地 filterable 按 label 过滤（账户ID + 名称） */
-async function loadAllAccounts() {
-  if (accountsLoaded.value) return
-  if (accountsFetchPromise) {
-    await accountsFetchPromise
-    return
+async function refreshMaterialHistoryState() {
+  const currentAccountId = filterForm.accountId
+  await loadMaterialAccountOptions()
+  if (currentAccountId && !materialAccountOptions.value.some((item) => item.accountId === currentAccountId)) {
+    filterForm.accountId = ''
   }
-  accountsFetchPromise = (async () => {
-    try {
-      const first = await request.get('/accounts', { params: { page: 1, pageSize: 100 } })
-      if (first.code !== 0) return
-      let list = [...(first.data?.list || [])]
-      const total = first.data?.total ?? list.length
-      let page = 2
-      while (list.length < total && page <= 50) {
-        const r = await request.get('/accounts', { params: { page, pageSize: 100 } })
-        if (r.code !== 0) break
-        const chunk = r.data?.list || []
-        list = list.concat(chunk)
-        if (chunk.length < 100) break
-        page += 1
-      }
-      accountOptions.value = mapAccountsToOptions(list)
-      accountsLoaded.value = true
-    } catch {
-      ElMessage.error('加载账户列表失败')
-    } finally {
-      accountsFetchPromise = null
+}
+
+async function loadUploadAccountOptions() {
+  try {
+    const res = await request.get('/accounts/executable-options', {
+      params: { media: 'tiktok', oauthStatus: 'active' },
+    })
+    if (res.code === 0) {
+      uploadAccountOptions.value = (res.data || [])
+        .map((item) => ({
+          accountId: item.accountId || '',
+          label: item.accountName
+            ? `${item.accountId} - ${item.accountName}`
+            : `${item.accountId}`,
+        }))
+        .filter((item) => item.accountId)
     }
-  })()
-  await accountsFetchPromise
+  } catch {
+    ElMessage.error('加载可执行账户列表失败')
+  }
 }
 
 const handleQuery = async () => {
@@ -334,9 +346,18 @@ const handleUploadSubmit = async () => {
   try {
     const res = await request.post('/ad-material/upload', { ...uploadForm })
     if (res.code === 0) {
-      ElMessage.success('上传任务已提交')
+      const successCount = res.data?.successCount ?? 0
+      const failedCount = res.data?.failedCount ?? 0
+      if (failedCount > 0 && successCount > 0) {
+        ElMessage.warning(`上传部分成功：成功 ${successCount} 条，失败 ${failedCount} 条`)
+      } else if (failedCount > 0) {
+        ElMessage.error(`上传失败：共 ${failedCount} 条失败`)
+      } else {
+        ElMessage.success(`上传完成：成功 ${successCount} 条`)
+      }
       uploadDialogVisible.value = false
-      handleQuery()
+      await refreshMaterialHistoryState()
+      await handleQuery()
     }
   } catch {
     ElMessage.error('上传失败')
@@ -383,6 +404,26 @@ const handleView = (row) => {
   viewDialogVisible.value = true
 }
 
+function recordStatusType(status) {
+  return {
+    success: 'success',
+    partial: 'warning',
+    failed: 'danger',
+    pending: 'info',
+    processing: 'warning',
+  }[status] || 'info'
+}
+
+function recordStatusLabel(status) {
+  return {
+    success: '成功',
+    partial: '部分成功',
+    failed: '失败',
+    pending: '等待中',
+    processing: '处理中',
+  }[status] || status || '未知'
+}
+
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm('确定删除该素材吗？', '提示', {
@@ -393,7 +434,8 @@ const handleDelete = async (row) => {
     const res = await request.delete(`/ad-material/${row.id}`)
     if (res.code === 0) {
       ElMessage.success('删除成功')
-      handleQuery()
+      await refreshMaterialHistoryState()
+      await handleQuery()
     }
   } catch (e) {
     if (e !== 'cancel') ElMessage.error('删除失败')
@@ -401,6 +443,8 @@ const handleDelete = async (row) => {
 }
 
 onMounted(() => {
+  refreshMaterialHistoryState()
+  loadUploadAccountOptions()
   handleQuery()
 })
 </script>
@@ -416,6 +460,17 @@ onMounted(() => {
 
 .table-card {
   position: relative;
+}
+
+.history-filter-tip,
+.select-empty-tip {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.history-filter-tip {
+  margin-top: 8px;
 }
 
 

@@ -15,9 +15,19 @@
             <el-input v-model="filterForm.taskId" placeholder="任务ID" clearable />
           </div>
         </el-form-item>
-        <el-form-item label="账户id" label-width="60px">
+        <el-form-item label="账户ID" label-width="60px">
           <div class="filter-item-s">
-            <el-input v-model="filterForm.accountId" placeholder="账户id" clearable />
+            <el-select v-model="filterForm.accountId" placeholder="任务历史账户" clearable filterable>
+              <el-option
+                v-for="item in accountOptions"
+                :key="item.accountId"
+                :label="item.label"
+                :value="item.accountId"
+              />
+              <template #empty>
+                <div class="select-empty-tip">{{ adTaskHistoryEmptyText }}</div>
+              </template>
+            </el-select>
           </div>
         </el-form-item>
         <el-form-item label="账户名称" label-width="70px">
@@ -30,6 +40,7 @@
             <el-select v-model="filterForm.status" placeholder="状态" clearable>
               <el-option label="全部" value="" />
               <el-option label="成功" value="success" />
+              <el-option label="部分成功" value="partial" />
               <el-option label="失败" value="failed" />
               <el-option label="进行中" value="running" />
             </el-select>
@@ -59,6 +70,7 @@
           </div>
         </el-form-item>
       </el-form>
+      <div class="history-filter-tip">账户ID下拉仅显示广告任务历史里已出现过的账户，不代表当前一定可执行。</div>
     </el-card>
 
     <el-card shadow="never" class="table-card">
@@ -196,6 +208,7 @@ import { ElMessage } from 'element-plus'
 import request from '../api/request'
 import VirtualTable from '@/components/VirtualTable.vue'
 import Loading from '@/components/Loading.vue'
+import { formatHistoryAccountOptions, buildHistoryAccountEmptyText } from '@/utils/accountOptionDisplay'
 
 const filterForm = reactive({
   taskId: '',
@@ -207,6 +220,8 @@ const filterForm = reactive({
 const tableData = ref([])
 const loading = ref(false)
 const exporting = ref(false)
+const accountOptions = ref([])
+const adTaskHistoryEmptyText = buildHistoryAccountEmptyText('广告任务历史')
 
 /** #093：虚拟滚动 */
 const useVirtualScroll = ref(false)
@@ -237,9 +252,24 @@ const pagination = reactive({
 const detailVisible = ref(false)
 const detailData = ref({})
 
+async function loadAccountOptions() {
+  try {
+    const res = await request.get('/ad-task/account-options')
+    if (res.code === 0) {
+      accountOptions.value = formatHistoryAccountOptions(res.data || [], {
+        countKey: 'taskCount',
+        countLabel: '个任务',
+      })
+    }
+  } catch (error) {
+    console.error('加载广告任务账户选项失败:', error)
+  }
+}
+
 function getStatusType(status) {
   const map = {
     success: 'success',
+    partial: 'warning',
     failed: 'danger',
     running: 'warning',
   }
@@ -249,6 +279,7 @@ function getStatusType(status) {
 function getStatusText(status) {
   const map = {
     success: '成功',
+    partial: '部分成功',
     failed: '失败',
     running: '进行中',
   }
@@ -336,6 +367,7 @@ function handleView(row) {
 }
 
 onMounted(() => {
+  loadAccountOptions()
   handleQuery()
 })
 </script>
@@ -370,6 +402,17 @@ onMounted(() => {
 
 .table-wrapper--virtual {
   position: relative;
+}
+
+.history-filter-tip,
+.select-empty-tip {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.history-filter-tip {
+  margin-top: 8px;
 }
 
 .detail-scroll {

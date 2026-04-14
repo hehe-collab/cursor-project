@@ -10,6 +10,10 @@ public interface DramaEpisodeMapper {
 
     java.util.List<DramaEpisode> selectByDramaId(@Param("dramaId") Integer dramaId);
 
+    java.util.List<DramaEpisode> selectByDramaIds(@Param("dramaIds") java.util.List<Integer> dramaIds);
+
+    java.util.List<DramaEpisode> selectByVodStatuses(@Param("statuses") java.util.List<String> statuses);
+
     int insert(DramaEpisode row);
 
     int update(DramaEpisode row);

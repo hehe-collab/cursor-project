@@ -40,6 +40,12 @@ public class AdTaskController {
                 .body(bytes);
     }
 
+    @Operation(summary = "获取广告任务账户选项", description = "获取广告任务历史中出现过的账户列表")
+    @GetMapping("/account-options")
+    public Result<?> accountOptions() {
+        return Result.success(adTaskService.accountOptions());
+    }
+
     @Operation(summary = "获取广告任务列表", description = "获取广告任务列表，支持筛选和分页")
     @GetMapping
     public Result<?> list(
