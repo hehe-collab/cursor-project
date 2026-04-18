@@ -191,47 +191,8 @@ async function preparePage(page) {
 }
 
 // ============================================================
-//  验证功能：截图 + 增强日志
+//  验证功能：增强日志
 // ============================================================
-
-/**
- * 自动截图（保存到项目目录，不占用系统盘）
- * @param {Page} page - Playwright页面对象
- * @param {string} taskId - 任务ID
- * @param {string} stepName - 步骤名称（如 "01-项目设置"）
- * @param {string} accountId - 账户ID（可选）
- */
-async function takeScreenshot(page, taskId, stepName, accountId = '') {
-  if (!config.validation.enableScreenshot) return;
-
-  try {
-    // 创建截图目录：./screenshots/任务ID/
-    const screenshotBaseDir = path.resolve(__dirname, '..', config.validation.screenshotDir);
-    const taskScreenshotDir = path.join(screenshotBaseDir, String(taskId));
-    
-    if (!fs.existsSync(taskScreenshotDir)) {
-      fs.mkdirSync(taskScreenshotDir, { recursive: true });
-    }
-
-    // 生成截图文件名
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const accountSuffix = accountId ? `-账户${accountId}` : '';
-    const filename = `${stepName}${accountSuffix}_${timestamp}.png`;
-    const filepath = path.join(taskScreenshotDir, filename);
-
-    // 截图（全页面，PNG格式）
-    await page.screenshot({
-      path: filepath,
-      fullPage: true,
-      // 注意：PNG格式不支持quality参数，如需压缩请改用.jpg格式
-    });
-
-    log(`  📸 截图已保存: ${filename}`, 'OK');
-  } catch (err) {
-    log(`  ⚠️  截图失败: ${err.message}`, 'WARN');
-    // 截图失败不影响主流程
-  }
-}
 
 /**
  * 验证日志：显示 Excel预期值 vs 实际执行值
@@ -627,8 +588,6 @@ async function setupProject(page, taskGroup) {
 
   // 如果点击失败，暂停让用户手动处理
   if (!clickSuccess) {
-    await page.screenshot({ path: './debug-setup-project.png', fullPage: true });
-    log('已保存调试截图: debug-setup-project.png');
     await pauseForUser('找不到项目"设置"按钮，请手动点击项目区域的"设置"');
   }
 
@@ -659,25 +618,26 @@ async function setupProject(page, taskGroup) {
   }
   log(`  发现 ${rowCount} 个账户行`);
 
-  // 逐行设置
-  for (let i = 0; i < rowCount; i++) {
+  const blocks = taskGroup.accountBlocks || [];
+  if (blocks.length === 0) {
+    throw new Error('任务组缺少 accountBlocks，请使用新版 Excel（含项目每日预算/广告组序号）并重新生成模板');
+  }
+  if (blocks.length !== rowCount) {
+    log(`  ⚠️ Excel 账户数(${blocks.length})与弹窗表格行数(${rowCount})不一致，将按较少一侧处理`, 'WARN');
+  }
+
+  const n = Math.min(rowCount, blocks.length);
+  for (let i = 0; i < n; i++) {
     const row = tableRows.nth(i);
-    const account = taskGroup.accounts[i];
-    if (!account) break;
+    const block = blocks[i];
 
-    log(`  设置账户 ${i + 1}/${rowCount}: ${account.accountId}`);
+    log(`  设置账户 ${i + 1}/${n}: ${block.accountId}`);
 
-    // --- 选择 Pixel ---
-    await selectPixelInRow(page, row, account.pixel);
-
-    // --- 填写项目名称 ---
-    await fillProjectNameInRow(row, account.projectName);
-
-    // --- 开启/关闭 Smart+ ---
-    await toggleSmartPlusInRow(row, true);
-
-    // --- 开启/关闭 启用 ---
-    await toggleEnableInRow(row, account.enable); // 默认启用
+    await selectPixelInRow(page, row, block.pixel);
+    await fillProjectNameInRow(row, block.projectName);
+    await fillProjectDailyBudgetInRow(page, dialog, row, block.projectDailyBudget);
+    await toggleSmartPlusInRow(row, block.smartPlus !== false);
+    await toggleEnableInRow(row, block.enable);
   }
 
   // 点击确定
@@ -833,6 +793,37 @@ async function fillProjectNameInRow(row, projectName) {
 }
 
 /**
+ * 项目设置弹窗：填写「每日预算(可空)」列（对应推广系列预算；可空则跳过）
+ */
+async function fillProjectDailyBudgetInRow(page, dialog, row, value) {
+  const v = String(value || '').trim();
+  if (!v) {
+    log('    项目每日预算为空，跳过填写', 'INFO');
+    return;
+  }
+  let colIdx = await getColumnIndexByHeader(dialog, '每日预算');
+  if (colIdx < 0) colIdx = await getColumnIndexByHeader(dialog, '每日预算(可空)');
+  if (colIdx < 0) {
+    log('    未找到表头「每日预算」，跳过项目预算', 'WARN');
+    return;
+  }
+  try {
+    const cell = row.locator('td').nth(colIdx);
+    const input = cell.locator('.el-input__inner, input').first();
+    await input.scrollIntoViewIfNeeded().catch(() => {});
+    await input.click();
+    await input.fill('');
+    await shortDelay();
+    await input.fill(v);
+    await shortDelay();
+    log(`    项目每日预算: ${v}`, 'OK');
+  } catch (err) {
+    log(`填写项目每日预算失败: ${err.message}`, 'WARN');
+    await pauseForUser(`请手动填写项目每日预算「${v}」后按 Enter`);
+  }
+}
+
+/**
  * 在行内开启/关闭 Smart+（DramaBagus 需打开此开关）
  * Smart+ 是每行第1个开关，启用是第2个；兼容 .el-switch 与 .ant-switch
  */
@@ -882,6 +873,78 @@ async function toggleEnableInRow(row, enable) {
 // ============================================================
 //  Steps 8-19: 广告组设置
 // ============================================================
+
+/**
+ * 点击「+ 添加广告组」（同一账户区块的第 accountIndex 个按钮，0 起）
+ */
+async function clickAddAdGroupForAccount(page, dialog, accountIndex) {
+  const btns = dialog.locator('button').filter({ hasText: /添加广告组/ });
+  const n = await btns.count();
+  if (accountIndex >= n) {
+    await pauseForUser(`未找到第 ${accountIndex + 1} 个「添加广告组」按钮（当前 ${n} 个），请手动添加后按 Enter`);
+    return;
+  }
+  await btns.nth(accountIndex).click();
+  await mediumDelay();
+  await waitForLoadingMaskDisappear(page).catch(() => {});
+}
+
+/**
+ * 在广告组表格的一行内完成 Smart+ 下全部字段（单条广告组）
+ */
+async function fillAdGroupRow(page, dialog, row, ag, block, isFirstAccountRow) {
+  const hasProjBudget = String(block.projectDailyBudget || '').trim() !== '';
+
+  await withRetry(
+    () => selectPromotionLink(page, dialog, row, ag.linkKeyword),
+    `选择推广链接 [${ag.linkKeyword}]`
+  );
+
+  await withRetry(
+    () => selectMaterials(page, dialog, row, ag.materialKeyword, ag.materialIds, isFirstAccountRow),
+    `选择素材 [${ag.materialKeyword || `${ag.materialIds?.length}个ID`}]`
+  );
+
+  await withRetry(
+    () => selectTitles(page, dialog, row, ag.titles),
+    `选择标题 [${ag.titles.length}个]`
+  );
+
+  await withRetry(
+    () => selectOptimizationTarget(page, dialog, row, ag.optimizationTarget),
+    `选择优化目标 [${ag.optimizationTarget}]`
+  );
+
+  await withRetry(
+    () => selectBiddingStrategy(page, dialog, row, ag.optimizationTarget, ag.biddingStrategy),
+    `选择出价策略 [${ag.biddingStrategy || '自动匹配'}]`
+  );
+
+  await withRetry(
+    () => inputBidAndBudget(page, dialog, row, ag.bid, ag.budget, ag.optimizationTarget, ag.biddingStrategy, {
+      allowEmptyAdGroupBudget: hasProjBudget,
+    }),
+    `输入出价和预算 [${ag.bid || '(空)'}/${ag.budget || '(空)'}]`
+  );
+
+  const optTargetCurrent = await getOptimizationTargetValue(dialog, row);
+  if (optTargetCurrent && !optTargetCurrent.includes(ag.optimizationTarget)) {
+    log(`    ⚠️ 警告: 填完出价后，优化目标被系统弹回成了 "${optTargetCurrent}"，正在修正...`, 'WARN');
+    await withRetry(
+      () => selectOptimizationTarget(page, dialog, row, ag.optimizationTarget),
+      `重新修正优化目标 [${ag.optimizationTarget}]`
+    );
+  }
+
+  if (ag.age && ag.age !== '18+') {
+    await selectAge(page, dialog, row, ag.age);
+  }
+
+  await withRetry(
+    () => selectStartTime(page, dialog, row, ag.startDate, ag.startTime),
+    `选择开始时间 [${ag.startDate} ${ag.startTime}]`
+  );
+}
 
 async function setupAdGroup(page, taskGroup) {
   log('设置广告组...', 'STEP');
@@ -967,8 +1030,6 @@ async function setupAdGroup(page, taskGroup) {
 
   // 如果点击失败，暂停让用户手动处理
   if (!clickSuccess) {
-    await page.screenshot({ path: './debug-setup-adgroup.png', fullPage: true });
-    log('已保存调试截图: debug-setup-adgroup.png');
     await pauseForUser('找不到广告组"设置"按钮，请手动点击广告组区域的"设置"');
   }
 
@@ -1002,77 +1063,38 @@ async function setupAdGroup(page, taskGroup) {
     }
   } catch {}
 
-  // 获取所有账户行
-  const tableRows = dialog.locator('.el-table__body-wrapper .el-table__row');
-  const rowCount = await tableRows.count();
-  log(`  发现 ${rowCount} 个账户行`);
+  const blocks = taskGroup.accountBlocks || [];
+  if (blocks.length === 0) {
+    throw new Error('任务组缺少 accountBlocks，请更新 Excel 模板');
+  }
 
-  // 逐行设置广告组
-  for (let i = 0; i < rowCount; i++) {
-    const row = tableRows.nth(i);
-    const account = taskGroup.accounts[i];
-    if (!account) break;
+  let tableRows = dialog.locator('.el-table__body-wrapper .el-table__row');
+  let rowCount = await tableRows.count();
+  log(`  发现 ${rowCount} 个账户行（首条广告组）`);
 
-    log(`\n  ── 账户 ${i + 1}/${rowCount}: ${account.accountId} ──`);
+  let firstGlobalAdGroup = true;
+  const nBlocks = Math.min(blocks.length, rowCount);
 
-    // Step 9-11: 选择推广链接（带重试）
-    await withRetry(
-      () => selectPromotionLink(page, dialog, row, account.linkKeyword),
-      `选择推广链接 [${account.linkKeyword}]`
-    );
+  for (let i = 0; i < nBlocks; i++) {
+    const block = blocks[i];
+    const accountId = block.accountId;
 
-    // Step 12-14: 选择素材（带重试）
-    // 第1个账户需要更长等待时间来"预热"状态，其他账户可以极速执行
-    const isFirstAccount = (i === 0);
-    await withRetry(
-      () => selectMaterials(page, dialog, row, account.materialKeyword, account.materialIds, isFirstAccount),
-      `选择素材 [${account.materialKeyword || `${account.materialIds?.length}个ID`}]`
-    );
+    for (let g = 0; g < block.adGroups.length; g++) {
+      const ag = block.adGroups[g];
+      let row;
+      if (g === 0) {
+        row = tableRows.nth(i);
+      } else {
+        await clickAddAdGroupForAccount(page, dialog, i);
+        tableRows = dialog.locator('.el-table__body-wrapper .el-table__row');
+        const re = new RegExp(accountId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        row = tableRows.filter({ hasText: re }).last();
+      }
 
-    // Step 15: 选择标题（带重试）
-    await withRetry(
-      () => selectTitles(page, dialog, row, account.titles),
-      `选择标题 [${account.titles.length}个]`
-    );
-
-    // Step 16: 选择优化目标（带重试，仅支持价值/转化）
-    await withRetry(
-      () => selectOptimizationTarget(page, dialog, row, account.optimizationTarget),
-      `选择优化目标 [${account.optimizationTarget}]`
-    );
-
-    // Step 16b: 选择出价策略（根据优化目标自动匹配或读取配置）
-    await withRetry(
-      () => selectBiddingStrategy(page, dialog, row, account.optimizationTarget, account.biddingStrategy),
-      `选择出价策略 [${account.biddingStrategy || '自动匹配'}]`
-    );
-
-    // Step 17: 输入出价和预算（带重试，价值≥1.1/转化≤1.3，预算≤5000）
-    await withRetry(
-      () => inputBidAndBudget(page, dialog, row, account.bid, account.budget, account.optimizationTarget, account.biddingStrategy),
-      `输入出价和预算 [${account.bid || '(空)'}/${account.budget}]`
-    );
-
-    // 🏆 回马枪验证：填完出价预算后，检查优化目标是否被前端联动重置
-    const optTargetCurrent = await getOptimizationTargetValue(dialog, row);
-    if (optTargetCurrent && !optTargetCurrent.includes(account.optimizationTarget)) {
-      log(`    ⚠️ 警告: 填完出价后，优化目标被系统弹回成了 "${optTargetCurrent}"，正在修正...`, 'WARN');
-      await withRetry(
-        () => selectOptimizationTarget(page, dialog, row, account.optimizationTarget),
-        `重新修正优化目标 [${account.optimizationTarget}]`
-      );
+      log(`\n  ── 账户 ${i + 1}/${nBlocks} ${accountId} 广告组序号 ${ag.adGroupSeq} (${g + 1}/${block.adGroups.length}) ──`);
+      await fillAdGroupRow(page, dialog, row, ag, block, firstGlobalAdGroup);
+      firstGlobalAdGroup = false;
     }
-
-    // 可选：设置年龄（在开始时间之前，避免时间设置后焦点落到优化事件）
-    if (account.age && account.age !== '18+') {
-      await selectAge(page, dialog, row, account.age);
-    }
-
-    // Step 18: 选择开始时间（带重试），设置完后直接点确定
-    await withRetry(
-      () => selectStartTime(page, dialog, row, account.startDate, account.startTime),
-      `选择开始时间 [${account.startDate} ${account.startTime}]`
-    );
   }
 
   // Step 19: 点击确定（时间设置完成后直接点确定，不再做其他操作）
@@ -1862,26 +1884,30 @@ async function selectBiddingStrategy(page, adGroupDialog, row, optimizationTarge
 // ── Step 17: 输入出价和预算 ──
 // 界面列名为「出价值」即出价。「转化+最大化投放」「价值+最高价值」可不出价（跳过填格子）；否则价值≥1.1 / 转化已填≤1.3。预算≤5000
 
-async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimizationTarget, biddingStrategy) {
+async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimizationTarget, biddingStrategy, options = {}) {
   const opt = String(optimizationTarget || '').trim();
   const bidStr = String(bid ?? '').trim();
   const bidIsEmpty = bidStr === '';
   const skipBidInput = allowsEmptyBid(opt, biddingStrategy) && bidIsEmpty;
   const skipDesc = emptyBidSkipDescription(opt, biddingStrategy);
 
-  log(`    输入出价: ${skipBidInput ? `(${skipDesc}，跳过)` : bidStr}, 预算: ${budget}`);
+  const budgetStr = String(budget ?? '').trim();
+  const skipBudgetInput = options.allowEmptyAdGroupBudget === true && budgetStr === '';
+
+  log(`    输入出价: ${skipBidInput ? `(${skipDesc}，跳过)` : bidStr}, 预算: ${skipBudgetInput ? '(项目已填每日预算，广告组预算可空)' : budgetStr}`);
 
   // ===== 风险控制：验证出价和预算是否在安全范围内 =====
   const bidNum = bidIsEmpty ? NaN : parseFloat(bidStr);
-  const budgetNum = parseFloat(budget);
-  
+  const budgetNum = skipBudgetInput ? NaN : parseFloat(budgetStr);
+
+  let budgetFill = budgetStr;
   // 预算最高不得高于 5000
-  if (budgetNum < 50) {
-    log(`    ⚠️  预算 ${budget} 低于最低限制 50，已调整为 50`, 'WARN');
-    budget = 50;
-  } else if (budgetNum > 5000) {
-    log(`    ❌ 预算 ${budget} 超过最高限制 5000！`, 'ERROR');
-    await pauseForUser(`预算 ${budget} 超过安全上限 5000，请在Excel中修改后重新运行，或手动输入后按Enter继续`);
+  if (!skipBudgetInput && !Number.isNaN(budgetNum) && budgetNum < 50) {
+    log(`    ⚠️  预算 ${budgetStr} 低于最低限制 50，已调整为 50`, 'WARN');
+    budgetFill = '50';
+  } else if (!skipBudgetInput && !Number.isNaN(budgetNum) && budgetNum > 5000) {
+    log(`    ❌ 预算 ${budgetStr} 超过最高限制 5000！`, 'ERROR');
+    await pauseForUser(`预算 ${budgetStr} 超过安全上限 5000，请在Excel中修改后重新运行，或手动输入后按Enter继续`);
   }
   
   // 验证出价范围（根据优化目标）
@@ -1912,7 +1938,7 @@ async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimiza
     // 转化目标无下限（已填出价时）
   }
   
-  log(`    ✓ 风险控制检查通过: 出价=${skipBidInput ? '(未填)' : bid}, 预算=${budget}, 目标=${opt}`);
+  log(`    ✓ 风险控制检查通过: 出价=${skipBidInput ? '(未填)' : bid}, 预算=${skipBudgetInput ? '(未填)' : budgetFill}, 目标=${opt}`);
 
   try {
     const cells = row.locator('td');
@@ -1921,6 +1947,7 @@ async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimiza
     if (bidCol < 0) bidCol = await getColumnIndexByHeader(adGroupDialog, '出价');
     if (bidCol < 0) bidCol = 8;
     let budgetCol = await getColumnIndexByHeader(adGroupDialog, '预算');
+    if (budgetCol < 0) budgetCol = await getColumnIndexByHeader(adGroupDialog, '每日预算');
     if (budgetCol < 0) budgetCol = 9;
 
     const bidInput = cells.nth(bidCol).locator('.el-input__inner, input').first();
@@ -1943,24 +1970,28 @@ async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimiza
       await validateInputValue(bidInput, '出价', bid);
     }
 
-    // 再填预算（稍作间隔，避免焦点/值串列）
-    await cells.nth(budgetCol).scrollIntoViewIfNeeded().catch(() => {});
-    await page.waitForTimeout(skipBidInput ? 0 : 100);
-    await budgetInput.click();
-    await page.waitForTimeout(150);
-    await budgetInput.fill('');
-    await page.waitForTimeout(100);
-    await budgetInput.fill(String(budget));
-    await page.waitForTimeout(250);
+    if (skipBudgetInput) {
+      log(`    跳过填写广告组预算（已在项目层填写每日预算）`, 'OK');
+    } else {
+      // 再填预算（稍作间隔，避免焦点/值串列）
+      await cells.nth(budgetCol).scrollIntoViewIfNeeded().catch(() => {});
+      await page.waitForTimeout(skipBidInput ? 0 : 100);
+      await budgetInput.click();
+      await page.waitForTimeout(150);
+      await budgetInput.fill('');
+      await page.waitForTimeout(100);
+      await budgetInput.fill(String(budgetFill));
+      await page.waitForTimeout(250);
 
-    await validateInputValue(budgetInput, '预算', budget);
+      await validateInputValue(budgetInput, '预算', budgetFill);
+    }
 
     // 填完预算后立即 blur，避免焦点落到下一列「优化事件」
     await page.evaluate(() => { document.activeElement?.blur?.(); });
     // 多等一会，给系统时间执行联动逻辑（比如我们填了出价1.1，系统如果校验不通过，这时候就会把转化强行变回价值）
     await page.waitForTimeout(600);
 
-    log(`    出价: ${skipBidInput ? '(未填)' : bid}, 预算: ${budget}`, 'OK');
+    log(`    出价: ${skipBidInput ? '(未填)' : bid}, 预算: ${skipBudgetInput ? '(未填)' : budgetFill}`, 'OK');
   } catch (err) {
     // 重新抛出错误，让外层的 withRetry 能够捕获并自动重试
     throw err;
@@ -2231,8 +2262,6 @@ async function submitTask(page) {
 
   // 如果都失败了，暂停
   if (!clickSuccess) {
-    await page.screenshot({ path: './debug-submit.png', fullPage: true });
-    log('已保存调试截图: debug-submit.png');
     await pauseForUser('找不到"提交"按钮，请手动点击提交');
   }
 
@@ -2305,7 +2334,7 @@ async function settleAfterFinalSubmit(page, submitCount) {
  * @param {boolean} isFirst 是否是第一个任务（第一个不需要刷新页面）
  */
 async function executeTaskGroup(page, taskGroup, index, total, isFirst = false) {
-  const header = `任务 ${index + 1}/${total} [${taskGroup.taskId}] ${taskGroup.entity}/${taskGroup.projectName}`;
+  const header = `任务 ${index + 1}/${total} [${taskGroup.taskId}] ${taskGroup.entity}/${taskGroup.projectName || ''}`;
   console.log('\n' + '═'.repeat(60));
   log(header, 'STEP');
   console.log('═'.repeat(60));
@@ -2331,13 +2360,11 @@ async function executeTaskGroup(page, taskGroup, index, total, isFirst = false) 
   await dismissPopups(page);
 
   // Step 2: 选择账户（带重试）
+  const accountPick = (taskGroup.accountBlocks || []).map((b) => ({ accountId: b.accountId }));
   await withRetry(
-    () => selectAccounts(page, taskGroup.accounts),
+    () => selectAccounts(page, accountPick),
     '选择账户'
   );
-
-  // 📸 截图：主体和账户选择完成
-  await takeScreenshot(page, taskGroup.taskId, '01-主体和账户选择');
 
   // 清除可能出现的弹窗
   await dismissPopups(page);
@@ -2348,18 +2375,9 @@ async function executeTaskGroup(page, taskGroup, index, total, isFirst = false) 
     '推广项目设置'
   );
 
-  // 📸 截图：项目设置完成
-  await takeScreenshot(page, taskGroup.taskId, '02-项目设置');
-
   // Steps 8-19: 广告组设置（弹窗会在内部通过"确定"按钮关闭）
   // 注意：不再用 withRetry 包住整段，否则标题/优化目标等后续步骤失败时会重试整段，又从「选择素材」开始
   await setupAdGroup(page, taskGroup);
-
-  // 📸 截图：广告组设置完成
-  await takeScreenshot(page, taskGroup.taskId, '03-广告组设置');
-
-  // 📸 截图：提交前最终确认
-  await takeScreenshot(page, taskGroup.taskId, '04-提交前最终确认');
 
   // Step 20: 提交（支持连续多次提交同一内容）
   const submitCount = taskGroup.submitCount || 1;
@@ -2377,12 +2395,7 @@ async function executeTaskGroup(page, taskGroup, index, total, isFirst = false) 
       () => submitTask(page),
       `提交任务${submitCount > 1 ? `（第${i + 1}次）` : ''}`
     );
-    
-    // 📸 截图：提交成功后
-    if (i === 0) {
-      await takeScreenshot(page, taskGroup.taskId, '05-提交成功');
-    }
-    
+
     // 如果还有下一次提交，等待并在原页面继续点击
     if (i < submitCount - 1) {
       log('等待2秒后点击下一次提交...');

@@ -16,9 +16,13 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
  * @returns {Promise<number>}
  */
 async function getInProgressCountOnAdTaskPage(browser) {
+  if (!config.adTaskUrl) {
+    log('未配置 config.adTaskUrl，跳过广告任务页轮询', 'WARN');
+    return 0;
+  }
   const page = await browser.newPage();
   try {
-    await page.goto(config.adTaskUrl || 'https://adminxyz.dramahub8.com/advertiseTools/adTask', {
+    await page.goto(config.adTaskUrl, {
       waitUntil: 'domcontentloaded',
       timeout: 20000,
     });
@@ -37,6 +41,10 @@ async function getInProgressCountOnAdTaskPage(browser) {
  * @param {BrowserContext} browser
  */
 async function waitUntilAdTaskPageClear(browser) {
+  if (!config.adTaskUrl) {
+    log('未配置 config.adTaskUrl，跳过批间轮询', 'WARN');
+    return;
+  }
   const initialDelay = config.parallel.pollInitialDelay ?? 5000;
   const interval = config.parallel.pollInterval ?? 10000;
   log(`⏳ 本批已完成，${initialDelay / 1000} 秒后开始轮询广告任务页（第一页 0 个「进行中」再开下一批）...`, 'STEP');

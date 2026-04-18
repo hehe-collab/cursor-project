@@ -9,7 +9,7 @@ NC='\033[0m' # No Color
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════════╗"
-echo "║      TikTok 广告批量建设脚本 - macOS/Linux 启动器        ║"
+echo "║   DramaBagus 启量批量广告工具 - macOS/Linux 启动器       ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -51,13 +51,13 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # 检查 Excel 文件是否存在
-if [ ! -f "data/tasks.xlsx" ]; then
+if [ ! -f "data/tasks-dramabagus.xlsx" ]; then
     echo -e "${YELLOW}⚠️  未找到任务数据文件${NC}"
     echo ""
     echo "正在生成 Excel 模板..."
     npm run template
     echo ""
-    echo -e "${GREEN}✅ 模板已生成: data/tasks.xlsx${NC}"
+    echo -e "${GREEN}✅ 模板已生成: data/tasks-dramabagus.xlsx${NC}"
     echo ""
     echo "👉 请先填写任务数据，然后重新运行此脚本"
     echo ""

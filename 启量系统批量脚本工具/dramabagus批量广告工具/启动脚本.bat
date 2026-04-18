@@ -2,7 +2,7 @@
 chcp 65001 >nul
 echo.
 echo ╔═══════════════════════════════════════════════════════════╗
-echo ║        TikTok 广告批量建设脚本 - Windows 启动器          ║
+echo ║   DramaBagus 启量批量广告工具 - Windows 启动器           ║
 echo ╚═══════════════════════════════════════════════════════════╝
 echo.
 
@@ -47,13 +47,13 @@ if not exist "node_modules\" (
 )
 
 REM 检查 Excel 文件是否存在
-if not exist "data\tasks.xlsx" (
+if not exist "data\tasks-dramabagus.xlsx" (
     echo ⚠️  未找到任务数据文件
     echo.
     echo 正在生成 Excel 模板...
     call npm run template
     echo.
-    echo ✅ 模板已生成: data\tasks.xlsx
+    echo ✅ 模板已生成: data\tasks-dramabagus.xlsx
     echo.
     echo 👉 请先填写任务数据，然后重新运行此脚本
     echo.

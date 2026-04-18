@@ -1,104 +1,118 @@
 /**
  * 配置文件 - 登录信息、网站URL、延时参数等
  * DramaBagus 批量广告工具
- * 支持 Electron 打包：当 global.__electronAppPaths 存在时使用应用数据目录
+ *
+ * 账号密码请勿提交仓库：使用环境变量或复制 config.local.example.js 为 config.local.js 填写。
+ * 支持 Electron：global.__electronAppPaths 存在时使用应用数据目录；仍可读 appData/config.json 覆盖账号。
  */
 const path = require('path');
+const fs = require('fs');
+
+/**
+ * @param {Record<string, unknown>} target
+ */
+function loadCredentialOverrides(target) {
+  const localPath = path.join(__dirname, 'config.local.js');
+  if (fs.existsSync(localPath)) {
+    try {
+      const local = require(localPath);
+      if (local.username != null) target.username = local.username;
+      if (local.password != null) target.password = local.password;
+      if (local.adTaskUrl != null) target.adTaskUrl = local.adTaskUrl;
+    } catch (e) {
+      console.warn('[config] 读取 config.local.js 失败:', e.message);
+    }
+  }
+  if (process.env.DRAMA_BAGUS_USERNAME) target.username = process.env.DRAMA_BAGUS_USERNAME;
+  if (process.env.DRAMA_BAGUS_PASSWORD) target.password = process.env.DRAMA_BAGUS_PASSWORD;
+  if (process.env.DRAMA_BAGUS_AD_TASK_URL) target.adTaskUrl = process.env.DRAMA_BAGUS_AD_TASK_URL;
+}
 
 const baseConfig = {
   // ===== 网站地址（DramaBagus）=====
   baseUrl: 'https://admin.dramabagus.com',
   taskUrl: 'https://admin.dramabagus.com/tools/batch',
 
-  // ===== 登录信息 =====
-  username: 'qiliang',
-  password: 'xiaodong',
+  /**
+   * 广告任务列表页（用于 parallel.pollAdTaskAfterBatch 批间轮询「进行中」）。
+   * 若后台路径不同，请在 config.local.js 或环境变量 DRAMA_BAGUS_AD_TASK_URL 中覆盖。
+   */
+  adTaskUrl: 'https://admin.dramabagus.com/advertiseTools/adTask',
+
+  // ===== 登录信息（请用 config.local.js 或 DRAMA_BAGUS_USERNAME / DRAMA_BAGUS_PASSWORD）=====
+  username: '',
+  password: '',
 
   // ===== Excel 数据文件路径 =====
   excelPath: './data/tasks-dramabagus.xlsx',
 
   // ===== 浏览器配置 =====
   browser: {
-    headless: false,               // 是否无头模式（false = 显示浏览器窗口）
-    profileDir: './browser-data',  // 浏览器用户数据目录（保存登录状态）
-    browsersPath: './pw-browsers', // Playwright 浏览器存放路径（项目目录内）
-    slowMo: 0,                     // 全局慢动作（毫秒），调试时可设为 50-100
+    headless: false,
+    profileDir: './browser-data',
+    browsersPath: './pw-browsers',
+    slowMo: 0,
   },
 
-  // ===== 延时配置（毫秒）=====
   delay: {
     short: 100,
     medium: 200,
     long: 400,
   },
 
-  // ===== 重试配置 =====
   retry: {
     enabled: true,
     maxAttempts: 3,
     retryDelay: 1000,
   },
 
-  // ===== 并发配置 =====
   parallel: {
     enabled: true,
     maxConcurrent: 10,
     batchDelay: 2000,
-    // 第一版取消 URL 轮询，后续如需再加
     pollAdTaskAfterBatch: false,
     pollInitialDelay: 60000,
     pollInterval: 15000,
     pollMaxWait: 0,
   },
 
-  /**
-   * 多次提交（submitCount≥2）时，最后一次点击「提交」之后到结束本任务（并行模式会立刻关标签页）之间的缓冲。
-   * - finalSettleMs：固定额外等待，保证请求有时间落地（默认可维护、可调）
-   * - waitForSuccessToast：是否先尝试等待 Element Plus 成功提示（超时则忽略，仍执行 finalSettleMs）
-   */
   submit: {
     finalSettleMs: 3000,
     waitForSuccessToast: true,
     successToastTimeoutMs: 8000,
   },
 
-  // ===== 高级配置 =====
   advanced: {
     useIntelligentWait: true,
     skipNetworkIdle: true,
     verboseLog: false,
   },
 
-  // ===== 验证配置 =====
   validation: {
-    enableScreenshot: true,
     enableValidationLog: true,
-    screenshotDir: './screenshots',
   },
 };
 
-// Electron 打包时使用用户数据目录（可写）
-let config = baseConfig;
+/** @type {typeof baseConfig & Record<string, unknown>} */
+let config = { ...baseConfig };
+loadCredentialOverrides(config);
+
 if (global.__electronAppPaths) {
   const { appData } = global.__electronAppPaths;
   config = {
-    ...baseConfig,
+    ...config,
     excelPath: path.join(appData, 'data', 'tasks-dramabagus.xlsx'),
     browser: {
-      ...baseConfig.browser,
+      ...config.browser,
       profileDir: path.join(appData, 'browser-data'),
       browsersPath: path.join(appData, 'pw-browsers'),
     },
-    validation: {
-      ...baseConfig.validation,
-      screenshotDir: path.join(appData, 'screenshots'),
-    },
   };
-  // 用户可在 appData/config.json 覆盖账号密码（示例：{"username":"xxx","password":"yyy"}）
+  loadCredentialOverrides(config);
   const userConfigPath = path.join(appData, 'config.json');
-  if (require('fs').existsSync(userConfigPath)) {
+  if (fs.existsSync(userConfigPath)) {
     try {
-      const userConfig = JSON.parse(require('fs').readFileSync(userConfigPath, 'utf8'));
+      const userConfig = JSON.parse(fs.readFileSync(userConfigPath, 'utf8'));
       if (userConfig.username != null) config.username = userConfig.username;
       if (userConfig.password != null) config.password = userConfig.password;
     } catch {}

@@ -33,29 +33,44 @@ npm install
 npm run setup
 ```
 
-### 3. 生成 Excel 模板
+### 3. 登录配置（勿将密码提交 Git）
+
+任选其一：
+
+- 复制 `config.local.example.js` 为 `config.local.js`，填写 `username` / `password`（该文件已在 `.gitignore`）
+- 或设置环境变量：`DRAMA_BAGUS_USERNAME`、`DRAMA_BAGUS_PASSWORD`
+
+未配置时脚本不会自动填表，请在浏览器中手动登录（`browser-data` 会保存会话）。
+
+### 4. 生成 Excel 模板
 
 ```bash
 # 生成 data/tasks-dramabagus.xlsx 模板文件
 npm run template
 ```
 
-### 4. 填写任务数据
+### 5. 填写任务数据
 
-打开 `data/tasks-dramabagus.xlsx`，填写任务信息：
+打开 `data/tasks-dramabagus.xlsx`（或先 `npm run template` 生成），填写任务信息。完整列见模板中「字段说明」页。简表示例：
 
-| 任务 | 主体 | 账户ID | Pixel | 项目名称 | 推广链接关键词 | 素材关键词 | 标题 | 优化目标 | 出价 | 预算 | 开始日期 | 开始时间 | 提交次数 |
-|------|------|--------|-------|----------|---------------|-----------|------|---------|------|------|---------|---------|---------|
-| 1 | MAD | 7561696938035413008 | IDNLow-X | 父女情深-IDN | C-xd-IDN-父女情深-2.5V | 明日之星 | hsx-印尼-7,hsx-印尼-8 | 价值 | 1.6 | 100 | 2026-02-10 | 02:00:00 | 1 |
-| 1 |  | 7595500599618469889 |  |  | C-xd-IDN-父女情深-3.0V |  |  |  |  |  |  |  |  |
-| 1 |  | 7595500590164246544 |  |  | C-xd-IDN-父女情深-5.0V |  |  |  |  |  |  |  |  |
+| 任务 | 主体 | 账户ID | Pixel | 项目名称 | Smart+ | 推广链接关键词 | 素材关键词 | 标题 | 优化目标 | 出价 | 预算 | 开始日期 | 开始时间 | 提交次数 |
+|------|------|--------|-------|----------|--------|---------------|-----------|------|---------|------|------|---------|---------|---------|
+| 1 | MAD | 7561696938035413008 | IDNLow-X | 父女情深-IDN | true | C-xd-IDN-父女情深-2.5V | 明日之星 | hsx-印尼-7,hsx-印尼-8 | 价值 | 1.6 | 100 | 2026-02-10 | 02:00:00 | 1 |
+| 1 |  | 7595500599618469889 |  |  |  | C-xd-IDN-父女情深-3.0V |  |  |  |  |  |  |  |  |
+| 1 |  | 7595500590164246544 |  |  |  | C-xd-IDN-父女情深-5.0V |  |  |  |  |  |  |  |  |
 
 **说明**：
 - 相同**任务编号**的行会合并为一次批量提交
 - **首行**需要填写完整配置
 - **后续行**只需填写 `账户ID` 和 `推广链接关键词`（其他字段自动继承首行）
 
-### 5. 运行脚本
+### 6. 校验 Excel（可选）
+
+```bash
+npm test
+```
+
+### 7. 运行脚本
 
 ```bash
 npm start
@@ -63,7 +78,7 @@ npm start
 
 **执行流程**：
 1. 脚本启动后，浏览器会打开并导航到 **https://admin.dramabagus.com/tools/batch**
-2. 若未登录，会**自动填写账号密码**（config 中 qiliang / xiaodong）；若自动登录失败请手动登录
+2. 若已配置账号密码，会尝试自动登录；失败或未配置时请手动登录
 3. **关闭所有弹窗**（如"更改密码"提示）后，**按 Enter 键**开始执行
 4. 脚本会自动完成所有步骤；若某步选择器与页面不符，会暂停，请根据提示手动处理后按 Enter 继续
 5. **一轮全部结束后**：终端提示「本轮任务已结束」时，须**显式输入 `q`（或 `exit`）**才**关闭浏览器并退出**；仅按 Enter **不会**关闭（防误触）。输入 **`r`** 可在**不关浏览器**的情况下**重新读取**当前配置中的 Excel，再跑一轮（请先保存表格）
@@ -81,6 +96,7 @@ npm start
 | **账户ID** | 数字形式的账户ID，用于精确搜索 | 7561696938035413008 |
 | **Pixel** | Pixel名称 | IDNLow-X |
 | **项目名称** | 推广项目名称 | 父女情深-IDN |
+| **Smart+** | 项目设置中 Smart+ 开关：`true`/`false`/`开`/`关`，空继承首行，默认开 | true |
 | **推广链接关键词** | 用于搜索推广链接的关键词 | C-xd-IDN-父女情深-2.5V |
 | **素材关键词** | 用于搜索素材的关键词<br>与素材ID二选一，素材关键词优先 | 明日之星 |
 | **素材ID** | 素材ID列表，多个ID用换行分隔<br>与素材关键词二选一 | 7601467303255392264<br>7601467161916375047 |
@@ -178,7 +194,7 @@ npm start
 **后续行**：
 - **必须填写**：`账户ID`、`推广链接关键词`、`标题`（每个账户独立）
 - **可以留空**：其他字段自动继承首行配置
-- **可以覆盖**：`Pixel`、`标题`、`启用` 等字段可以逐行自定义
+- **可以覆盖**：`Pixel`、`Smart+`、`标题`、`启用` 等字段可以逐行自定义
 
 **示例**：
 ```
@@ -198,40 +214,17 @@ npm start
 
 ## ⚙️ 配置文件说明
 
-### `config.js`
+### `config.js`（仓库内默认值）
 
-```javascript
-module.exports = {
-  // 网站地址
-  baseUrl: 'https://adminxyz.dramahub8.com',
-  taskUrl: 'https://adminxyz.dramahub8.com/advertiseTools/task',
+- `baseUrl` / `taskUrl`：DramaBagus 管理后台与批量工具页
+- `adTaskUrl`：广告任务列表页 URL；仅在 `parallel.pollAdTaskAfterBatch` 为 `true` 时用于批间轮询「进行中」任务；路径若与后台不一致，可在 `config.local.js` 或环境变量 `DRAMA_BAGUS_AD_TASK_URL` 覆盖
+- `excelPath`：默认 `./data/tasks-dramabagus.xlsx`
+- `parallel`：含 `maxConcurrent`、`batchDelay`、`pollAdTaskAfterBatch` 等
 
-  // 登录信息（可修改）
-  username: 'chuhai',
-  password: '123456',
-
-  // Excel 数据文件路径
-  excelPath: './data/tasks-v2.0.xlsx',
-
-  // 浏览器配置
-  browser: {
-    headless: false,              // false = 显示浏览器窗口
-    profileDir: './browser-data', // 浏览器数据目录（保存登录状态）
-    browsersPath: './pw-browsers', // Playwright 浏览器存放路径
-    slowMo: 0,                    // 慢动作延时（调试用）
-  },
-
-  // 延时配置（毫秒）
-  delay: {
-    short: 200,   // 简单操作间隔
-    medium: 400,  // 弹窗操作间隔
-    long: 800,    // 搜索等待时间
-  },
-};
-```
+**账号密码**请使用 **`config.local.js`**（复制 `config.local.example.js`）或环境变量 **`DRAMA_BAGUS_USERNAME` / `DRAMA_BAGUS_PASSWORD`**，勿写入仓库。
 
 **可修改项**：
-- `username` / `password`：登录账号密码
+- `username` / `password`：见上文（推荐 local 或环境变量）
 - `delay`：调整操作速度（不建议改太小）
 - `headless`：改为 `true` 可以无头模式运行（不显示浏览器）
 - **`submit`**（Excel「提交次数」**≥ 2** 时）：末次点击「提交」后、本任务结束（并行下会关标签页）前的缓冲，避免第二次提交未落地。
@@ -419,8 +412,7 @@ npm install
 
 **解决**：
 1. 脚本会自动滚动到提交按钮
-2. 如果失败，会保存 `debug-submit.png` 截图
-3. 手动点击提交按钮后，按 Enter 继续
+2. 如果失败，会暂停等待；手动点击提交按钮后，按 Enter 继续
 
 ### 问题8: 登录状态丢失
 
@@ -442,18 +434,21 @@ npm start
 ## 📁 项目结构
 
 ```
-ad-automation/
-├── config.js              # 配置文件（网站URL、登录信息、延时设置）
-├── index.js               # 主程序入口
-├── create-template.js     # Excel模板生成器
-├── package.json           # 项目依赖配置
-├── README.md              # 本说明文档
+dramabagus批量广告工具/
+├── config.js                 # 默认配置（账号用 config.local.js 或环境变量）
+├── config.local.example.js   # 复制为 config.local.js 填写本地账号
+├── index.js                  # 主程序入口
+├── create-template.js        # npm run template → data/tasks-dramabagus.xlsx
+├── test-excel.js             # npm test，校验 Excel 解析
+├── package.json
+├── README.md
 ├── lib/
-│   ├── utils.js           # 工具函数（日志、延时、暂停等）
-│   ├── excel.js           # Excel读取和解析（分组、继承逻辑）
-│   └── automation.js      # 核心自动化逻辑（Playwright）
+│   ├── utils.js
+│   ├── excel.js
+│   ├── automation.js
+│   └── parallel.js
 ├── data/
-│   └── tasks-v2.0.xlsx         # 任务数据文件（Excel）
+│   └── tasks-dramabagus.xlsx # 任务数据（template 生成，可加入 .gitignore 若含隐私）
 ├── browser-data/          # 浏览器用户数据（保存登录状态）
 │   └── ...                # （不要复制到其他设备）
 ├── pw-browsers/           # Playwright 浏览器文件
@@ -516,8 +511,8 @@ ad-automation/
 ## 🔐 安全提示
 
 1. **登录信息**：
-   - 账号密码存储在 `config.js` 中
-   - 如果分享项目，请先删除或修改敏感信息
+   - 使用 `config.local.js` 或环境变量，勿将密码提交仓库（`config.local.js` 已在 `.gitignore`）
+   - 分享项目前确认未包含 `config.local.js` 与真实任务 Excel
    
 2. **浏览器数据**：
    - `browser-data` 文件夹包含登录 Cookie
@@ -530,8 +525,8 @@ ad-automation/
      node_modules/
      browser-data/
      pw-browsers/
+     config.local.js
      *.log
-     debug-*.png
      ```
 
 ---
@@ -561,7 +556,7 @@ ad-automation/
 如有问题或建议，请：
 1. 检查本文档的"常见问题解决"部分
 2. 查看终端日志输出（包含详细的错误信息）
-3. 检查保存的调试截图（`debug-*.png`）
+3. 根据终端日志中的步骤提示排查界面元素是否可见、是否被遮挡
 
 ---
 

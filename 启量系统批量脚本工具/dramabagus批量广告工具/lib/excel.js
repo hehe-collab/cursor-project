@@ -53,6 +53,9 @@ const COLUMN_MAP = {
   '账户ID': 'accountId',
   'Pixel': 'pixel',
   '项目名称': 'projectName',
+  '项目每日预算': 'projectDailyBudget',
+  'Smart+': 'smartPlus',
+  '广告组序号': 'adGroupSeq',
   '推广链接关键词': 'linkKeyword',
   '素材关键词': 'materialKeyword',
   '素材ID': 'materialIds',
@@ -60,7 +63,7 @@ const COLUMN_MAP = {
   '优化目标': 'optimizationTarget',
   '出价策略': 'biddingStrategy',
   '出价': 'bid',
-  '预算': 'budget',
+  '预算': 'budget', // 广告组每日预算（与「项目每日预算」二选一规则见下方校验）
   '开始日期': 'startDate',
   '开始时间': 'startTime',
   '年龄': 'age',
@@ -150,6 +153,76 @@ function normalizeStartTime(value) {
 }
 
 /**
+ * 项目每日预算是否为有效正数（用于二选一校验）
+ */
+function hasPositiveNumericBudget(value) {
+  if (value == null || value === '') return false;
+  const n = Number(String(value).trim());
+  return Number.isFinite(n) && n > 0;
+}
+
+/**
+ * 将扁平行按账户分组为 accountBlocks（方案 A：同账户多行 = 多广告组，广告组序号排序）
+ */
+function buildAccountBlocks(flatRows, taskId) {
+  const byAccount = new Map();
+  const order = [];
+  for (const fr of flatRows) {
+    const aid = fr.accountId;
+    if (!byAccount.has(aid)) {
+      byAccount.set(aid, []);
+      order.push(aid);
+    }
+    byAccount.get(aid).push(fr);
+  }
+
+  const blocks = [];
+  for (const aid of order) {
+    const rows = byAccount.get(aid).slice().sort((a, b) => (a.adGroupSeq || 1) - (b.adGroupSeq || 1));
+    const firstR = rows[0];
+    const projectDailyBudgetRaw = String(firstR.projectDailyBudget || '').trim();
+    const hasProj = hasPositiveNumericBudget(projectDailyBudgetRaw);
+
+    const adGroups = rows.map((r) => ({
+      adGroupSeq: r.adGroupSeq || 1,
+      linkKeyword: r.linkKeyword,
+      titles: r.titles,
+      optimizationTarget: r.optimizationTarget,
+      biddingStrategy: r.biddingStrategy,
+      bid: r.bid,
+      budget: r.budget,
+      startDate: r.startDate,
+      startTime: r.startTime,
+      materialKeyword: r.materialKeyword,
+      materialIds: r.materialIds,
+      age: r.age,
+      identity: r.identity,
+      productStore: r.productStore,
+      product: r.product,
+    }));
+
+    const eachAgHasBudget = rows.every((r) => String(r.budget || '').trim() !== '');
+    if (!hasProj && !eachAgHasBudget) {
+      throw new Error(
+        `任务 ${taskId} 账户 ${aid}：须填写「项目每日预算」或每条广告组的「预算」；` +
+          `若项目为空则每条广告组（每个广告组序号）必须填预算`
+      );
+    }
+
+    blocks.push({
+      accountId: aid,
+      pixel: firstR.pixel,
+      projectName: firstR.projectName,
+      projectDailyBudget: hasProj ? projectDailyBudgetRaw : '',
+      smartPlus: firstR.smartPlus,
+      enable: firstR.enable,
+      adGroups,
+    });
+  }
+  return blocks;
+}
+
+/**
  * 读取 Excel 文件并解析为任务组列表
  * @param {string} filePath Excel 文件路径
  * @returns {Array} 任务组列表
@@ -196,20 +269,18 @@ function readTasks(filePath) {
     groups[currentTaskId].push(row);
   }
 
-  // 处理继承逻辑：每组内，后续行从首行继承空值字段
+  // 处理继承逻辑：每组内，后续行从首行继承空值字段；再按账户分组为 accountBlocks（方案 A）
   const taskGroups = [];
   for (const [taskId, rows] of Object.entries(groups)) {
     const firstRow = rows[0];
-    const accounts = [];
+    const flatRows = [];
 
-    // --- 在任务组层面预处理一些只有首行有意义的基础配置，但核心配置全部下放到 account 层 ---
-    // (主体、taskId作为基本元数据保留在 group)
     const entity = String(firstRow.entity).trim();
+    /** 同账户内「项目每日预算」继承，不跨账户沿用任务首行 */
+    const projectDailyBudgetByAccount = new Map();
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      
-      // 【核心思想】：逐行独立设置，如果当前行某列为空，则继承首行对应的列
 
       const accountId = String(row.accountId).trim();
       if (!accountId) {
@@ -217,9 +288,22 @@ function readTasks(filePath) {
         continue;
       }
 
-      // --- 文本型字段解析（当前行优先，否则首行） ---
       const pixel = String(row.pixel || firstRow.pixel).trim();
       const projectName = String(row.projectName || firstRow.projectName).trim();
+
+      let projectDailyBudget = '';
+      if (row.projectDailyBudget !== undefined && row.projectDailyBudget !== '') {
+        projectDailyBudget = String(row.projectDailyBudget).trim();
+      } else if (projectDailyBudgetByAccount.has(accountId)) {
+        projectDailyBudget = projectDailyBudgetByAccount.get(accountId);
+      }
+      if (projectDailyBudget) {
+        projectDailyBudgetByAccount.set(accountId, projectDailyBudget);
+      }
+
+      let adGroupSeq = parseInt(String(row.adGroupSeq !== undefined && row.adGroupSeq !== '' ? row.adGroupSeq : firstRow.adGroupSeq || '1'), 10);
+      if (Number.isNaN(adGroupSeq) || adGroupSeq < 1) adGroupSeq = 1;
+
       const linkKeyword = String(row.linkKeyword || firstRow.linkKeyword || '').trim();
       const optimizationTarget = String(row.optimizationTarget || firstRow.optimizationTarget || '价值').trim();
       const biddingStrategy = String(row.biddingStrategy || firstRow.biddingStrategy || '').trim();
@@ -230,16 +314,17 @@ function readTasks(filePath) {
       const productStore = String(row.productStore || firstRow.productStore || '').trim();
       const product = String(row.product || firstRow.product || '').trim();
 
-      // --- 特殊字段解析（启用状态） ---
       const enableRaw = String(row.enable !== '' ? row.enable : (firstRow.enable !== '' ? firstRow.enable : 'true')).trim().toLowerCase();
       const enable = !['false', '否', '0', 'no'].includes(enableRaw);
 
-      // --- 数组/列表型字段解析（标题、素材） ---
+      const smartPlusRaw = String(row.smartPlus !== '' ? row.smartPlus : (firstRow.smartPlus !== '' ? firstRow.smartPlus : 'true')).trim().toLowerCase();
+      const smartPlus = !['false', '否', '0', 'no', '关'].includes(smartPlusRaw);
+
       const titlesStr = String(row.titles || firstRow.titles || '').trim();
       const titles = titlesStr ? titlesStr.split(',').map(t => t.trim()).filter(Boolean) : [];
 
       const materialKeyword = String(row.materialKeyword || firstRow.materialKeyword || '').trim();
-      
+
       let materialIds = [];
       const materialIdsStr = String(row.materialIds || firstRow.materialIds || '').trim();
       if (materialIdsStr) {
@@ -251,7 +336,6 @@ function readTasks(filePath) {
           .filter(id => id.length > 0);
       }
 
-      // --- 日期和时间解析 ---
       let startDateRaw = row.startDate || firstRow.startDate;
       if (startDateRaw instanceof Date) {
         startDateRaw = startDateRaw.toISOString().split('T')[0];
@@ -259,20 +343,19 @@ function readTasks(filePath) {
       const startDate = normalizeStartDate(startDateRaw);
       const startTime = normalizeStartTime(row.startTime !== undefined && row.startTime !== '' ? row.startTime : firstRow.startTime);
 
-      // --- 验证该行的必填字段 ---
-      if (!linkKeyword) log(`任务 ${taskId} 账户 ${accountId} 缺少推广链接关键词`, 'WARN');
-      if (titles.length === 0) log(`任务 ${taskId} 账户 ${accountId} 缺少标题`, 'WARN');
+      if (!linkKeyword) log(`任务 ${taskId} 账户 ${accountId} 广告组${adGroupSeq} 缺少推广链接关键词`, 'WARN');
+      if (titles.length === 0) log(`任务 ${taskId} 账户 ${accountId} 广告组${adGroupSeq} 缺少标题`, 'WARN');
       if (!projectName) log(`任务 ${taskId} 账户 ${accountId} 缺少项目名称`, 'WARN');
-      const bidEmpty = !String(bid || '').trim();
-      const budgetEmpty = !String(budget || '').trim();
-      if (budgetEmpty) log(`任务 ${taskId} 账户 ${accountId} 缺少预算`, 'WARN');
-      if (bidEmpty && !allowsEmptyBid(optimizationTarget, biddingStrategy)) {
-        log(`任务 ${taskId} 账户 ${accountId} 缺少出价（仅「转化+最大化投放」或「价值+最高价值」可不填）`, 'WARN');
+      const bidIsEmpty = !String(bid || '').trim();
+      if (bidIsEmpty && !allowsEmptyBid(optimizationTarget, biddingStrategy)) {
+        log(`任务 ${taskId} 账户 ${accountId} 广告组${adGroupSeq} 缺少出价（仅「转化+最大化投放」或「价值+最高价值」可不填）`, 'WARN');
       }
-      if (!materialKeyword && materialIds.length === 0) log(`任务 ${taskId} 账户 ${accountId} 缺少素材检索信息`, 'WARN');
+      if (!materialKeyword && materialIds.length === 0) log(`任务 ${taskId} 账户 ${accountId} 广告组${adGroupSeq} 缺少素材检索信息`, 'WARN');
 
-      accounts.push({
+      flatRows.push({
         accountId,
+        adGroupSeq,
+        projectDailyBudget,
         pixel,
         projectName,
         linkKeyword,
@@ -289,30 +372,41 @@ function readTasks(filePath) {
         identity,
         productStore,
         product,
-        enable
+        enable,
+        smartPlus,
       });
     }
 
-    if (accounts.length === 0) {
-      log(`任务 ${taskId} 没有有效账户，跳过`, 'WARN');
+    if (flatRows.length === 0) {
+      log(`任务 ${taskId} 没有有效行，跳过`, 'WARN');
       continue;
     }
 
-    // 提交次数一般是针对整个任务控制的，读取首行即可
+    let accountBlocks;
+    try {
+      accountBlocks = buildAccountBlocks(flatRows, taskId);
+    } catch (err) {
+      log(err.message || String(err), 'ERROR');
+      throw err;
+    }
+
     let submitCount = parseInt(firstRow.submitCount) || 1;
     if (submitCount < 1) submitCount = 1;
     if (submitCount > 10) submitCount = 10;
 
-    // 构建组对象 (公共数据 + 各自独立的账户配置数据)
+    const projectNameDisplay = accountBlocks[0] ? accountBlocks[0].projectName : '';
+
     taskGroups.push({
       taskId,
       entity,
       submitCount,
-      accounts
+      accountBlocks,
+      projectName: projectNameDisplay,
     });
   }
 
-  log(`共解析 ${taskGroups.length} 个任务组，${taskGroups.reduce((s, g) => s + g.accounts.length, 0)} 个账户`);
+  const acctCount = taskGroups.reduce((s, g) => s + g.accountBlocks.length, 0);
+  log(`共解析 ${taskGroups.length} 个任务组，${acctCount} 个账户（accountBlocks）`);
   return taskGroups;
 }
 
@@ -325,19 +419,20 @@ function printTaskSummary(taskGroups) {
   console.log('='.repeat(70));
 
   for (const group of taskGroups) {
-    const first = group.accounts && group.accounts[0];
-    const projectName = first ? first.projectName : '';
-    const optimizationTarget = first ? first.optimizationTarget : '';
-    const bid = first ? first.bid : '';
-    const budget = first ? first.budget : '';
-    const startDate = first ? first.startDate : '';
-    const startTime = first ? first.startTime : '';
-    const age = first ? first.age : '';
-    const materialKeyword = first ? first.materialKeyword : '';
-    const materialIds = first && Array.isArray(first.materialIds) ? first.materialIds : [];
+    const blocks = group.accountBlocks || [];
+    const firstAg = blocks[0]?.adGroups?.[0];
+    const projectName = blocks[0]?.projectName || '';
+    const optimizationTarget = firstAg?.optimizationTarget || '';
+    const bid = firstAg?.bid || '';
+    const budget = firstAg?.budget || '';
+    const startDate = firstAg?.startDate || '';
+    const startTime = firstAg?.startTime || '';
+    const age = firstAg?.age || '';
+    const materialKeyword = firstAg?.materialKeyword || '';
+    const materialIds = firstAg && Array.isArray(firstAg.materialIds) ? firstAg.materialIds : [];
 
     console.log(`\n🔹 任务 ${group.taskId}: ${group.entity} / ${projectName}`);
-    console.log(`   优化目标: ${optimizationTarget} | 出价: ${bid} | 预算: ${budget}`);
+    console.log(`   优化目标: ${optimizationTarget} | 出价: ${bid} | 首条广告组预算: ${budget}`);
     console.log(`   开始时间: ${startDate} ${startTime} | 年龄: ${age}`);
 
     if (materialKeyword) {
@@ -347,11 +442,15 @@ function printTaskSummary(taskGroups) {
       console.log(`   素材检索: ID (${materialIds.length}个) ${materialIds.slice(0, 3).join(', ')}${materialIds.length > 3 ? '...' : ''}`);
     }
 
-    console.log(`   账户 (${group.accounts.length} 个):`);
-    for (const acc of group.accounts) {
-      const titles = Array.isArray(acc.titles) ? acc.titles : [];
-      console.log(`     - ${acc.accountId} | Pixel: ${acc.pixel} | 启用: ${acc.enable ? '是' : '否'} | 链接: ${acc.linkKeyword}`);
-      console.log(`       标题: ${titles.join(', ')}`);
+    console.log(`   账户 (${blocks.length} 个):`);
+    for (const acc of blocks) {
+      const pd = acc.projectDailyBudget ? `项目预算:${acc.projectDailyBudget}` : '项目预算:空';
+      console.log(`     - ${acc.accountId} | Pixel: ${acc.pixel} | ${pd} | Smart+: ${acc.smartPlus !== false ? '开' : '关'} | 启用: ${acc.enable ? '是' : '否'}`);
+      for (const ag of acc.adGroups || []) {
+        const titles = Array.isArray(ag.titles) ? ag.titles : [];
+        console.log(`       · 广告组#${ag.adGroupSeq} 预算:${ag.budget || '空'} | 链接: ${ag.linkKeyword}`);
+        console.log(`         标题: ${titles.join(', ')}`);
+      }
     }
   }
 

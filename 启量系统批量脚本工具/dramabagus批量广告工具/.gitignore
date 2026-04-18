@@ -10,7 +10,7 @@ pw-browsers/
 # 浏览器用户数据（包含登录状态，不应跨设备复制）
 browser-data/
 
-# 调试截图
+# 历史遗留：本地若曾有调试 PNG 勿提交
 debug-*.png
 
 # 操作系统
@@ -31,6 +31,9 @@ desktop.ini
 # 临时文件
 *.tmp
 *.temp
+
+# 本地账号（复制 config.local.example.js）
+config.local.js
 
 
 
