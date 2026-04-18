@@ -1,7 +1,6 @@
 <template>
   <div class="title-pack-page page-list-layout">
     <el-card shadow="never" class="filter-card">
-      <template #header><span>标题包</span></template>
       <el-form :model="query" class="filter-form" inline size="small" label-position="left">
         <el-form-item label="标题包ID" label-width="70px">
           <div class="filter-item-s">
@@ -16,7 +15,7 @@
         </el-form-item>
       </el-form>
 
-      <div class="button-group compact-button-group">
+      <div class="button-group">
         <div class="button-group-left">
           <el-button type="primary" size="small" @click="showAdd">新增</el-button>
           <el-button size="small" :disabled="selectedRows.length !== 1" @click="showEditSelected">修改</el-button>

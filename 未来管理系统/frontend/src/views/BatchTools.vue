@@ -1,16 +1,15 @@
 <template>
-  <div class="batch-tools-container">
+  <div class="batch-tools-container page-list-layout">
     <!-- 筛选区域 -->
     <el-card class="filter-card" shadow="never">
       <el-form
         :model="filterForm"
         label-position="left"
-        label-width="48px"
-        class="filter-form batch-filter-form"
+        class="filter-form"
         inline
         size="small"
       >
-        <el-form-item label="主体">
+        <el-form-item label="主体" label-width="50px">
           <div class="filter-item-m">
             <el-select
               v-model="filterForm.entity"
@@ -28,7 +27,7 @@
             </el-select>
           </div>
         </el-form-item>
-        <el-form-item label="账户" label-width="40px">
+        <el-form-item label="账户" label-width="50px">
           <div class="filter-item-wide">
             <el-select
               v-model="filterForm.accounts"
@@ -468,12 +467,63 @@
         <el-button type="primary" @click="handleConfirmAdd">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 异步任务进度弹窗 -->
+    <el-dialog
+      v-model="progressDialogVisible"
+      title="任务执行进度"
+      width="520px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      @close="handleProgressDialogClose"
+    >
+      <div class="progress-panel">
+        <el-progress
+          type="circle"
+          :percentage="taskProgress.progress || 0"
+          :status="progressCircleStatus"
+          :width="160"
+          :stroke-width="10"
+        />
+        <div class="progress-status-text">{{ progressStatusText }}</div>
+        <el-descriptions :column="2" border size="small" style="margin-top: 20px; width: 100%">
+          <el-descriptions-item label="任务ID">
+            <span style="font-family: monospace; font-size: 12px">{{ currentBatchTaskId }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="总数">{{ taskProgress.totalCount || 0 }}</el-descriptions-item>
+          <el-descriptions-item label="成功">
+            <el-tag type="success" size="small">{{ taskProgress.successCount || 0 }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="失败">
+            <el-tag type="danger" size="small">{{ taskProgress.failedCount || 0 }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="待处理">
+            <el-tag type="info" size="small">{{ taskProgress.pendingCount || 0 }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="已用时">{{ formatElapsed(taskProgress.elapsedSeconds) }}</el-descriptions-item>
+        </el-descriptions>
+        <div class="progress-actions">
+          <el-button
+            v-if="!taskProgress.isCompleted"
+            type="danger"
+            plain
+            @click="handleCancelTask"
+          >取消任务</el-button>
+          <el-button
+            v-if="taskProgress.isCompleted"
+            type="primary"
+            @click="progressDialogVisible = false"
+          >关闭</el-button>
+          <el-button @click="handleViewTask">查看任务列表</el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import request from '../api/request'
 
@@ -1067,6 +1117,117 @@ function handleConfirmAdSettings() {
   adSettingsDialogVisible.value = false
 }
 
+// ---- 异步任务进度相关 ----
+const progressDialogVisible = ref(false)
+const currentBatchTaskId = ref('')
+const taskProgress = ref({
+  status: 'pending',
+  totalCount: 0,
+  successCount: 0,
+  failedCount: 0,
+  pendingCount: 0,
+  progress: 0,
+  elapsedSeconds: 0,
+  isCompleted: false,
+})
+let progressTimer = null
+
+const progressCircleStatus = computed(() => {
+  const s = taskProgress.value.status
+  if (s === 'completed') return 'success'
+  if (s === 'failed') return 'exception'
+  if (s === 'cancelled') return 'exception'
+  return undefined
+})
+
+const progressStatusText = computed(() => {
+  const map = {
+    pending: '等待处理...',
+    processing: '处理中...',
+    completed: '执行完成',
+    failed: '执行失败',
+    cancelled: '已取消',
+  }
+  return map[taskProgress.value.status] || '未知状态'
+})
+
+function formatElapsed(seconds) {
+  if (!seconds) return '0秒'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (h > 0) return `${h}小时${m}分${s}秒`
+  if (m > 0) return `${m}分${s}秒`
+  return `${s}秒`
+}
+
+function startProgressPolling(batchTaskId) {
+  currentBatchTaskId.value = batchTaskId
+  progressDialogVisible.value = true
+  fetchProgress()
+  progressTimer = setInterval(fetchProgress, 2000)
+}
+
+function stopProgressPolling() {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
+async function fetchProgress() {
+  if (!currentBatchTaskId.value) return
+  try {
+    const res = await request.get(`/batch-task/${currentBatchTaskId.value}`)
+    if (res.code === 0 && res.data) {
+      taskProgress.value = res.data
+      if (res.data.isCompleted) {
+        stopProgressPolling()
+        const s = res.data.status
+        const sc = res.data.successCount || 0
+        const fc = res.data.failedCount || 0
+        if (s === 'completed' && fc === 0) {
+          ElMessage.success(`任务完成！成功 ${sc} 项`)
+        } else if (s === 'completed' && fc > 0) {
+          ElMessage.warning(`任务完成：成功 ${sc} 项，失败 ${fc} 项`)
+        } else if (s === 'cancelled') {
+          ElMessage.info('任务已取消')
+        } else {
+          ElMessage.error('任务执行失败')
+        }
+      }
+    }
+  } catch (e) {
+    console.error('查询进度失败', e)
+  }
+}
+
+async function handleCancelTask() {
+  try {
+    await ElMessageBox.confirm('确定要取消当前任务吗？已完成的部分不会回滚。', '取消任务', {
+      confirmButtonText: '确定取消',
+      cancelButtonText: '继续等待',
+      type: 'warning',
+    })
+    await request.post(`/batch-task/${currentBatchTaskId.value}/cancel`)
+    ElMessage.success('任务取消请求已发送')
+    fetchProgress()
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error('取消任务失败')
+    }
+  }
+}
+
+function handleProgressDialogClose() {
+  stopProgressPolling()
+}
+
+onUnmounted(() => {
+  stopProgressPolling()
+})
+
+// ---- 提交任务 ----
 async function handleSubmitTask() {
   if (!filterForm.entity) {
     ElMessage.warning('请选择主体')
@@ -1111,26 +1272,15 @@ async function handleSubmitTask() {
         ads: adList.value,
       },
     })
-    const tid = res?.data?.task_id
-      const execution = res?.data?.config?.execution
-      if (execution) {
-        const successCount = Number(execution.successCount || 0)
-        const failedCount = Number(execution.failedCount || 0)
-        const skippedCount = Number(execution.skippedCount || 0)
-        const detail = [`成功 ${successCount}`]
-        if (failedCount > 0) detail.push(`失败 ${failedCount}`)
-        if (skippedCount > 0) detail.push(`跳过 ${skippedCount}`)
-        const message = tid ? `任务ID: ${tid}，${detail.join('，')}` : detail.join('，')
-        if (execution.status === 'partial') {
-          ElMessage.warning(`任务已执行，部分完成。${message}`)
-        } else if (execution.status === 'failed') {
-          ElMessage.error(`任务执行失败。${message}`)
-        } else {
-          ElMessage.success(`任务已执行完成。${message}`)
-        }
-      } else {
-        ElMessage.success(tid ? `任务提交成功！任务ID: ${tid}` : '任务提交成功')
-      }
+
+    const batchTaskId = res?.data?.batchTaskId
+    if (batchTaskId) {
+      ElMessage.success('任务已提交，正在后台处理...')
+      startProgressPolling(batchTaskId)
+    } else {
+      const tid = res?.data?.task_id
+      ElMessage.success(tid ? `任务提交成功！任务ID: ${tid}` : '任务提交成功')
+    }
   } catch (e) {
     console.error(e)
   }
@@ -1298,7 +1448,7 @@ onMounted(async () => {
 }
 
 .filter-card {
-  margin-bottom: 20px;
+  margin-bottom: var(--section-gap);
 }
 
 .cards-container {
@@ -1417,5 +1567,25 @@ onMounted(async () => {
   color: #909399;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.progress-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.progress-status-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.progress-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
 }
 </style>

@@ -19,3 +19,13 @@ export function getDashboardStats(params) {
 export function getDashboardTrends(params) {
   return request.get('/dashboard/trends', { params })
 }
+
+/** 短剧概览：排行 + KPI + 分类分布 */
+export function getDramaStats(params) {
+  return request.get('/dashboard/drama-stats', { params })
+}
+
+/** 单剧每日充值趋势 */
+export function getDramaDailyRecharge(params) {
+  return request.get('/dashboard/drama-daily-recharge', { params })
+}

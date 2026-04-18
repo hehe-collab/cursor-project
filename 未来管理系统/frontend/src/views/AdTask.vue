@@ -56,20 +56,25 @@
               <el-icon class="el-icon--left"><RefreshLeft /></el-icon>
               重置
             </el-button>
-            <el-button :loading="exporting" @click="handleExport">
-              <el-icon class="el-icon--left"><Download /></el-icon>
-              导出
-            </el-button>
-            <el-button
-              v-if="tableData.length > 50"
-              size="small"
-              @click="useVirtualScroll = !useVirtualScroll"
-            >
-              {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
-            </el-button>
           </div>
         </el-form-item>
       </el-form>
+      <div class="button-group">
+        <div class="button-group-left">
+          <el-button :loading="exporting" @click="handleExport">
+            <el-icon class="el-icon--left"><Download /></el-icon>
+            导出
+          </el-button>
+          <el-button
+            v-if="tableData.length > 50"
+            size="small"
+            @click="useVirtualScroll = !useVirtualScroll"
+          >
+            {{ useVirtualScroll ? '标准表格' : '虚拟滚动' }}
+          </el-button>
+        </div>
+        <div class="button-group-right"></div>
+      </div>
       <div class="history-filter-tip">账户ID下拉仅显示广告任务历史里已出现过的账户，不代表当前一定可执行。</div>
     </el-card>
 
@@ -378,11 +383,7 @@ onMounted(() => {
 }
 
 .filter-card {
-  margin-bottom: 20px;
-}
-
-.filter-card :deep(.el-card__body) {
-  padding-bottom: 10px;
+  margin-bottom: var(--section-gap);
 }
 
 .table-card {

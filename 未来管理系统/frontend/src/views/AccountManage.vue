@@ -70,10 +70,7 @@
           </div>
         </el-form-item>
       </el-form>
-    </el-card>
-
-    <el-card class="table-card" shadow="never">
-      <div class="button-group account-toolbar">
+      <div class="button-group">
         <div class="button-group-left">
           <el-button type="primary" @click="handleAdd">新增</el-button>
           <el-button type="primary" :disabled="selectedRows.length !== 1" @click="handleBatchEdit">修改</el-button>
@@ -83,7 +80,9 @@
           <el-button type="success" @click="handleExport">导出</el-button>
         </div>
       </div>
+    </el-card>
 
+    <el-card class="table-card" shadow="never">
       <div class="table-wrapper">
         <el-table
           ref="tableRef"
@@ -680,11 +679,6 @@ onMounted(async () => {
 
 .filter-card {
   margin-bottom: var(--section-gap);
-}
-
-.table-card .button-group {
-  margin-bottom: 8px;
-  flex-shrink: 0;
 }
 
 .pagination {

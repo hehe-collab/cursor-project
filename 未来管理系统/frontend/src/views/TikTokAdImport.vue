@@ -1,100 +1,73 @@
 <template>
   <div class="ad-import-page">
-    <!-- 页面标题 -->
+    <!-- 页面标题 + 顶部操作栏 -->
     <div class="page-header">
-      <h2>广告导入</h2>
-      <p class="page-desc">一张 Excel 同时导入广告系列、广告组和广告，自动按层级顺序创建</p>
+      <div class="header-left">
+        <h2>广告导入</h2>
+        <p class="page-desc">一张 Excel 同时导入广告系列、广告组和广告，自动按层级顺序创建</p>
+      </div>
+      <div class="header-actions">
+        <el-button :icon="Clock" @click="historyDrawer = true">导入记录</el-button>
+      </div>
     </div>
 
-    <!-- ====== 左右分栏主区域 ====== -->
-    <div class="main-grid">
+    <!-- 顶部配置区 -->
+    <div class="config-bar">
+      <div class="config-item">
+        <span class="config-label">导入模式</span>
+        <el-radio-group v-model="form.importMode" size="default">
+          <el-radio-button value="multiple">
+            <el-icon style="margin-right: 4px;"><UserFilled /></el-icon>
+            多账户
+          </el-radio-button>
+          <el-radio-button value="single">
+            <el-icon style="margin-right: 4px;"><User /></el-icon>
+            单账户
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+      <div v-if="form.importMode === 'single'" class="config-item account-select">
+        <span class="config-label">目标账户</span>
+        <AccountSelector v-model="form.advertiserId" style="width: 320px;" />
+      </div>
+      <div class="config-item config-tip">
+        <el-icon :color="form.importMode === 'single' ? '#409eff' : '#e6a23c'" :size="16">
+          <InfoFilled />
+        </el-icon>
+        <span>{{
+          form.importMode === 'single'
+            ? 'Excel 中无需填写账户 ID，level 列区分层级'
+            : 'Excel 第一列填写 advertiser_id，level 列区分层级'
+        }}</span>
+      </div>
+    </div>
 
-      <!-- ====== 左侧：控制面板 ====== -->
-      <aside class="control-panel">
-        <div class="panel-section">
-          <div class="section-label">
-            <el-icon><Setting /></el-icon>
-            导入模式
-          </div>
-          <el-radio-group v-model="form.importMode" class="mode-group">
-            <el-radio-button value="multiple">
-              <div class="mode-inner">
-                <el-icon class="mode-icon"><UserFilled /></el-icon>
-                <div class="mode-text">
-                  <div class="mode-name">多账户</div>
-                  <div class="mode-desc">Excel 含 advertiser_id</div>
-                </div>
-              </div>
-            </el-radio-button>
-            <el-radio-button value="single">
-              <div class="mode-inner">
-                <el-icon class="mode-icon"><User /></el-icon>
-                <div class="mode-text">
-                  <div class="mode-name">单账户</div>
-                  <div class="mode-desc">页面选择账户</div>
-                </div>
-              </div>
-            </el-radio-button>
-          </el-radio-group>
+    <!-- 步骤进度条 -->
+    <el-steps :active="currentStep" finish-status="success" class="import-steps" align-center>
+      <el-step title="下载模板" description="获取统一三层级模板" />
+      <el-step title="上传文件" description="上传填写好的 Excel" />
+      <el-step title="查看结果" description="确认导入状态" />
+    </el-steps>
 
-          <el-alert
-            :title="form.importMode === 'single'
-              ? 'Excel 中无需填写账户 ID，level 列区分层级'
-              : 'Excel 第一列填写 advertiser_id，level 列区分层级'"
-            :type="form.importMode === 'single' ? 'info' : 'warning'"
-            :closable="false"
-            show-icon
-            class="mode-tip"
-          />
-        </div>
+    <!-- 步骤内容区 -->
+    <div class="steps-content">
 
-        <el-divider />
-
-        <div v-if="form.importMode === 'single'" class="panel-section">
-          <div class="section-label">
-            <el-icon><OfficeBuilding /></el-icon>
-            目标账户
-          </div>
-          <AccountSelector v-model="form.advertiserId" />
-          <div class="form-tip">仅显示已在账户管理录入且 TikTok OAuth 为 active 的可执行账户</div>
-        </div>
-
-        <el-divider />
-
-        <div class="panel-section">
-          <div class="section-label">
+      <!-- 步骤 1：下载模板 -->
+      <el-card class="step-card" :class="{ 'step-active': currentStep === 0, 'step-done': currentStep > 0 }">
+        <div class="step-card-header">
+          <span class="step-badge" :class="{ done: currentStep > 0 }">
+            <el-icon v-if="currentStep > 0"><SuccessFilled /></el-icon>
+            <span v-else>1</span>
+          </span>
+          <span class="step-title">下载模板并填写</span>
+          <el-button link type="primary" @click="fieldDrawer = true" style="margin-left: auto;">
             <el-icon><Document /></el-icon>
-            历史记录
-          </div>
-          <el-button size="small" :icon="Document" @click="handleViewHistory">
-            查看导入记录
-          </el-button>
-          <el-button size="small" link type="primary" @click="handleReset" style="margin-left: 8px;">
-            继续导入
+            查看字段说明
           </el-button>
         </div>
-      </aside>
 
-      <!-- ====== 右侧：操作区 ====== -->
-      <main class="action-area">
-
-        <!-- ====== 步骤 1：下载统一模板 ====== -->
-        <el-card class="action-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-step">1</span>
-              <span class="card-title">下载模板并填写</span>
-            </div>
-          </template>
-
-          <el-alert
-            title="统一三层级模板：一张表包含广告系列 + 广告组 + 广告，level 列区分层级"
-            type="info"
-            :closable="false"
-            show-icon
-          />
-
-          <div class="template-row">
+        <div class="step-card-body">
+          <div class="template-section">
             <el-button
               type="primary"
               :icon="Download"
@@ -104,121 +77,28 @@
             >
               下载统一模板（{{ form.importMode === 'single' ? '单账户' : '多账户' }}）
             </el-button>
-            <div class="template-hint">
-              <el-icon><InfoFilled /></el-icon>
-              <span>按 level 列区分层级，参考示例行填写</span>
-            </div>
+            <span class="template-hint">按 level 列区分层级，参考示例行填写</span>
           </div>
+        </div>
+      </el-card>
 
-          <!-- 字段说明折叠 -->
-          <el-collapse v-model="collapseActive" class="field-collapse">
-            <el-collapse-item title="查看字段说明" name="fields">
-              <div class="field-table">
-                <!-- 通用字段 -->
-                <div class="field-block">
-                  <h4>通用字段（所有层级）</h4>
-                  <table class="field-spec">
-                    <thead><tr><th>列名</th><th>说明</th><th>示例</th></tr></thead>
-                    <tbody>
-                      <tr v-if="form.importMode === 'multiple'">
-                        <td><code>advertiser_id</code></td>
-                        <td>广告账户 ID（必填）</td>
-                        <td>7123456789012345678</td>
-                      </tr>
-                      <tr>
-                        <td><code>level</code></td>
-                        <td>层级类型（必填）</td>
-                        <td>campaign / adgroup / ad</td>
-                      </tr>
-                      <tr>
-                        <td><code>status</code></td>
-                        <td>状态</td>
-                        <td>ENABLE / DISABLE</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+      <!-- 步骤 2：上传 Excel -->
+      <el-card class="step-card" :class="{ 'step-active': currentStep === 1, 'step-done': currentStep > 1 }">
+        <div class="step-card-header">
+          <span class="step-badge" :class="{ done: currentStep > 1 }">
+            <el-icon v-if="currentStep > 1"><SuccessFilled /></el-icon>
+            <span v-else>2</span>
+          </span>
+          <span class="step-title">上传 Excel 文件</span>
+        </div>
 
-                <!-- 广告系列字段 -->
-                <div class="field-block">
-                  <h4>广告系列字段（level = campaign）</h4>
-                  <table class="field-spec">
-                    <thead><tr><th>列名</th><th>说明</th><th>示例</th></tr></thead>
-                    <tbody>
-                      <tr><td><code>campaign_name</code></td><td>广告系列名称（必填）</td><td>春季促销活动</td></tr>
-                      <tr><td><code>objective</code></td><td>目标（必填）</td><td>TRAFFIC / CONVERSIONS / REACH</td></tr>
-                      <tr><td><code>budget</code></td><td>预算金额</td><td>1000.00</td></tr>
-                      <tr><td><code>budget_mode</code></td><td>预算模式</td><td>BUDGET_MODE_DAY / BUDGET_MODE_TOTAL</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- 广告组字段 -->
-                <div class="field-block">
-                  <h4>广告组字段（level = adgroup）</h4>
-                  <table class="field-spec">
-                    <thead><tr><th>列名</th><th>说明</th><th>示例</th></tr></thead>
-                    <tbody>
-                      <tr><td><code>campaign_name</code></td><td>关联的广告系列名称（必填）</td><td>春季促销活动</td></tr>
-                      <tr><td><code>adgroup_name</code></td><td>广告组名称（必填）</td><td>18-24岁女性-北京</td></tr>
-                      <tr><td><code>placements</code></td><td>投放位置</td><td>PLACEMENT_TIKTOK</td></tr>
-                      <tr><td><code>bid</code></td><td>出价金额</td><td>1.50</td></tr>
-                      <tr><td><code>budget</code></td><td>预算金额</td><td>500.00</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- 广告字段 -->
-                <div class="field-block">
-                  <h4>广告字段（level = ad）</h4>
-                  <table class="field-spec">
-                    <thead><tr><th>列名</th><th>说明</th><th>示例</th></tr></thead>
-                    <tbody>
-                      <tr><td><code>campaign_name</code></td><td>关联的广告系列名称（必填）</td><td>春季促销活动</td></tr>
-                      <tr><td><code>adgroup_name</code></td><td>关联的广告组名称（必填）</td><td>18-24岁女性-北京</td></tr>
-                      <tr><td><code>ad_name</code></td><td>广告名称（必填）</td><td>视频1</td></tr>
-                      <tr><td><code>ad_text</code></td><td>广告文案</td><td>限时优惠！立即购买</td></tr>
-                      <tr><td><code>call_to_action</code></td><td>行动号召</td><td>SHOP_NOW</td></tr>
-                      <tr><td><code>landing_page_url</code></td><td>落地页 URL</td><td>https://example.com/product</td></tr>
-                      <tr><td><code>video_id</code></td><td>视频素材 ID</td><td>v1234567890</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="field-block">
-                  <h4>使用提示</h4>
-                  <ul class="tips-list">
-                    <li>同一 Excel 可同时包含 <code>campaign</code>、<code>adgroup</code>、<code>ad</code> 三种层级</li>
-                    <li>系统按 <strong>campaign → adgroup → ad</strong> 顺序处理</li>
-                    <li>广告组通过 <code>campaign_name</code> 关联广告系列</li>
-                    <li>广告通过 <code>campaign_name</code> + <code>adgroup_name</code> 关联广告组</li>
-                  </ul>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
-        </el-card>
-
-        <!-- ====== 步骤 2：上传 ====== -->
-        <el-card class="action-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-step">2</span>
-              <span class="card-title">上传 Excel 文件</span>
-            </div>
-          </template>
-
+        <div class="step-card-body">
           <el-upload
             ref="uploadRef"
             class="upload-area"
             drag
-            :action="uploadAction"
-            :headers="uploadHeaders"
-            :data="uploadExtraData"
+            :http-request="handleCustomUpload"
             :before-upload="beforeUpload"
-            :on-success="handleUploadSuccess"
-            :on-error="handleUploadError"
-            :on-progress="handleUploadProgress"
             :show-file-list="false"
             :disabled="!canUpload"
             accept=".xlsx,.xls"
@@ -229,123 +109,180 @@
               <p class="upload-sub">支持 .xlsx / .xls，文件大小不超过 10MB</p>
             </div>
             <div v-else class="upload-progress">
-              <el-progress type="circle" :percentage="uploadPercent" :status="progressStatus" />
+              <el-progress type="circle" :percentage="uploadPercent" :status="progressStatus" :width="80" />
               <p class="progress-text">{{ uploadStatusText }}</p>
             </div>
           </el-upload>
 
-          <div v-if="!canUpload" class="upload-warning">
+          <div v-if="!canUpload && form.importMode === 'single'" class="upload-warning">
             <el-icon><WarningFilled /></el-icon>
-            <span>{{ uploadHintText }}</span>
+            <span>请先在上方选择广告账户</span>
           </div>
-        </el-card>
+        </div>
+      </el-card>
 
-        <!-- ====== 步骤 3：结果 ====== -->
-        <el-card v-if="result" class="action-card result-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-step">3</span>
-              <span class="card-title">导入结果</span>
+      <!-- 步骤 3：导入结果 -->
+      <el-card
+        v-if="result"
+        ref="resultCardRef"
+        class="step-card step-active"
+        :class="resultCardClass"
+      >
+        <div class="step-card-header">
+          <span class="step-badge" :class="resultBadgeClass">3</span>
+          <span class="step-title">导入结果</span>
+          <el-button link type="primary" @click="handleReset" style="margin-left: auto;">
+            继续导入
+          </el-button>
+        </div>
+
+        <div class="step-card-body">
+          <div class="result-summary">
+            <div class="result-icon-wrap" :class="resultBadgeClass">
+              <el-icon :size="48">
+                <SuccessFilled v-if="result.status === 'success'" />
+                <CircleCloseFilled v-else-if="result.status === 'failed'" />
+                <WarningFilled v-else />
+              </el-icon>
             </div>
-          </template>
-
-          <el-result
-            :icon="result.status === 'success' ? 'success' : result.status === 'failed' ? 'error' : 'warning'"
-            :title="resultTitle"
-            :sub-title="resultSubTitle"
-          >
-            <template #extra>
-              <div class="result-stats">
-                <div class="stat-item">
-                  <el-icon class="stat-icon success"><SuccessFilled /></el-icon>
-                  <div class="stat-body">
-                    <div class="stat-num">{{ result.successCount }}</div>
-                    <div class="stat-label">成功</div>
-                  </div>
-                </div>
-                <div class="stat-item">
-                  <el-icon class="stat-icon danger"><CircleCloseFilled /></el-icon>
-                  <div class="stat-body">
-                    <div class="stat-num">{{ result.failedCount }}</div>
-                    <div class="stat-label">失败</div>
-                  </div>
-                </div>
-                <div class="stat-item">
-                  <el-icon class="stat-icon info"><Document /></el-icon>
-                  <div class="stat-body">
-                    <div class="stat-num">{{ result.totalCount }}</div>
-                    <div class="stat-label">总计</div>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="errorLogs.length > 0" class="error-log-block">
-                <el-alert title="错误详情" type="error" :closable="false" />
-                <div class="error-log-list">
-                  <div v-for="(err, idx) in errorLogs.slice(0, 20)" :key="idx" class="error-item">
-                    <el-tag type="danger" size="small">第{{ err.row_number }}行</el-tag>
-                    <span v-if="err.advertiser_id" class="err-adv">{{ err.advertiser_id }}</span>
-                    <span class="err-msg">{{ err.error_message }}</span>
-                  </div>
-                  <div v-if="errorLogs.length > 20" class="error-more">
-                    还有 {{ errorLogs.length - 20 }} 条错误…（请下载导入记录查看完整日志）
-                  </div>
-                </div>
-              </div>
-
-              <div class="result-actions">
-                <el-button type="primary" @click="handleViewHistory">查看导入记录</el-button>
-                <el-button @click="handleReset">继续导入</el-button>
-              </div>
-            </template>
-          </el-result>
-        </el-card>
-
-        <!-- 历史记录 -->
-        <el-card v-if="showHistory" class="action-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-step">📋</span>
-              <span class="card-title">导入记录</span>
-              <el-button size="small" style="margin-left: auto;" @click="showHistory = false">收起</el-button>
+            <div class="result-text">
+              <div class="result-title">{{ resultTitle }}</div>
+              <div class="result-subtitle">{{ resultSubTitle }}</div>
             </div>
-          </template>
-          <el-table :data="historyList" border stripe size="small">
-            <el-table-column prop="id" label="ID" width="80" />
-            <el-table-column prop="importType" label="类型" width="100">
-              <template #default="{ row }">
-                <el-tag size="small">{{ typeLabelMap[row.importType] || row.importType }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="advertiserId" label="账户 ID" min-width="180">
-              <template #default="{ row }">
-                <code>{{ row.advertiserId || '多账户' }}</code>
-              </template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
-              <template #default="{ row }">
-                <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabelMap[row.status] }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="successCount" label="成功" width="80" />
-            <el-table-column prop="failedCount" label="失败" width="80" />
-            <el-table-column prop="totalCount" label="总计" width="80" />
-            <el-table-column prop="createdBy" label="操作人" width="100" />
-            <el-table-column prop="createdAt" label="导入时间" min-width="160" />
-            <el-table-column label="操作" width="80" fixed="right">
-              <template #default="{ row }">
-                <el-button type="danger" size="small" link @click="handleDelete(row.id)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </main>
+          </div>
+
+          <div class="result-stats">
+            <div class="stat-card stat-success">
+              <div class="stat-num">{{ result.successCount }}</div>
+              <div class="stat-label">成功</div>
+            </div>
+            <div class="stat-card stat-fail">
+              <div class="stat-num">{{ result.failedCount }}</div>
+              <div class="stat-label">失败</div>
+            </div>
+            <div class="stat-card stat-total">
+              <div class="stat-num">{{ result.totalCount }}</div>
+              <div class="stat-label">总计</div>
+            </div>
+          </div>
+
+          <div v-if="errorLogs.length > 0" class="error-log-block">
+            <div class="error-log-header">
+              <el-icon color="#f56c6c"><WarningFilled /></el-icon>
+              <span>错误详情（共 {{ errorLogs.length }} 条）</span>
+            </div>
+            <div class="error-log-list">
+              <div v-for="(err, idx) in errorLogs.slice(0, 20)" :key="idx" class="error-item">
+                <el-tag type="danger" size="small" effect="dark">第{{ err.row_number }}行</el-tag>
+                <code v-if="err.advertiser_id" class="err-adv">{{ err.advertiser_id }}</code>
+                <span class="err-msg">{{ err.error_message }}</span>
+              </div>
+              <div v-if="errorLogs.length > 20" class="error-more">
+                还有 {{ errorLogs.length - 20 }} 条错误，请在导入记录中查看完整日志
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-card>
     </div>
+
+    <!-- 字段说明 Drawer -->
+    <el-drawer v-model="fieldDrawer" title="Excel 字段说明" size="560px" :z-index="2000">
+      <div class="field-drawer-body">
+        <div class="field-block">
+          <h4>通用字段（所有层级）</h4>
+          <el-table :data="commonFields" border size="small" class="field-table">
+            <el-table-column prop="col" label="列名" width="160">
+              <template #default="{ row }"><code>{{ row.col }}</code></template>
+            </el-table-column>
+            <el-table-column prop="desc" label="说明" />
+            <el-table-column prop="example" label="示例" width="200" />
+          </el-table>
+        </div>
+
+        <div class="field-block">
+          <h4>广告系列字段（level = campaign）</h4>
+          <el-table :data="campaignFields" border size="small" class="field-table">
+            <el-table-column prop="col" label="列名" width="160">
+              <template #default="{ row }"><code>{{ row.col }}</code></template>
+            </el-table-column>
+            <el-table-column prop="desc" label="说明" />
+            <el-table-column prop="example" label="示例" width="240" />
+          </el-table>
+        </div>
+
+        <div class="field-block">
+          <h4>广告组字段（level = adgroup）</h4>
+          <el-table :data="adgroupFields" border size="small" class="field-table">
+            <el-table-column prop="col" label="列名" width="160">
+              <template #default="{ row }"><code>{{ row.col }}</code></template>
+            </el-table-column>
+            <el-table-column prop="desc" label="说明" />
+            <el-table-column prop="example" label="示例" width="200" />
+          </el-table>
+        </div>
+
+        <div class="field-block">
+          <h4>广告字段（level = ad）</h4>
+          <el-table :data="adFields" border size="small" class="field-table">
+            <el-table-column prop="col" label="列名" width="160">
+              <template #default="{ row }"><code>{{ row.col }}</code></template>
+            </el-table-column>
+            <el-table-column prop="desc" label="说明" />
+            <el-table-column prop="example" label="示例" width="220" />
+          </el-table>
+        </div>
+
+        <el-alert type="info" :closable="false" show-icon class="field-tips-alert">
+          <template #title>使用提示</template>
+          <template #default>
+            <ul class="tips-list">
+              <li>同一 Excel 可同时包含 campaign、adgroup、ad 三种层级</li>
+              <li>系统按 <strong>campaign → adgroup → ad</strong> 顺序处理</li>
+              <li>广告组通过 <code>campaign_name</code> 关联广告系列</li>
+              <li>广告通过 <code>campaign_name</code> + <code>adgroup_name</code> 关联广告组</li>
+            </ul>
+          </template>
+        </el-alert>
+      </div>
+    </el-drawer>
+
+    <!-- 历史记录 Drawer -->
+    <el-drawer v-model="historyDrawer" title="导入记录" size="820px" :z-index="2000" @open="fetchHistory">
+      <el-table :data="historyList" border stripe size="small" v-loading="historyLoading">
+        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="importType" label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag size="small">{{ typeLabelMap[row.importType] || row.importType }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="advertiserId" label="账户 ID" min-width="180">
+          <template #default="{ row }">
+            <code>{{ row.advertiserId || '多账户' }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabelMap[row.status] || row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="successCount" label="成功" width="70" align="center" />
+        <el-table-column prop="failedCount" label="失败" width="70" align="center" />
+        <el-table-column prop="totalCount" label="总计" width="70" align="center" />
+        <el-table-column prop="createdBy" label="操作人" width="90" />
+        <el-table-column prop="createdAt" label="导入时间" min-width="160" />
+        <el-table-column label="操作" width="70" fixed="right" align="center">
+          <template #default="{ row }">
+            <el-button type="danger" size="small" link @click="handleDelete(row.id)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Download,
@@ -357,8 +294,7 @@ import {
   Document,
   User,
   UserFilled,
-  Setting,
-  OfficeBuilding,
+  Clock,
 } from '@element-plus/icons-vue'
 import AccountSelector from '@/components/TikTok/AccountSelector.vue'
 import { uploadExcel, downloadTemplate, getImportList, deleteImport } from '@/api/tiktok/adImport'
@@ -368,9 +304,53 @@ const form = reactive({
   advertiserId: '',
 })
 
+const currentStep = computed(() => {
+  if (result.value) return 2
+  if (uploading.value) return 1
+  return 0
+})
+
+// ====== 字段说明数据 ======
+const commonFields = computed(() => {
+  const rows = []
+  if (form.importMode === 'multiple') {
+    rows.push({ col: 'advertiser_id', desc: '广告账户 ID（必填）', example: '7123456789012345678' })
+  }
+  rows.push(
+    { col: 'level', desc: '层级类型（必填）', example: 'campaign / adgroup / ad' },
+    { col: 'status', desc: '状态', example: 'ENABLE / DISABLE' },
+  )
+  return rows
+})
+const campaignFields = [
+  { col: 'campaign_name', desc: '广告系列名称（必填）', example: '春季促销活动' },
+  { col: 'objective', desc: '目标（必填）', example: 'TRAFFIC / CONVERSIONS / REACH' },
+  { col: 'budget', desc: '预算金额', example: '1000.00' },
+  { col: 'budget_mode', desc: '预算模式', example: 'BUDGET_MODE_DAY / BUDGET_MODE_TOTAL' },
+]
+const adgroupFields = [
+  { col: 'campaign_name', desc: '关联的广告系列名称（必填）', example: '春季促销活动' },
+  { col: 'adgroup_name', desc: '广告组名称（必填）', example: '18-24岁女性-北京' },
+  { col: 'placements', desc: '投放位置', example: 'PLACEMENT_TIKTOK' },
+  { col: 'bid', desc: '出价金额', example: '1.50' },
+  { col: 'budget', desc: '预算金额', example: '500.00' },
+]
+const adFields = [
+  { col: 'campaign_name', desc: '关联的广告系列名称（必填）', example: '春季促销活动' },
+  { col: 'adgroup_name', desc: '关联的广告组名称（必填）', example: '18-24岁女性-北京' },
+  { col: 'ad_name', desc: '广告名称（必填）', example: '视频1' },
+  { col: 'ad_text', desc: '广告文案', example: '限时优惠！立即购买' },
+  { col: 'call_to_action', desc: '行动号召', example: 'SHOP_NOW' },
+  { col: 'landing_page_url', desc: '落地页 URL', example: 'https://example.com/product' },
+  { col: 'video_id', desc: '视频素材 ID', example: 'v1234567890' },
+]
+
+// ====== Drawer 控制 ======
+const fieldDrawer = ref(false)
+const historyDrawer = ref(false)
+
 // ====== 模板下载 ======
 const downloadLoading = ref(false)
-const collapseActive = ref([])
 
 const canDownload = computed(() => {
   if (form.importMode === 'single') return !!form.advertiserId
@@ -409,19 +389,10 @@ const uploading = ref(false)
 const uploadPercent = ref(0)
 const uploadStatus = ref('')
 
-const uploadAction = computed(() => '/api/tiktok/excel-imports')
-const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.getItem('token') || ''}` }))
-const uploadExtraData = computed(() => ({
-  importMode: form.importMode,
-  ...(form.importMode === 'single' && form.advertiserId ? { advertiserId: form.advertiserId } : {}),
-}))
 const canUpload = computed(() => {
   if (form.importMode === 'single') return !!form.advertiserId
   return true
 })
-const uploadHintText = computed(() =>
-  form.importMode === 'single' ? '请先选择广告账户' : ''
-)
 const progressStatus = computed(() => {
   if (uploadStatus.value === 'exception') return 'exception'
   if (uploadPercent.value === 100) return 'success'
@@ -432,12 +403,13 @@ const uploadStatusText = computed(() => {
   return '处理中…'
 })
 
-const beforeUpload = (file) => {
+function beforeUpload(file) {
   if (!canUpload.value) {
-    ElMessage.warning(uploadHintText.value)
+    ElMessage.warning('请先选择广告账户')
     return false
   }
-  if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+  const ext = file.name.toLowerCase()
+  if (!ext.endsWith('.xlsx') && !ext.endsWith('.xls')) {
     ElMessage.error('只支持 .xlsx / .xls 格式')
     return false
   }
@@ -451,36 +423,48 @@ const beforeUpload = (file) => {
   return true
 }
 
-const handleUploadProgress = (event) => {
-  uploadPercent.value = Math.floor(event.percent || 0)
-}
-
-const handleUploadSuccess = (res) => {
-  uploading.value = false
-  uploadPercent.value = 100
-  uploadStatus.value = 'success'
-  if (res?.code === 0) {
-    Object.assign(result, res.data)
-    ElMessage.success('文件上传成功，正在处理…')
-    fetchHistory()
-  } else {
-    ElMessage.error(res?.message || '上传失败')
+async function handleCustomUpload({ file }) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('importMode', form.importMode)
+  if (form.importMode === 'single' && form.advertiserId) {
+    formData.append('advertiserId', form.advertiserId)
   }
-}
-
-const handleUploadError = (err) => {
-  uploading.value = false
-  uploadStatus.value = 'exception'
-  console.error(err)
-  ElMessage.error('上传失败，请重试')
+  try {
+    const res = await uploadExcel(formData, (event) => {
+      if (event.total > 0) {
+        uploadPercent.value = Math.floor((event.loaded / event.total) * 100)
+      }
+    })
+    uploading.value = false
+    uploadPercent.value = 100
+    uploadStatus.value = 'success'
+    if (res?.code === 0) {
+      result.value = res.data
+      ElMessage.success('导入完成')
+      await nextTick()
+      resultCardRef.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      ElMessage.error(res?.message || '上传失败')
+    }
+  } catch (err) {
+    uploading.value = false
+    uploadStatus.value = 'exception'
+    console.error(err)
+    ElMessage.error('上传失败，请重试')
+  }
 }
 
 // ====== 结果 ======
 const result = ref(null)
+const resultCardRef = ref(null)
+
 const errorLogs = computed(() => {
   try {
     if (!result.value?.errorLogs) return []
-    const parsed = JSON.parse(result.value.errorLogs)
+    const parsed = typeof result.value.errorLogs === 'string'
+      ? JSON.parse(result.value.errorLogs)
+      : result.value.errorLogs
     return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
@@ -496,10 +480,24 @@ const resultSubTitle = computed(() => {
   if (!result.value) return ''
   return `总计 ${result.value.totalCount} 条，成功 ${result.value.successCount} 条，失败 ${result.value.failedCount} 条`
 })
+const resultCardClass = computed(() => {
+  if (!result.value) return ''
+  return {
+    'result-success': result.value.status === 'success',
+    'result-fail': result.value.status === 'failed',
+    'result-partial': result.value.status !== 'success' && result.value.status !== 'failed',
+  }
+})
+const resultBadgeClass = computed(() => {
+  if (!result.value) return ''
+  if (result.value.status === 'success') return 'done'
+  if (result.value.status === 'failed') return 'fail'
+  return 'warn'
+})
 
 // ====== 历史记录 ======
-const showHistory = ref(false)
 const historyList = ref([])
+const historyLoading = ref(false)
 
 const typeLabelMap = { unified: '三层级统一', campaigns: '广告系列', adgroups: '广告组', ads: '广告' }
 const statusLabelMap = { success: '成功', partial: '部分成功', failed: '失败', pending: '等待中', processing: '处理中' }
@@ -509,17 +507,15 @@ function statusTagType(status) {
 }
 
 async function fetchHistory() {
+  historyLoading.value = true
   try {
     const res = await getImportList({ page: 1, pageSize: 50 })
     historyList.value = res?.data?.list || []
-    showHistory.value = true
   } catch (e) {
     console.error(e)
+  } finally {
+    historyLoading.value = false
   }
-}
-
-function handleViewHistory() {
-  fetchHistory()
 }
 
 async function handleDelete(id) {
@@ -543,231 +539,181 @@ function handleReset() {
 
 <style scoped>
 .ad-import-page {
-  max-width: 1200px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 12px;
+  padding: 16px 20px;
 }
 
+/* 页面标题栏 */
 .page-header {
-  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
-.page-header h2 {
+.header-left h2 {
   margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1d2129;
 }
 .page-desc {
   margin: 0;
   font-size: 13px;
-  color: #909399;
+  color: #86909c;
 }
 
-/* 左右分栏 */
-.main-grid {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-/* 左侧控制面板 */
-.control-panel {
-  width: 280px;
-  flex-shrink: 0;
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-
-.panel-section {
-  margin-bottom: 4px;
-}
-
-.section-label {
+/* 顶部配置区 */
+.config-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+}
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.config-label {
   font-size: 13px;
   font-weight: 600;
-  color: #606266;
-  margin-bottom: 10px;
+  color: #4e5969;
+  white-space: nowrap;
 }
-
-.mode-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.mode-group :deep(.el-radio-button__inner) {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 8px !important;
-  text-align: left;
-}
-.mode-inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.mode-icon {
-  font-size: 24px;
-  color: #409eff;
-  flex-shrink: 0;
-}
-.mode-text {
-  flex: 1;
-}
-.mode-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #303133;
-  margin-bottom: 1px;
-}
-.mode-desc {
-  font-size: 11px;
-  color: #909399;
-}
-
-.mode-tip {
+.config-tip {
   font-size: 12px;
+  color: #86909c;
+  margin-left: auto;
 }
 
-.form-tip {
-  font-size: 11px;
-  color: #909399;
-  margin-top: 4px;
+/* 步骤条 */
+.import-steps {
+  margin-bottom: 24px;
 }
 
-/* 右侧操作区 */
-.action-area {
-  flex: 1;
-  min-width: 0;
+/* 步骤卡片 */
+.steps-content {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
+.step-card {
+  border-radius: 10px;
+  transition: box-shadow 0.25s, border-color 0.25s;
+  border: 1px solid #e5e6eb;
+}
+.step-card.step-active {
+  border-color: #409eff;
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.08);
+}
+.step-card.step-done {
+  opacity: 0.7;
+}
+.step-card :deep(.el-card__body) {
+  padding: 0;
+}
 
-.card-header {
+.step-card-header {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f2f3f5;
 }
-.card-step {
+.step-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: #409eff;
+  width: 26px;
+  height: 26px;
+  background: #c0c4cc;
   color: #fff;
   border-radius: 50%;
   font-weight: 700;
   font-size: 13px;
   flex-shrink: 0;
+  transition: background 0.25s;
 }
-.card-title {
+.step-active .step-badge {
+  background: #409eff;
+}
+.step-badge.done {
+  background: #67c23a;
+}
+.step-badge.fail {
+  background: #f56c6c;
+}
+.step-badge.warn {
+  background: #e6a23c;
+}
+.step-title {
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: #1d2129;
 }
 
-.template-row {
+.step-card-body {
+  padding: 20px;
+}
+
+/* 步骤 1：模板下载 */
+.template-section {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin: 14px 0;
 }
 .template-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   font-size: 13px;
-  color: #909399;
+  color: #86909c;
 }
 
-.field-collapse {
-  margin-top: 10px;
-}
-.field-block h4 {
-  margin: 12px 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-}
-.field-spec {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.field-spec th {
-  background: #f5f7fa;
-  text-align: left;
-  padding: 6px 8px;
-  border: 1px solid #ebeef5;
-  font-weight: 600;
-}
-.field-spec td {
-  padding: 5px 8px;
-  border: 1px solid #ebeef5;
-  color: #606266;
-}
-.field-spec code {
-  padding: 1px 5px;
-  background: #ecf5ff;
-  color: #409eff;
-  border-radius: 3px;
-  font-size: 12px;
-  font-family: 'Courier New', monospace;
-}
-.tips-list {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-  color: #606266;
-  line-height: 1.8;
-}
-
-/* 上传 */
+/* 步骤 2：上传 */
 .upload-area :deep(.el-upload) {
   width: 100%;
 }
 .upload-area :deep(.el-upload-dragger) {
   width: 100%;
-  height: 180px;
+  height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
 }
 .upload-content {
   text-align: center;
 }
 .upload-icon {
-  font-size: 52px;
+  font-size: 44px;
   color: #c0c4cc;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .upload-main {
-  font-size: 15px;
-  color: #606266;
-  margin: 0 0 6px;
+  font-size: 14px;
+  color: #4e5969;
+  margin: 0 0 4px;
 }
 .upload-main em {
   color: #409eff;
   font-style: normal;
 }
 .upload-sub {
-  font-size: 13px;
-  color: #909399;
+  font-size: 12px;
+  color: #86909c;
   margin: 0;
 }
 .upload-progress {
   text-align: center;
 }
 .progress-text {
-  margin-top: 14px;
+  margin-top: 10px;
   font-size: 13px;
-  color: #606266;
+  color: #4e5969;
 }
 .upload-warning {
   display: flex;
@@ -775,82 +721,154 @@ function handleReset() {
   justify-content: center;
   gap: 6px;
   margin-top: 12px;
-  padding: 10px;
-  background: #fef0f0;
-  border: 1px solid #fde2e2;
-  border-radius: 4px;
-  color: #f56c6c;
+  padding: 8px 12px;
+  background: #fff7e6;
+  border: 1px solid #ffe58f;
+  border-radius: 6px;
+  color: #d46b08;
   font-size: 13px;
 }
 
-/* 结果 */
-.result-card {
-  border: 2px solid #67c23a;
+/* 步骤 3：结果 */
+.result-success { border-color: #67c23a; }
+.result-fail { border-color: #f56c6c; }
+.result-partial { border-color: #e6a23c; }
+
+.result-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
 }
+.result-icon-wrap {
+  flex-shrink: 0;
+}
+.result-icon-wrap.done { color: #67c23a; }
+.result-icon-wrap.fail { color: #f56c6c; }
+.result-icon-wrap.warn { color: #e6a23c; }
+.result-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d2129;
+  margin-bottom: 4px;
+}
+.result-subtitle {
+  font-size: 13px;
+  color: #86909c;
+}
+
 .result-stats {
   display: flex;
-  gap: 40px;
-  justify-content: center;
-  margin: 20px 0;
+  gap: 12px;
+  margin-bottom: 20px;
 }
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+.stat-card {
+  flex: 1;
+  text-align: center;
+  padding: 16px 12px;
+  border-radius: 8px;
 }
-.stat-icon {
-  font-size: 32px;
-}
-.stat-icon.success { color: #67c23a; }
-.stat-icon.danger { color: #f56c6c; }
-.stat-icon.info { color: #409eff; }
-.stat-body { text-align: center; }
+.stat-success { background: #f0f9eb; }
+.stat-fail { background: #fef0f0; }
+.stat-total { background: #ecf5ff; }
 .stat-num {
   font-size: 28px;
   font-weight: 700;
-  color: #303133;
   line-height: 1;
+  margin-bottom: 4px;
 }
+.stat-success .stat-num { color: #67c23a; }
+.stat-fail .stat-num { color: #f56c6c; }
+.stat-total .stat-num { color: #409eff; }
 .stat-label {
-  font-size: 13px;
-  color: #909399;
-  margin-top: 4px;
+  font-size: 12px;
+  color: #86909c;
 }
+
+/* 错误日志 */
 .error-log-block {
-  max-width: 700px;
-  margin: 16px auto 0;
+  border: 1px solid #fde2e2;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.error-log-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #fef0f0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f56c6c;
 }
 .error-log-list {
-  margin-top: 8px;
   max-height: 200px;
   overflow-y: auto;
+  padding: 8px 14px;
 }
 .error-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
+  padding: 5px 0;
   font-size: 12px;
   border-bottom: 1px solid #f5f5f5;
 }
+.error-item:last-child { border-bottom: none; }
 .err-adv {
-  font-family: 'Courier New', monospace;
-  color: #909399;
+  font-size: 11px;
+  padding: 1px 6px;
+  background: #f5f5f5;
+  border-radius: 3px;
+  color: #86909c;
 }
 .err-msg {
   color: #f56c6c;
+  flex: 1;
 }
 .error-more {
   padding: 8px 0;
   font-size: 12px;
-  color: #909399;
+  color: #86909c;
   text-align: center;
 }
-.result-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-top: 16px;
+
+/* 字段说明 Drawer */
+.field-drawer-body {
+  padding: 0 4px;
+}
+.field-block {
+  margin-bottom: 20px;
+}
+.field-block h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2129;
+}
+.field-table code {
+  padding: 1px 6px;
+  background: #ecf5ff;
+  color: #409eff;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+}
+.field-tips-alert {
+  margin-top: 8px;
+}
+.tips-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: #4e5969;
+  line-height: 1.8;
+}
+.tips-list code {
+  padding: 1px 5px;
+  background: #ecf5ff;
+  color: #409eff;
+  border-radius: 3px;
+  font-size: 12px;
 }
 </style>
