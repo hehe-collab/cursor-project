@@ -1,58 +1,35 @@
-# macOS
+# =====================================================
+# 仓库根 .gitignore
+# 创建于 2026-04-18
+# =====================================================
+
+# ---- AI 对话记录 (体积大且含临时上下文，永久不跟踪) ----
+对话记录.md
+对话记录-备份*.md
+对话记录-*.md
+
+# ---- macOS 系统文件 ----
 .DS_Store
-.AppleDouble
-.LSOverride
+**/.DS_Store
+._*
 
-# 嵌套的 Git 仓库（my-first-project 已在 GitHub 单独管理）
-my-first-project/
+# ---- Cursor IDE 内部文件 ----
+.cursor/
+*.cursor.tmp
 
-# 构建产物（体积大，可重新生成）
-**/dist/
-**/build/
-
-# 浏览器数据（含敏感信息，不应提交）
-**/browser-data/
-**/Browser Data/
-
-# Playwright 浏览器（体积大，可自动下载）
-**/pw-browsers/
-
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-venv/
-.venv/
-*.egg-info/
-.eggs/
-
-# 环境变量、密钥
-.env
-.env.local
-*.pem
-*.key
-config.yaml
-
-# 编辑器
-.idea/
+# ---- 通用编辑器 / IDE ----
 .vscode/
+.idea/
 *.swp
 *.swo
+*~
 
-# 日志、缓存
+# ---- 日志 ----
 *.log
-.cache/
+logs/
 
-# 截图、视频（体积大，不提交）
-**/screenshots/
-**/*.mp4
-
-# 本机绝对路径（爆款复制）
-素材制作工具/viral_clone/paths.local.txt
+# ---- 临时 / 备份文件 ----
+*.tmp
+*.temp
+*.bak
+*~
