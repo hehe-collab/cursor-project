@@ -13,7 +13,7 @@ const COLUMN_MAP = {
   /** 3.0：项目弹窗「已有项目」下拉展示名；空或「空则新增」等为新建项目 */
   '已有项目': 'existingProject',
   '项目名称': 'projectName',
-  /** 3.0：项目弹窗内「商品库」开关；开=true 则广告组/广告侧不选商品库，关=false 则必选 */
+  /** 3.0：项目弹窗内「项目商品库」开关；开=true 则 Excel 须填「商品库」「商品」，且广告组/广告侧必选；关=false 则两列须留空且不选 */
   '项目商品库': 'projectProductLibrary',
   '广告名称': 'adName',
   '推广链接关键词': 'linkKeyword',
@@ -155,7 +155,7 @@ function readTasks(filePath) {
       .filter(id => id.length > 0);
   }
 
-  /** 解析项目商品库开关：开/关/true/false，空则关 */
+  /** 解析项目商品库开关：开/关/true/false，空则关。为真时须填商品库+商品；为假时两列须空 */
   function parseProjectProductLibrary(val) {
     if (val === true || val === 1) return true;
     const raw = String(val ?? '').trim().toLowerCase();
@@ -298,6 +298,23 @@ function readTasks(filePath) {
       throw new Error(
         `任务 ${taskId}：「预算」（项目每日预算）与「广告组预算」至少填其一且须为大于 0 的数字`
       );
+    }
+
+    for (const acc of accounts) {
+      const ppl = !!acc.projectProductLibraryEnabled;
+      const ps = String(acc.productStore || '').trim();
+      const pd = String(acc.product || '').trim();
+      if (ppl) {
+        if (!ps || !pd) {
+          throw new Error(
+            `任务 ${taskId} 账户 ${acc.accountId}：项目商品库为「开」时须同时填写「商品库」与「商品」`
+          );
+        }
+      } else if (ps || pd) {
+        throw new Error(
+          `任务 ${taskId} 账户 ${acc.accountId}：项目商品库为「关」时「商品库」「商品」须留空`
+        );
+      }
     }
 
     if (missing.length > 0) {

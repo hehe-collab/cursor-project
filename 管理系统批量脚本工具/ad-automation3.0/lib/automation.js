@@ -18,6 +18,11 @@ const {
   waitForElement, withRetry,
 } = require('./utils');
 
+/** 3.0 广告组表 / 广告设置表列索引（与表头对齐，UI 变更时只改此处） */
+const AD_GROUP_COL_PRODUCT_STORE = 11;
+const AD_MODAL_COL_PRODUCT_STORE = 6;
+const AD_MODAL_COL_PRODUCT = 7;
+
 // ============================================================
 //  浏览器启动 & 登录
 // ============================================================
@@ -633,100 +638,6 @@ async function waitForLoadingMaskDisappear(page, maxWaitTime = 30000) {
   return false;
 }
 
-/**
- * 在行内选择 Pixel
- */
-async function selectPixelInRow(page, row, pixelName) {
-  try {
-    // Pixel 是表格中的一个下拉选择器
-    const cells = row.locator('td');
-    // 新 UI「选择广告系列」表列：账户ID(0), 账户(1), 已有项目(2), Pixel(3), 推广目标(4), ...
-    const pixelCell = cells.nth(3);
-    const pixelSelect = pixelCell.locator('.el-select, .el-input').first();
-
-    // ✅ 等待 Loading 遮罩消失（防止接口限流导致遮罩永久存在）
-    const maskDisappeared = await waitForLoadingMaskDisappear(page);
-    if (!maskDisappeared) {
-      throw new Error('Loading 遮罩未消失，可能是接口超时或后端限流');
-    }
-
-    await pixelSelect.click();
-    await shortDelay();
-
-    // 在下拉中找到对应选项
-    const dropdown = page.locator('.el-select-dropdown:visible').last();
-    const option = dropdown.locator('.el-select-dropdown__item').filter({ hasText: pixelName });
-    await option.waitFor({ state: 'visible', timeout: 5000 });
-    await option.click();
-    await shortDelay();
-
-    log(`    Pixel: ${pixelName}`);
-  } catch (err) {
-    await pauseForUser(`选择 Pixel 失败: ${pixelName}\n错误: ${err.message}\n请手动选择`);
-  }
-}
-
-/**
- * 在行内填写项目名称
- */
-async function fillProjectNameInRow(row, projectName) {
-  try {
-    const cells = row.locator('td');
-    // 新 UI：..., Pixel(3), 推广目标(4), 项目名称(5), ...
-    const nameCell = cells.nth(5);
-    const nameInput = nameCell.locator('.el-input__inner, input').first();
-
-    await nameInput.click();
-    await nameInput.fill('');
-    await shortDelay();
-    await nameInput.fill(projectName);
-    await shortDelay();
-
-    log(`    项目名称: ${projectName}`);
-  } catch (err) {
-    await pauseForUser(`填写项目名称失败: ${projectName}\n错误: ${err.message}\n请手动填写`);
-  }
-}
-
-/**
- * 在行内开启/关闭 Smart+
- * 新 UI：Smart+(6), 商品库(7), 启用(8) — 商品库也可能含开关，勿用「第 N 个 .el-switch」全行扫描
- */
-async function toggleSmartPlusInRow(row, enable) {
-  try {
-    const switchEl = row.locator('td').nth(6).locator('.el-switch').first();
-    const isChecked = await switchEl.evaluate(el => el.classList.contains('is-checked'));
-
-    if (enable !== isChecked) {
-      await switchEl.click();
-      await shortDelay();
-    }
-
-    log(`    Smart+: ${enable ? '开启' : '关闭'}`);
-  } catch (err) {
-    await pauseForUser(`切换 Smart+ 失败\n错误: ${err.message}\n请手动切换`);
-  }
-}
-
-/**
- * 在行内开启/关闭 启用（新 UI 为第 9 列）
- */
-async function toggleEnableInRow(row, enable) {
-  try {
-    const switchEl = row.locator('td').nth(8).locator('.el-switch').first();
-    const isChecked = await switchEl.evaluate(el => el.classList.contains('is-checked'));
-
-    if (enable !== isChecked) {
-      await switchEl.click();
-      await shortDelay();
-    }
-
-    log(`    启用: ${enable ? '开启' : '关闭'}`);
-  } catch (err) {
-    await pauseForUser(`切换启用状态失败\n错误: ${err.message}\n请手动切换`);
-  }
-}
-
 // ============================================================
 //  3.0 广告组表（Smart+2.0）：名称(3) Pixel(4) 优化目标(5) 出价(6) 广告组预算(7) 个数(8) 开始时间(9) 年龄(10) 商品库(11)…
 // ============================================================
@@ -1151,18 +1062,12 @@ async function setupAdGroup(page, taskGroup) {
       await withRetry(() => selectAgeAdGroupV3(page, row, account.age), `年龄`);
     }
 
-    /** 3.0 商品库逻辑：项目商品库开关开启时，才在广告组侧填写商品库 */
+    /** 3.0：项目商品库开时在广告组侧必选商品库（readTasks 已校验非空） */
     if (account.projectProductLibraryEnabled) {
-      if (account.productStore) {
-        await withRetry(
-          () => selectCatalogDropdownByColumn(page, row, 12, account.productStore),
-          `广告组商品库 [${account.productStore}]`
-        );
-      }
-    } else {
-      if (!account.productStore) {
-        log('    项目未开商品库且 Excel 未填「商品库」，可能无法提交', 'WARN');
-      }
+      await withRetry(
+        () => selectCatalogDropdownByColumn(page, row, AD_GROUP_COL_PRODUCT_STORE, account.productStore),
+        `广告组商品库 [${account.productStore}]`
+      );
     }
   }
 
@@ -2002,264 +1907,6 @@ async function selectTitles(page, adGroupDialog, row, titles) {
   }
 }
 
-// scrollToFindOption 函数已合并到 selectTitles 中
-
-// ── Step 16: 选择优化目标 ──
-
-async function selectOptimizationTarget(page, adGroupDialog, row, target) {
-  log(`    选择优化目标: ${target}`);
-
-  try {
-    const cells = row.locator('td');
-    // 优化目标列（约第6列）
-    const targetCell = cells.filter({ hasText: '请选择' }).first().or(
-      cells.nth(5)
-    );
-
-    const targetSelect = targetCell.locator('.el-select, .el-input').first();
-    await targetSelect.click();
-    await shortDelay();
-
-    const dropdown = page.locator('.el-select-dropdown:visible').last();
-    const option = dropdown.locator('.el-select-dropdown__item').filter({ hasText: target });
-    await option.waitFor({ state: 'visible', timeout: 5000 });
-    await option.click();
-    await shortDelay();
-
-    log(`    优化目标: ${target}`, 'OK');
-  } catch (err) {
-    // 重新抛出错误，让外层的 withRetry 能够捕获并自动重试
-    throw err;
-  }
-}
-
-// ── Step 17: 输入出价和预算 ──
-
-async function inputBidAndBudget(page, adGroupDialog, row, bid, budget, optimizationTarget) {
-  log(`    输入出价: ${bid}, 预算: ${budget}`);
-
-  // ===== 风险控制：验证出价和预算是否在安全范围内 =====
-  const bidNum = parseFloat(bid);
-  const budgetNum = parseFloat(budget);
-  
-  // 验证预算范围（50-5000）
-  if (budgetNum < 50) {
-    log(`    ⚠️  预算 ${budget} 低于最低限制 50，已调整为 50`, 'WARN');
-    budget = 50;
-  } else if (budgetNum > 5000) {
-    log(`    ❌ 预算 ${budget} 超过最高限制 5000！`, 'ERROR');
-    await pauseForUser(`预算 ${budget} 超过安全上限 5000，请在Excel中修改后重新运行，或手动输入后按Enter继续`);
-  }
-  
-  // 验证出价范围（根据优化目标）
-  if (optimizationTarget === '价值') {
-    if (bidNum < 1.1) {
-      log(`    ⚠️  优化目标为"价值"时，出价 ${bid} 低于最低限制 1.1，已调整为 1.1`, 'WARN');
-      bid = 1.1;
-    }
-    // 价值目标无上限
-  } else if (optimizationTarget === '转化') {
-    if (bidNum > 1.3) {
-      log(`    ❌ 优化目标为"转化"时，出价 ${bid} 超过最高限制 1.3！`, 'ERROR');
-      await pauseForUser(`出价 ${bid} 超过安全上限 1.3（转化目标），请在Excel中修改后重新运行，或手动输入后按Enter继续`);
-    }
-    // 转化目标无下限
-  }
-  
-  log(`    ✓ 风险控制检查通过: 出价=${bid}, 预算=${budget}, 目标=${optimizationTarget}`);
-
-  try {
-    // 出价和预算是两个相邻的数字输入框
-    // 从截图看，出价在第8列左右，预算在第9列
-    const inputs = row.locator('.el-input__inner, input[type="number"], input');
-    const allInputs = await inputs.all();
-
-    // 找到出价和预算输入框 —— 它们通常是行内最后几个可输入的 input
-    // 策略：找到 placeholder 包含 "美元" 或数字输入框
-    let bidInput = null;
-    let budgetInput = null;
-
-    // 尝试通过列位置定位
-    const cells = row.locator('td');
-    const cellCount = await cells.count();
-
-    // 从截图分析列顺序：账户(0), 项目(1), 链接(2), 素材(3), 标题(4), 优化目标(5), 认证身份(6), 出价(7), 预算(8)
-    // 但实际列顺序可能不同，尝试通过文本识别
-    for (let c = 0; c < cellCount; c++) {
-      const cell = cells.nth(c);
-      const input = cell.locator('.el-input__inner, input').first();
-      const hasInput = await input.isVisible().catch(() => false);
-      if (!hasInput) continue;
-
-      // 检查是否是数字类型或美元占位符
-      const placeholder = await input.getAttribute('placeholder').catch(() => '');
-      const cellText = await cell.innerText().catch(() => '');
-
-      if (cellText.includes('美元') || placeholder?.includes('美元') || placeholder?.includes('出价')) {
-        if (!bidInput) bidInput = input;
-        else if (!budgetInput) budgetInput = input;
-      }
-    }
-
-    // 如果通过文本没找到，用列位置
-    if (!bidInput) {
-      bidInput = cells.nth(7).locator('.el-input__inner, input').first();
-    }
-    if (!budgetInput) {
-      budgetInput = cells.nth(8).locator('.el-input__inner, input').first();
-    }
-
-    // 输入出价
-    await bidInput.click();
-    await bidInput.fill('');
-    await shortDelay();
-    await bidInput.fill(String(bid));
-    await shortDelay();
-
-    // 🔍 验证出价
-    await validateInputValue(bidInput, '出价', bid);
-
-    // 输入预算
-    await budgetInput.click();
-    await budgetInput.fill('');
-    await shortDelay();
-    await budgetInput.fill(String(budget));
-    await shortDelay();
-
-    // 🔍 验证预算
-    await validateInputValue(budgetInput, '预算', budget);
-
-    log(`    出价: ${bid}, 预算: ${budget}`, 'OK');
-  } catch (err) {
-    // 重新抛出错误，让外层的 withRetry 能够捕获并自动重试
-    throw err;
-  }
-}
-
-// ── Step 18: 选择开始时间 ──
-
-async function selectStartTime(page, adGroupDialog, row, date, time) {
-  const dateYmd = normalizeStartDateYMD(date);
-  const timeHms = normalizeStartTimeHMS(time);
-  const combined = `${dateYmd} ${timeHms}`;
-  log(`    选择开始时间: ${combined}`);
-
-  try {
-    const cells = row.locator('td');
-    const timeCell = cells.filter({ hasText: '北京时间' }).first().or(cells.nth(9));
-
-    let innerInput = timeCell.locator('.el-date-editor input.el-input__inner').first();
-    if ((await innerInput.count()) === 0) {
-      innerInput = timeCell.locator('input:not([type="hidden"])').first();
-    }
-
-    await innerInput.scrollIntoViewIfNeeded();
-    await innerInput.click();
-    await page.waitForTimeout(150);
-    await innerInput.click({ clickCount: 3 });
-    await innerInput.fill(combined);
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Enter');
-    await mediumDelay();
-
-    if ((await page.locator('.el-picker-panel:visible').count()) > 0) {
-      const nOk = await page.locator('.el-picker-panel:visible button').filter({ hasText: '确定' }).count();
-      if (nOk > 1) {
-        await page.locator('.el-picker-panel:visible button').filter({ hasText: '确定' }).first().click();
-        await page.waitForTimeout(300);
-        await page.locator('.el-picker-panel:visible button').filter({ hasText: '确定' }).last().click();
-        await page.waitForTimeout(300);
-      } else if (nOk === 1) {
-        await page.locator('.el-picker-panel:visible button').filter({ hasText: '确定' }).first().click();
-        await page.waitForTimeout(300);
-      }
-    }
-    await page.keyboard.press('Escape').catch(() => {});
-
-    let val = '';
-    try {
-      val = await innerInput.inputValue();
-    } catch {
-      /* ignore */
-    }
-    const normalizedVal = val.replace(/\//g, '-');
-    const dateOk = dateYmd && (normalizedVal.includes(dateYmd) || normalizedVal.includes(dateYmd.slice(0, 4)));
-    const timeOk =
-      timeHms &&
-      (normalizedVal.includes(timeHms) ||
-        normalizedVal.includes(timeHms.slice(0, 8)) ||
-        normalizedVal.includes(timeHms.slice(0, 5)));
-
-    if (!dateOk || !timeOk) {
-      log(`    开始时间直填可能未生效(当前值: ${val || '(空)'}), 使用面板分步填入`, 'WARN');
-      const datePicker = timeCell.locator('.el-date-editor, .el-input').first();
-      await datePicker.click();
-      await mediumDelay();
-      const pickerPanel = page.locator('.el-picker-panel:visible').last();
-      await pickerPanel.waitFor({ state: 'visible', timeout: 5000 });
-      await fillPanelDatetimeStepwise(page, pickerPanel, dateYmd, timeHms);
-    }
-
-    log(`    开始时间: ${combined}`, 'OK');
-  } catch (err) {
-    throw err;
-  }
-}
-
-// ── 可选：选择年龄 ──
-
-async function selectAge(page, adGroupDialog, row, age) {
-  log(`    选择年龄: ${age}`);
-
-  try {
-    const cells = row.locator('td');
-    // 年龄列（约第11列）
-    const ageCell = cells.filter({ hasText: '18+' }).or(cells.filter({ hasText: '25+' })).first().or(
-      cells.nth(10)
-    );
-
-    const ageSelect = ageCell.locator('.el-select, .el-input').first();
-    await ageSelect.click();
-    await shortDelay();
-
-    const dropdown = page.locator('.el-select-dropdown:visible').last();
-    const option = dropdown.locator('.el-select-dropdown__item').filter({ hasText: age });
-    await option.click();
-    await shortDelay();
-
-    log(`    年龄: ${age}`, 'OK');
-  } catch (err) {
-    log(`    设置年龄失败，使用默认值`, 'WARN');
-  }
-}
-
-// ── 可选：选择认证身份 ──
-
-async function selectIdentity(page, adGroupDialog, row, identity) {
-  log(`    选择认证身份: ${identity}`);
-
-  try {
-    const cells = row.locator('td');
-    // 认证身份列（索引6）：账户(0), 项目(1), 链接(2), 素材(3), 标题(4), 优化目标(5), 认证身份(6), 出价(7), 预算(8)
-    const identityCell = cells.nth(6);
-
-    const identitySelect = identityCell.locator('.el-select, .el-input').first();
-    await identitySelect.click();
-    await shortDelay();
-
-    const dropdown = page.locator('.el-select-dropdown:visible').last();
-    // 精确匹配：Excel 需填完整选项文本（如 默认、Drama World、CoffeeShort）
-    const option = dropdown.locator('.el-select-dropdown__item').filter({ hasText: new RegExp(`^\\s*${escapeRegExp(identity)}\\s*$`) });
-    await option.waitFor({ state: 'visible', timeout: 5000 });
-    await option.click();
-    await shortDelay();
-
-    log(`    认证身份: ${identity}`, 'OK');
-  } catch (err) {
-    log(`    设置认证身份失败: ${err.message}，使用默认值`, 'WARN');
-  }
-}
-
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -2383,20 +2030,16 @@ async function setupAdModalV3(page, taskGroup) {
     if (account.identity) {
       await withRetry(() => selectIdentityAdV3(page, row, account.identity), `认证身份`);
     }
-    /** 3.0 商品库逻辑：项目商品库开关开启时，才在广告侧填写商品库和商品 */
+    /** 3.0：项目商品库开时在广告侧必选商品库与商品（readTasks 已校验非空） */
     if (account.projectProductLibraryEnabled) {
-      if (account.productStore) {
-        await withRetry(
-          () => selectCatalogDropdownByColumn(page, row, 6, account.productStore),
-          `广告-商品库`
-        );
-      }
-      if (account.product) {
-        await withRetry(
-          () => selectCatalogDropdownByColumn(page, row, 7, account.product),
-          `广告-商品`
-        );
-      }
+      await withRetry(
+        () => selectCatalogDropdownByColumn(page, row, AD_MODAL_COL_PRODUCT_STORE, account.productStore),
+        `广告-商品库`
+      );
+      await withRetry(
+        () => selectCatalogDropdownByColumn(page, row, AD_MODAL_COL_PRODUCT, account.product),
+        `广告-商品`
+      );
     }
   }
 

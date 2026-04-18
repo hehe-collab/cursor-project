@@ -95,8 +95,11 @@ function testExcelData() {
       console.log(`\n⚙️  可选设置:`);
       console.log(`  年龄:           ${firstAcc?.age || '(默认 18+)'}`);
       console.log(`  认证身份:       ${firstAcc?.identity || '(不选)'}`);
-      console.log(`  商品库:         ${firstAcc?.productStore || '(不选)'}`);
-      console.log(`  商品:           ${firstAcc?.product || '(不选)'}`);
+      console.log(
+        `  项目商品库:     ${firstAcc?.projectProductLibraryEnabled ? '开（须填商品库+商品）' : '关（两列须空）'}`
+      );
+      console.log(`  商品库:         ${firstAcc?.productStore || '(空)'}`);
+      console.log(`  商品:           ${firstAcc?.product || '(空)'}`);
       
       // 账户列表（每个账户有自己的标题）
       console.log(`\n👥 账户列表 (${task.accounts.length} 个):`);
@@ -128,6 +131,15 @@ function testExcelData() {
       const budgetRuleOk = useExisting ? agB : projB || agB;
       const projectNameOk = useExisting || !!String(firstAcc?.projectName || '').trim();
 
+      const accountProductRuleOk = (acc) => {
+        const ppl = !!acc.projectProductLibraryEnabled;
+        const ps = String(acc.productStore || '').trim();
+        const pd = String(acc.product || '').trim();
+        if (ppl) return Boolean(ps && pd);
+        return !ps && !pd;
+      };
+      const productLibraryRuleOk = task.accounts.every(accountProductRuleOk);
+
       const checks = [
         { name: '主体', value: task.entity, valid: !!task.entity },
         { name: '项目名称/已有项目', value: useExisting ? `已有:${firstAcc.existingProject}` : firstAcc?.projectName, valid: projectNameOk },
@@ -145,6 +157,11 @@ function testExcelData() {
         },
         { name: '开始日期', value: firstAcc?.startDate, valid: !!firstAcc?.startDate && dateValid },
         { name: '开始时间', value: firstAcc?.startTime, valid: !!firstAcc?.startTime && timeValid },
+        {
+          name: '项目商品库与商品列',
+          value: firstAcc?.projectProductLibraryEnabled ? '开→须填商品库+商品' : '关→两列须空',
+          valid: productLibraryRuleOk,
+        },
       ];
       
       let allValid = true;
