@@ -3,9 +3,13 @@ package com.drama.service;
 import com.alibaba.fastjson2.JSON;
 import com.drama.entity.AdAccount;
 import com.drama.entity.AdTask;
+import com.drama.entity.BatchTask;
+import com.drama.entity.BatchTaskItem;
 import com.drama.mapper.AdAccountMapper;
 import com.drama.mapper.AdTaskMapper;
 import com.drama.mapper.AdminMapper;
+import com.drama.service.BatchTaskService;
+import com.drama.task.BatchTaskProcessor;
 import com.drama.util.ExcelExportUtil;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -32,7 +36,8 @@ public class AdTaskService {
     private final AdTaskMapper adTaskMapper;
     private final AdAccountMapper adAccountMapper;
     private final AdminMapper adminMapper;
-    private final BatchAdLaunchService batchAdLaunchService;
+    private final BatchTaskService batchTaskService;
+    private final BatchTaskProcessor batchTaskProcessor;
 
     public Map<String, Object> listFiltered(Map<String, String> query, int page, int pageSize) {
         List<Map<String, Object>> tasks = filterTasks(query);
@@ -164,14 +169,54 @@ public class AdTaskService {
         AdTask inserted = adTaskMapper.selectByTaskId(taskId);
 
         if (configMap != null && shouldExecuteBatch(configMap)) {
-            Map<String, Object> execution = batchAdLaunchService.execute(configMap);
-            configMap.put("execution", execution);
-            inserted.setStatus(firstNonBlank(str(execution.get("status")), inserted.getStatus(), "failed"));
-            inserted.setConfigJson(JSON.toJSONString(configMap));
-            adTaskMapper.update(inserted);
-            inserted = adTaskMapper.selectByTaskId(taskId);
+            // 异步执行：创建 batch_task 记录，提交到线程池异步处理
+            List<Map<String, Object>> projects = asList(configMap.get("projects"));
+            int itemCount = Math.max(projects.size(), 1);
+
+            List<BatchTaskItem> items = new ArrayList<>();
+            for (int i = 0; i < projects.size(); i++) {
+                BatchTaskItem item = new BatchTaskItem();
+                item.setItemIndex(i + 1);
+                item.setStage("project");
+                Map<String, Object> project = projects.get(i);
+                item.setProjectId(project != null ? str(project.get("id")) : "");
+                item.setAdvertiserId(project != null ? str(project.get("accountId")) : "");
+                item.setItemData(project != null ? JSON.toJSONString(project) : "{}");
+                items.add(item);
+            }
+
+            BatchTask batchTask = batchTaskService.createTask(
+                    "ad_batch_launch", adminId, createdBy,
+                    taskId, configMap, items);
+
+            // 提交异步执行（在独立线程中处理，立即返回）
+            batchTaskProcessor.executeAsync(batchTask.getTaskId());
+
+            // 在返回结果中附带 batchTaskId，前端据此轮询进度
+            Map<String, Object> result = normalizeTask(inserted);
+            result.put("batchTaskId", batchTask.getTaskId());
+            result.put("async", true);
+            return result;
         }
         return normalizeTask(inserted);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> asList(Object raw) {
+        if (!(raw instanceof List<?> list)) {
+            return List.of();
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> map) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    row.put(String.valueOf(entry.getKey()), entry.getValue());
+                }
+                out.add(row);
+            }
+        }
+        return out;
     }
 
     private boolean shouldExecuteBatch(Map<String, Object> config) {

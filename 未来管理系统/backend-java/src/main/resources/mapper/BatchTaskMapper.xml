@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.drama.mapper.BatchTaskMapper">
+
+  <resultMap id="BatchTaskMap" type="com.drama.entity.BatchTask">
+    <id column="id" property="id"/>
+    <result column="task_id" property="taskId"/>
+    <result column="task_type" property="taskType"/>
+    <result column="user_id" property="userId"/>
+    <result column="user_name" property="userName"/>
+    <result column="ad_task_id" property="adTaskId"/>
+    <result column="total_count" property="totalCount"/>
+    <result column="success_count" property="successCount"/>
+    <result column="failed_count" property="failedCount"/>
+    <result column="status" property="status"/>
+    <result column="progress" property="progress"/>
+    <result column="error_message" property="errorMessage"/>
+    <result column="config_json" property="configJson"/>
+    <result column="result_json" property="resultJson"/>
+    <result column="started_at" property="startedAt"/>
+    <result column="completed_at" property="completedAt"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="updated_at" property="updatedAt"/>
+  </resultMap>
+
+  <select id="selectByTaskId" resultMap="BatchTaskMap">
+    SELECT * FROM batch_tasks WHERE task_id = #{taskId}
+  </select>
+
+  <select id="selectByUserId" resultMap="BatchTaskMap">
+    SELECT * FROM batch_tasks WHERE user_id = #{userId}
+    ORDER BY created_at DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="selectByStatus" resultMap="BatchTaskMap">
+    SELECT * FROM batch_tasks WHERE status = #{status}
+    ORDER BY created_at ASC LIMIT #{limit}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO batch_tasks (
+      task_id, task_type, user_id, user_name, ad_task_id,
+      total_count, success_count, failed_count,
+      status, progress, error_message, config_json, result_json,
+      started_at, completed_at, created_at
+    ) VALUES (
+      #{taskId}, #{taskType}, #{userId}, #{userName}, #{adTaskId},
+      #{totalCount}, #{successCount}, #{failedCount},
+      #{status}, #{progress}, #{errorMessage}, #{configJson}, #{resultJson},
+      #{startedAt}, #{completedAt}, #{createdAt}
+    )
+  </insert>
+
+  <update id="updateStatus">
+    UPDATE batch_tasks SET status = #{status} WHERE task_id = #{taskId}
+  </update>
+
+  <update id="updateStarted">
+    UPDATE batch_tasks SET status = 'processing', started_at = NOW() WHERE task_id = #{taskId}
+  </update>
+
+  <update id="updateCompleted">
+    UPDATE batch_tasks
+    SET status = #{status}, completed_at = NOW(), result_json = #{resultJson}
+    WHERE task_id = #{taskId}
+  </update>
+
+  <update id="incrementSuccess">
+    UPDATE batch_tasks SET success_count = success_count + 1 WHERE task_id = #{taskId}
+  </update>
+
+  <update id="incrementFailed">
+    UPDATE batch_tasks SET failed_count = failed_count + 1 WHERE task_id = #{taskId}
+  </update>
+
+  <update id="updateProgress">
+    UPDATE batch_tasks
+    SET progress = CASE WHEN total_count > 0
+      THEN LEAST(ROUND((success_count + failed_count) * 100.0 / total_count), 100)
+      ELSE 0 END
+    WHERE task_id = #{taskId}
+  </update>
+
+  <update id="updateErrorMessage">
+    UPDATE batch_tasks SET error_message = #{errorMessage} WHERE task_id = #{taskId}
+  </update>
+
+  <select id="selectStuckProcessing" resultMap="BatchTaskMap">
+    SELECT * FROM batch_tasks
+    WHERE status = 'processing' AND started_at &lt; DATE_SUB(NOW(), INTERVAL #{minutes} MINUTE)
+    ORDER BY started_at ASC
+  </select>
+
+</mapper>

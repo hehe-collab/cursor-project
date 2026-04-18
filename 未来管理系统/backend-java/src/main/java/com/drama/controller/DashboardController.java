@@ -97,6 +97,31 @@ public class DashboardController {
         return Result.success(dashboardService.stats(r[0], r[1]));
     }
 
+    /** 短剧概览：按剧维度聚合充值排行、KPI、分类分布。 */
+    @Operation(summary = "短剧概览", description = "按剧维度聚合充值排行、KPI、分类分布")
+    @GetMapping("/drama-stats")
+    public Result<Map<String, Object>> dramaStats(
+            @Parameter(description = "开始日期") @RequestParam(value = "start_date", required = false) String startDate,
+            @Parameter(description = "结束日期") @RequestParam(value = "end_date", required = false) String endDate,
+            @Parameter(description = "短剧名称") @RequestParam(value = "drama_name", required = false) String dramaName,
+            @Parameter(description = "分类ID") @RequestParam(value = "category_id", required = false) Integer categoryId,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int pageSize) {
+        LocalDate[] r = parseRangeOrDefault7(startDate, endDate);
+        return Result.success(dashboardService.dramaStats(r[0], r[1], dramaName, categoryId, page, pageSize));
+    }
+
+    /** 单剧每日充值趋势（弹窗折线图）。 */
+    @Operation(summary = "单剧充值趋势", description = "指定短剧的每日充值趋势数据")
+    @GetMapping("/drama-daily-recharge")
+    public Result<Map<String, Object>> dramaDailyRecharge(
+            @Parameter(description = "短剧ID") @RequestParam("drama_id") Integer dramaId,
+            @Parameter(description = "开始日期") @RequestParam(value = "start_date", required = false) String startDate,
+            @Parameter(description = "结束日期") @RequestParam(value = "end_date", required = false) String endDate) {
+        LocalDate[] r = parseRangeOrDefault7(startDate, endDate);
+        return Result.success(dashboardService.getDramaDailyRecharge(dramaId, r[0], r[1]));
+    }
+
     private static LocalDate[] parseRangeOrDefault7(String startDate, String endDate) {
         LocalDate end = LocalDate.now();
         LocalDate start = end.minusDays(6);

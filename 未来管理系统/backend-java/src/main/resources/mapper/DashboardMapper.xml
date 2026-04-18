@@ -101,4 +101,145 @@
       AND NOT <include refid="PaidFilter"/>
       AND NOT <include refid="PendingFilter"/>
   </select>
+
+  <select id="rechargeAmountByCountry" resultType="java.util.HashMap">
+    SELECT IFNULL(NULLIF(TRIM(country),''), '未知') AS label,
+           COALESCE(SUM(amount), 0) AS amt,
+           COUNT(*) AS cnt
+    FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+    GROUP BY label
+    ORDER BY amt DESC
+  </select>
+
+  <select id="rechargeAmountByPlatform" resultType="java.util.HashMap">
+    SELECT IFNULL(NULLIF(TRIM(platform),''), '未知') AS label,
+           COALESCE(SUM(amount), 0) AS amt,
+           COUNT(*) AS cnt
+    FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+    GROUP BY label
+    ORDER BY amt DESC
+  </select>
+
+  <select id="countFirstRechargeInRange" resultType="long">
+    SELECT COUNT(*) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+      AND is_first_recharge = 1
+  </select>
+
+  <select id="countRechargeUsersInRange" resultType="long">
+    SELECT COUNT(DISTINCT user_id) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+  </select>
+
+  <select id="countUsersOnDate2" resultType="long">
+    SELECT COUNT(*) FROM users
+    WHERE DATE(created_at) = #{d}
+  </select>
+
+  <select id="sumRechargeAmountPaidOnDate2" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM recharge_records
+    WHERE DATE(COALESCE(local_order_time, created_at)) = #{d}
+      AND <include refid="PaidFilter"/>
+  </select>
+
+  <!-- ========== 短剧概览 ========== -->
+
+  <select id="countOnlineDramas" resultType="long">
+    SELECT COUNT(*) FROM dramas WHERE is_online = 1
+  </select>
+
+  <select id="sumTotalEpisodes" resultType="long">
+    SELECT COALESCE(SUM(total_episodes), 0) FROM dramas
+  </select>
+
+  <sql id="DramaRankingWhere">
+    <if test="dramaName != null and dramaName != ''">
+      AND d.title LIKE CONCAT('%', #{dramaName}, '%')
+    </if>
+    <if test="categoryId != null">
+      AND d.category_id = #{categoryId}
+    </if>
+  </sql>
+
+  <sql id="RechargeJoinCondition">
+    ON r.drama_id = d.id
+    AND DATE(COALESCE(r.local_order_time, r.created_at)) BETWEEN #{start} AND #{end}
+    AND (
+      IFNULL(r.payment_status,'') IN ('paid','completed')
+      OR LOWER(IFNULL(r.pay_status,'')) IN ('paid','success')
+    )
+  </sql>
+
+  <select id="dramaRankingList" resultType="java.util.HashMap">
+    SELECT
+      d.id AS drama_id,
+      d.title AS drama_name,
+      d.status,
+      d.total_episodes,
+      d.view_count,
+      d.category_id,
+      c.name AS category_name,
+      COALESCE(SUM(r.amount), 0) AS recharge_amount,
+      COUNT(r.id) AS recharge_count,
+      COUNT(DISTINCT r.user_id) AS recharge_users,
+      SUM(CASE WHEN r.is_first_recharge = 1 THEN 1 ELSE 0 END) AS first_recharge_count,
+      (SELECT COUNT(*) FROM promotion_links pl WHERE pl.drama_id = d.id) AS link_count
+    FROM dramas d
+    LEFT JOIN recharge_records r <include refid="RechargeJoinCondition"/>
+    LEFT JOIN categories c ON c.id = d.category_id
+    WHERE 1=1
+    <include refid="DramaRankingWhere"/>
+    GROUP BY d.id
+    ORDER BY recharge_amount DESC, d.id ASC
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="dramaRankingCount" resultType="long">
+    SELECT COUNT(*) FROM dramas d
+    WHERE 1=1
+    <include refid="DramaRankingWhere"/>
+  </select>
+
+  <select id="dramaRankingSummary" resultType="java.util.HashMap">
+    SELECT
+      COALESCE(SUM(r.amount), 0) AS recharge_amount,
+      COUNT(r.id) AS recharge_count,
+      COUNT(DISTINCT r.user_id) AS recharge_users,
+      SUM(CASE WHEN r.is_first_recharge = 1 THEN 1 ELSE 0 END) AS first_recharge_count
+    FROM dramas d
+    LEFT JOIN recharge_records r <include refid="RechargeJoinCondition"/>
+    WHERE 1=1
+    <include refid="DramaRankingWhere"/>
+  </select>
+
+  <select id="rechargeAmountByCategory" resultType="java.util.HashMap">
+    SELECT IFNULL(c.name, '未分类') AS label,
+           COALESCE(SUM(r.amount), 0) AS amt,
+           COUNT(r.id) AS cnt
+    FROM recharge_records r
+    JOIN dramas d ON d.id = r.drama_id
+    LEFT JOIN categories c ON c.id = d.category_id
+    WHERE DATE(COALESCE(r.local_order_time, r.created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+    GROUP BY label
+    ORDER BY amt DESC
+  </select>
+
+  <select id="dramaDailyRecharge" resultType="java.util.HashMap">
+    SELECT DATE(COALESCE(local_order_time, created_at)) AS stat_date,
+           COALESCE(SUM(amount), 0) AS amt,
+           COUNT(*) AS cnt
+    FROM recharge_records
+    WHERE drama_id = #{dramaId}
+      AND DATE(COALESCE(local_order_time, created_at)) BETWEEN #{start} AND #{end}
+      AND <include refid="PaidFilter"/>
+    GROUP BY stat_date
+    ORDER BY stat_date ASC
+  </select>
 </mapper>

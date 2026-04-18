@@ -481,4 +481,55 @@ CREATE TABLE IF NOT EXISTS `ad_tasks` (
                  KEY `idx_ad_tasks_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='广告任务';
 
+-- 27. 批量任务主表（异步任务队列）
+CREATE TABLE IF NOT EXISTS `batch_tasks` (
+                 `id` BIGINT NOT NULL AUTO_INCREMENT,
+                 `task_id` VARCHAR(64) NOT NULL COMMENT '任务唯一ID',
+                 `task_type` VARCHAR(50) NOT NULL COMMENT '任务类型: ad_batch_launch',
+                 `user_id` INT COMMENT '创建人ID',
+                 `user_name` VARCHAR(100) COMMENT '创建人姓名',
+                 `ad_task_id` VARCHAR(64) COMMENT '关联的 ad_tasks.task_id',
+                 `total_count` INT NOT NULL DEFAULT 0 COMMENT '总数量',
+                 `success_count` INT NOT NULL DEFAULT 0 COMMENT '成功数量',
+                 `failed_count` INT NOT NULL DEFAULT 0 COMMENT '失败数量',
+                 `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending/processing/completed/failed/cancelled',
+                 `progress` INT NOT NULL DEFAULT 0 COMMENT '进度百分比 0-100',
+                 `error_message` TEXT COMMENT '错误信息',
+                 `config_json` MEDIUMTEXT COMMENT '任务配置 JSON（完整的 BatchAdLaunch 入参）',
+                 `result_json` MEDIUMTEXT COMMENT '执行结果 JSON',
+                 `started_at` DATETIME COMMENT '开始时间',
+                 `completed_at` DATETIME COMMENT '完成时间',
+                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                 `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                 PRIMARY KEY (`id`),
+                 UNIQUE KEY `uk_batch_task_id` (`task_id`),
+                 KEY `idx_batch_user` (`user_id`),
+                 KEY `idx_batch_status` (`status`),
+                 KEY `idx_batch_created` (`created_at`),
+                 KEY `idx_batch_ad_task` (`ad_task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='批量任务主表';
+
+-- 28. 批量任务明细表
+CREATE TABLE IF NOT EXISTS `batch_task_items` (
+                 `id` BIGINT NOT NULL AUTO_INCREMENT,
+                 `task_id` VARCHAR(64) NOT NULL COMMENT '关联 batch_tasks.task_id',
+                 `item_index` INT NOT NULL COMMENT '序号',
+                 `stage` VARCHAR(20) NOT NULL COMMENT '阶段: campaign/adgroup/ad',
+                 `project_id` VARCHAR(64) COMMENT '项目ID',
+                 `advertiser_id` VARCHAR(64) COMMENT '广告主ID',
+                 `item_data` JSON COMMENT '任务数据',
+                 `result_id` VARCHAR(128) COMMENT '处理结果ID（如 campaign_id/adgroup_id/ad_id）',
+                 `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态: pending/processing/success/failed/skipped',
+                 `error_message` TEXT COMMENT '错误信息',
+                 `retry_count` INT NOT NULL DEFAULT 0 COMMENT '重试次数',
+                 `started_at` DATETIME COMMENT '开始处理时间',
+                 `completed_at` DATETIME COMMENT '完成时间',
+                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                 `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                 PRIMARY KEY (`id`),
+                 KEY `idx_bti_task_id` (`task_id`),
+                 KEY `idx_bti_status` (`status`),
+                 KEY `idx_bti_task_status` (`task_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='批量任务明细表';
+
 SET FOREIGN_KEY_CHECKS = 1;

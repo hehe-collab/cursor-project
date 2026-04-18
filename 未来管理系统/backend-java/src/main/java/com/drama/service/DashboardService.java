@@ -74,6 +74,39 @@ public class DashboardService {
         rechargeStatusDist.put("failed", dashboardMapper.countRechargeOtherInRange(start, end));
         data.put("recharge_status_dist", rechargeStatusDist);
 
+        data.put("first_recharge_count", dashboardMapper.countFirstRechargeInRange(start, end));
+        data.put("recharge_users", dashboardMapper.countRechargeUsersInRange(start, end));
+
+        LocalDate yesterday = today.minusDays(1);
+        data.put("yesterday_users", dashboardMapper.countUsersOnDate2(yesterday));
+        data.put("yesterday_amount", round2(dashboardMapper.sumRechargeAmountPaidOnDate2(yesterday)));
+
+        List<Map<String, Object>> countryRaw = dashboardMapper.rechargeAmountByCountry(start, end);
+        List<Map<String, Object>> countryDist = new ArrayList<>();
+        if (countryRaw != null) {
+            for (Map<String, Object> row : countryRaw) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("name", row.get("label"));
+                item.put("amount", round2(toBigDecimal(row.get("amt"))));
+                item.put("count", toLong(row.get("cnt")));
+                countryDist.add(item);
+            }
+        }
+        data.put("country_dist", countryDist);
+
+        List<Map<String, Object>> platformRaw = dashboardMapper.rechargeAmountByPlatform(start, end);
+        List<Map<String, Object>> platformDist = new ArrayList<>();
+        if (platformRaw != null) {
+            for (Map<String, Object> row : platformRaw) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("name", row.get("label"));
+                item.put("amount", round2(toBigDecimal(row.get("amt"))));
+                item.put("count", toLong(row.get("cnt")));
+                platformDist.add(item);
+            }
+        }
+        data.put("platform_dist", platformDist);
+
         return data;
     }
 
@@ -372,10 +405,134 @@ public class DashboardService {
         return m;
     }
 
+    /* ==================== 短剧概览 ==================== */
+
+    public Map<String, Object> dramaStats(
+            LocalDate startDate, LocalDate endDate,
+            String dramaName, Integer categoryId,
+            int page, int pageSize) {
+        LocalDate start = startDate != null ? startDate : LocalDate.now().minusDays(6);
+        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        if (end.isBefore(start)) { LocalDate t = start; start = end; end = t; }
+
+        int p = Math.max(1, page);
+        int ps = Math.min(100, Math.max(1, pageSize));
+        int offset = (p - 1) * ps;
+
+        String dn = (dramaName != null && !dramaName.isBlank()) ? dramaName.trim() : null;
+
+        long total = dashboardMapper.dramaRankingCount(start, end, dn, categoryId);
+
+        List<Map<String, Object>> rawList = dashboardMapper.dramaRankingList(start, end, dn, categoryId, offset, ps);
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Map<String, Object> row : rawList) {
+            Map<String, Object> item = new LinkedHashMap<>(row);
+            BigDecimal amt = toBigDecimal(row.get("recharge_amount"));
+            long users = toLong(row.get("recharge_users"));
+            long firstCnt = toLong(row.get("first_recharge_count"));
+            item.put("recharge_amount", round2(amt));
+            item.put("first_recharge_rate", users > 0 ? round4((double) firstCnt / users) : 0);
+            item.put("avg_recharge_per_user", users > 0 ? round2(amt.divide(BigDecimal.valueOf(users), 2, RoundingMode.HALF_UP)) : BigDecimal.ZERO.setScale(2));
+            list.add(item);
+        }
+
+        Map<String, Object> rawSummary = dashboardMapper.dramaRankingSummary(start, end, dn, categoryId);
+        Map<String, Object> summary = new LinkedHashMap<>();
+        if (rawSummary != null) {
+            BigDecimal sAmt = toBigDecimal(rawSummary.get("recharge_amount"));
+            long sUsers = toLong(rawSummary.get("recharge_users"));
+            long sFirst = toLong(rawSummary.get("first_recharge_count"));
+            summary.put("recharge_amount", round2(sAmt));
+            summary.put("recharge_count", toLong(rawSummary.get("recharge_count")));
+            summary.put("recharge_users", sUsers);
+            summary.put("first_recharge_count", sFirst);
+            summary.put("first_recharge_rate", sUsers > 0 ? round4((double) sFirst / sUsers) : 0);
+            summary.put("avg_recharge_per_user", sUsers > 0 ? round2(sAmt.divide(BigDecimal.valueOf(sUsers), 2, RoundingMode.HALF_UP)) : BigDecimal.ZERO.setScale(2));
+        }
+
+        Map<String, Object> kpi = new LinkedHashMap<>();
+        kpi.put("online_dramas", dashboardMapper.countOnlineDramas());
+        kpi.put("total_episodes", dashboardMapper.sumTotalEpisodes());
+        kpi.put("total_recharge_amount", summary.getOrDefault("recharge_amount", BigDecimal.ZERO.setScale(2)));
+        kpi.put("recharge_users", summary.getOrDefault("recharge_users", 0L));
+        BigDecimal kpiAmt = toBigDecimal(summary.get("recharge_amount"));
+        long dramasWithRecharge = list.stream().filter(r -> toBigDecimal(r.get("recharge_amount")).compareTo(BigDecimal.ZERO) > 0).count();
+        if (total > ps) {
+            dramasWithRecharge = Math.max(dramasWithRecharge, 1);
+        }
+        kpi.put("avg_per_drama", dramasWithRecharge > 0 ? round2(kpiAmt.divide(BigDecimal.valueOf(dramasWithRecharge), 2, RoundingMode.HALF_UP)) : BigDecimal.ZERO.setScale(2));
+
+        List<Map<String, Object>> categoryRaw = dashboardMapper.rechargeAmountByCategory(start, end);
+        List<Map<String, Object>> categoryDist = new ArrayList<>();
+        if (categoryRaw != null) {
+            for (Map<String, Object> row : categoryRaw) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("name", row.get("label"));
+                item.put("amount", round2(toBigDecimal(row.get("amt"))));
+                item.put("count", toLong(row.get("cnt")));
+                categoryDist.add(item);
+            }
+        }
+
+        List<Map<String, Object>> top10 = list.size() > 10 ? list.subList(0, 10) : new ArrayList<>(list);
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("kpi", kpi);
+        out.put("list", list);
+        out.put("summary", summary);
+        out.put("total", total);
+        out.put("page", p);
+        out.put("pageSize", ps);
+        out.put("category_dist", categoryDist);
+        out.put("top10", top10);
+        return out;
+    }
+
+    public Map<String, Object> getDramaDailyRecharge(Integer dramaId, LocalDate startDate, LocalDate endDate) {
+        LocalDate start = startDate != null ? startDate : LocalDate.now().minusDays(6);
+        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        if (end.isBefore(start)) { LocalDate t = start; start = end; end = t; }
+
+        List<Map<String, Object>> raw = dashboardMapper.dramaDailyRecharge(dramaId, start, end);
+        List<Map<String, Object>> chartData = new ArrayList<>();
+        if (raw != null) {
+            for (Map<String, Object> row : raw) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                Object sd = row.get("stat_date");
+                item.put("date", sd instanceof java.sql.Date
+                        ? ((java.sql.Date) sd).toLocalDate().format(DAY)
+                        : sd != null ? sd.toString().substring(0, 10) : "");
+                item.put("amount", round2(toBigDecimal(row.get("amt"))));
+                item.put("count", toLong(row.get("cnt")));
+                chartData.add(item);
+            }
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("chartData", chartData);
+        return out;
+    }
+
+    private static double round4(double v) {
+        return Math.round(v * 10000.0) / 10000.0;
+    }
+
     private static BigDecimal round2(BigDecimal v) {
         if (v == null) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
         return v.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal toBigDecimal(Object v) {
+        if (v == null) return BigDecimal.ZERO;
+        if (v instanceof BigDecimal) return (BigDecimal) v;
+        return new BigDecimal(v.toString());
+    }
+
+    private static long toLong(Object v) {
+        if (v == null) return 0L;
+        if (v instanceof Number) return ((Number) v).longValue();
+        return Long.parseLong(v.toString());
     }
 }
