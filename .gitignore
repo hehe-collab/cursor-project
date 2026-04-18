@@ -33,3 +33,56 @@ logs/
 *.temp
 *.bak
 *~
+
+# ===================================================== #
+# 2026-04-18 第二批安全网（防止误传）
+# ===================================================== #
+
+# ---- 嵌套 git 仓库 (含独立 .git/，不属于本仓库) ----
+my-first-project/
+
+# ---- Playwright 浏览器数据 (含登录 Cookie/Session，绝不能上公网仓库) ----
+**/browser-data/
+**/pw-browsers/
+
+# ---- 调试截图与输出目录 (体积大、临时性) ----
+**/screenshots/
+**/output/
+**/dist/
+**/build/
+
+# ---- 视频/音频大文件 (Git 不擅长存二进制；如需共享请用对象存储) ----
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.mp3
+*.wav
+
+# ---- 本地配置（含密钥/路径，不应跨设备同步） ----
+**/config.local.*
+**/paths.local.*
+**/*.local.json
+**/*.local.yaml
+**/*.local.yml
+
+# ---- Python 虚拟环境与缓存 ----
+.venv/
+venv/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# ---- Node.js ----
+**/node_modules/
+
+# ---- Java / Maven / Gradle ----
+**/target/
+**/*.jar
+**/*.war
+**/.gradle/
+
+# ---- 临时草稿目录 (素材制作工具的中间产物) ----
+**/_scratch/
+**/_scratch_*/

@@ -1,0 +1,28 @@
+# =====================================================
+# promotion-link-tool2.0 .gitignore
+# 创建于 2026-04-18
+# =====================================================
+
+# ---- Playwright 浏览器数据（含登录 Session，1.1G+，绝不能提交）----
+browser-data/
+pw-browsers/
+
+# ---- Node.js ----
+node_modules/
+
+# ---- 截图与输出 ----
+screenshots/
+output/
+debug-*.png
+
+# ---- 日志 ----
+*.log
+
+# ---- 本地配置 ----
+config.local.*
+
+# ---- 系统/编辑器 ----
+.DS_Store
+.vscode/
+.idea/
+*.swp

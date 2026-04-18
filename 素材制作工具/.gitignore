@@ -1,0 +1,33 @@
+# =====================================================
+# 素材制作工具 .gitignore
+# 创建于 2026-04-18
+# 重要：本目录配置文件含 OpenAI API Key，绝对不能提交！
+# =====================================================
+
+# ---- 含密钥的本地配置（最高优先级保护） ----
+config.yaml
+config.local.yaml
+*.local.*
+
+# ---- 视频生产输出 ----
+output/
+analysis.json
+*.mp4
+*.mov
+
+# ---- viral_clone 中间产物 ----
+viral_clone/_scratch/
+viral_clone/_scratch_*/
+viral_clone/paths.local.*
+viral_clone/output/
+
+# ---- Python 虚拟环境 ----
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# ---- 系统/编辑器 ----
+.DS_Store
+.vscode/
+.idea/

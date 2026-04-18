@@ -13,6 +13,12 @@ browser-data/
 # 调试截图
 debug-*.png
 
+# 截图目录（自动化执行产生，体积大）
+screenshots/
+
+# 输出目录
+output/
+
 # 操作系统
 .DS_Store
 Thumbs.db
