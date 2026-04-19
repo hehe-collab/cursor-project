@@ -86,3 +86,70 @@ venv/
 # ---- 临时草稿目录 (素材制作工具的中间产物) ----
 **/_scratch/
 **/_scratch_*/
+
+# ===================================================== #
+# 2026-04-19 第三批安全网（对话记录 / 凭证类文件防漏网）
+# ===================================================== #
+
+# ---- AI 对话记录扩展（防漏网，覆盖任意目录、任意命名风格） ----
+**/对话记录.md
+**/对话记录-*.md
+**/*对话记录.md
+**/*对话记录-*.md
+**/*-对话记录*.md
+**/*-记录-*.md
+**/双账号架构配置*.md
+**/账号*配置*.md
+**/部署对话记录*.md
+**/账号安全加固*.md
+**/需求与对话记录.md
+**/全部对话历史/
+
+# ---- 凭证 / 密钥文件（任何目录任何后缀都不允许传 GitHub） ----
+**/aliyun.env
+**/*.aliyun.env
+**/aliyun-*.env
+**/*-aliyun.env
+**/secrets/
+**/*.secret
+**/*.secret.*
+**/*-AK-*.csv
+**/*-accesskey-*.csv
+**/*-credentials.json
+**/*-credentials.yml
+**/*-credentials.yaml
+credentials.csv
+credentials.json
+.env
+.env.local
+.env.production
+.env.prod
+.env.staging
+**/.env
+**/.env.local
+**/.env.production
+**/.env.prod
+**/.env.staging
+# 但保留 .env.example / .env.dev（这两个是模板文件，应当跟踪）
+!**/.env.example
+!**/.env.dev
+
+# ---- SSH / GPG 私钥 ----
+id_rsa
+id_ed25519
+id_ecdsa
+id_dsa
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+**/.ssh/
+!**/.ssh/known_hosts
+!**/.ssh/config
+
+# ---- 阿里云 / AWS / GCP 凭证默认路径 ----
+.aliyun/
+.aws/
+.gcloud/
+.azure/
