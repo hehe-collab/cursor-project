@@ -221,8 +221,6 @@ if (showLoginSuccess.value) {
 const titleMap = {
   '/dashboard': '首页',
   '/dramas': '短剧管理',
-  '/dramas/add': '新增剧集',
-  '/dramas/edit': '编辑剧集',
   '/users': '用户信息',
   '/recharge': '充值记录',
   '/delivery-links': '投放链接配置',
@@ -245,7 +243,6 @@ const titleMap = {
 }
 
 function getTitle(path) {
-  if (path.startsWith('/dramas/edit')) return '编辑剧集'
   return titleMap[path] || '首页'
 }
 
@@ -263,7 +260,7 @@ const breadcrumbItems = computed(() => {
 
 watch(() => route.path, (path) => {
   const title = getTitle(path)
-  const tabPath = path.startsWith('/dramas/edit') ? '/dramas' : path
+  const tabPath = path
 
   if (tabPath !== '/dashboard') {
     const orderIdx = tabAccessOrder.value.indexOf(tabPath)
@@ -303,9 +300,7 @@ function closeTab(path) {
 }
 
 const activeMenu = computed(() => {
-  const path = route.path
-  if (path.startsWith('/dramas/edit')) return '/dramas'
-  return path
+  return route.path
 })
 
 const user = computed(() => {

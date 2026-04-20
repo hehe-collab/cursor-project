@@ -11,6 +11,14 @@ if [ -f .env.dev ]; then
   set +a
 fi
 
+# 个人本机覆盖（不进 git；用于真实 AK 等敏感配置）
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 mkdir -p logs uploads
 
 if [ -f scripts/use-java17.sh ]; then

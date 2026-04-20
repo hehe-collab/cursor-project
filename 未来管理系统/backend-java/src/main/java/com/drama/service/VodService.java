@@ -258,8 +258,15 @@ public class VodService {
         if ("transcoding".equals(lower)
                 || "processing".equals(lower)
                 || "transcode".equals(lower)
-                || "snapshotting".equals(lower)) {
+                || "snapshotting".equals(lower)
+                || "uploadsucc".equals(lower)
+                || "uploadsuccess".equals(lower)
+                || "checking".equals(lower)
+                || "reviewing".equals(lower)) {
             return "transcoding";
+        }
+        if ("deleted".equals(lower)) {
+            return "failed";
         }
         return lower;
     }

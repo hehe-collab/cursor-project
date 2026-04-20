@@ -13,8 +13,6 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue'), meta: { title: '看板', permission: 'dashboard:view' } },
       { path: 'dramas', name: 'DramaManage', component: () => import('../views/DramaManage.vue'), meta: { title: '短剧管理', permission: 'drama:view' } },
-      { path: 'dramas/add', name: 'DramaAdd', component: () => import('../views/DramaForm.vue'), meta: { title: '新增短剧', permission: 'drama:create' } },
-      { path: 'dramas/edit/:id', name: 'DramaEdit', component: () => import('../views/DramaForm.vue'), meta: { title: '编辑短剧', permission: 'drama:edit' } },
       { path: 'users', name: 'User', component: () => import('../views/User.vue'), meta: { title: '用户列表', permission: 'user:view' } },
       { path: 'recharge', name: 'Recharge', component: () => import('../views/Recharge.vue'), meta: { title: '充值记录', permission: 'recharge:view' } },
       { path: 'delivery-links', name: 'DeliveryLinks', component: () => import('../views/DeliveryLinks.vue'), meta: { title: '投放链接', permission: 'promotion:view' } },

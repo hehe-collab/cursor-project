@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "backend-java": "cd backend-java && source scripts/use-java17.sh && mvn spring-boot:run",
+    "backend-java": "cd backend-java && bash scripts/start-dev.sh",
     "frontend": "cd frontend && npm run dev",
     "frontend:after-java": "wait-on -t 120000 tcp:127.0.0.1:3001 && npm run frontend",
     "start": "concurrently -n java,web -c magenta,green \"npm run backend-java\" \"npm run frontend:after-java\""

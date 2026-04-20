@@ -309,19 +309,8 @@
             <el-option v-for="c in categoryList" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="文件">
-          <el-upload
-            ref="uploadRef"
-            :auto-upload="false"
-            :limit="1"
-            :on-change="handleFileChange"
-            :file-list="fileList"
-          >
-            <el-button type="primary">选择文件</el-button>
-            <template #tip>
-              <div class="upload-tip">备注：上传文件到阿里云VOD，最大10GB（当前为占位，未接真实上传）</div>
-            </template>
-          </el-upload>
+        <el-form-item label="视频文件">
+          <VodBatchUploader v-model="formData.episodes" :drama-title="formData.name" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -375,6 +364,7 @@ import { getDramaDetail, getDramaList, invalidateDramaCaches } from '@/api/drama
 import SkeletonTable from '@/components/SkeletonTable.vue'
 import VirtualTable from '@/components/VirtualTable.vue'
 import Loading from '@/components/Loading.vue'
+import VodBatchUploader from '@/components/VodBatchUploader.vue'
 import { exportJsonToXlsx } from '../utils/excelExport'
 import { copyToClipboard } from '@/utils/clipboard'
 import { debounce } from '@/utils/performance'
@@ -436,8 +426,6 @@ const dialogVisible = ref(false)
 const dialogTitle = computed(() => (formData.value.id ? '修改剧' : '添加剧'))
 const submitLoading = ref(false)
 const formRef = ref(null)
-const uploadRef = ref(null)
-const fileList = ref([])
 
 const categoryList = ref([])
 
@@ -452,11 +440,10 @@ const defaultForm = () => ({
   free_episodes: 11,
   oss_path: '',
   category_id: null,
-  file: null,
+  episodes: [],
 })
 
 const formData = ref(defaultForm())
-const pendingFile = ref(null)
 
 const rules = {
   is_online: [{ required: true, message: '请选择状态', trigger: 'change' }],
@@ -638,8 +625,6 @@ const handleToggleOnline = async (row) => {
 
 const handleAdd = () => {
   formData.value = defaultForm()
-  pendingFile.value = null
-  fileList.value = []
   dialogVisible.value = true
 }
 
@@ -658,7 +643,7 @@ function formatTime(t) {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
 }
 
-const handleEditRow = (row) => {
+const handleEditRow = async (row) => {
   formData.value = {
     id: row.id,
     is_online: row.is_online === 1 || row.is_online === true ? 1 : 0,
@@ -670,15 +655,17 @@ const handleEditRow = (row) => {
     free_episodes: row.free_episodes != null ? row.free_episodes : 11,
     oss_path: row.oss_path || '',
     category_id: row.category_id ?? null,
-    file: null,
+    episodes: [],
   }
-  pendingFile.value = null
-  fileList.value = []
   dialogVisible.value = true
-}
-
-const handleFileChange = (file) => {
-  pendingFile.value = file.raw
+  try {
+    const res = await getDramaDetail(row.id)
+    if (res?.code === 0 && Array.isArray(res.data?.episodes)) {
+      formData.value.episodes = res.data.episodes.map(toEpisodeForm)
+    }
+  } catch (e) {
+    console.warn('load episodes failed', e)
+  }
 }
 
 const buildSubmitPayload = () => {
@@ -692,9 +679,10 @@ const buildSubmitPayload = () => {
     free_episodes,
     oss_path,
     category_id,
+    episodes,
   } = formData.value
   const status = is_online === 1 ? 'published' : 'offline'
-  return {
+  const payload = {
     title: name,
     name,
     display_name,
@@ -708,6 +696,20 @@ const buildSubmitPayload = () => {
     status,
     is_online,
   }
+  if (Array.isArray(episodes) && episodes.length > 0) {
+    payload.episodes = episodes.map((ep) => ({
+      episode_num: Number(ep.episode_num) || 0,
+      title: ep.title || '',
+      video_id: ep.video_id || ep.vod_video_id || '',
+      vod_video_id: ep.vod_video_id || ep.video_id || '',
+      vod_status: ep.vod_status || '',
+      video_url: ep.video_url || '',
+      video_size: Number(ep.video_size) || 0,
+      vod_cover_url: ep.vod_cover_url || '',
+      duration: Number(ep.duration) || 0,
+    }))
+  }
+  return payload
 }
 
 const handleSubmit = async () => {
@@ -716,9 +718,6 @@ const handleSubmit = async () => {
     await formRef.value.validate()
   } catch {
     return
-  }
-  if (pendingFile.value) {
-    ElMessage.info('文件上传至阿里云 VOD 尚未接入，将仅保存表单字段')
   }
   submitLoading.value = true
   try {
@@ -750,8 +749,22 @@ const handleSubmit = async () => {
 
 const handleDialogClosed = () => {
   formRef.value?.resetFields()
-  fileList.value = []
-  pendingFile.value = null
+  formData.value = defaultForm()
+}
+
+function toEpisodeForm(e) {
+  if (!e || typeof e !== 'object') return toEpisodeForm({})
+  return {
+    episode_num: Number(e.episode_num) || 0,
+    title: e.title || '',
+    video_id: e.video_id || '',
+    vod_video_id: e.vod_video_id || e.video_id || '',
+    vod_status: e.vod_status || '',
+    video_url: e.video_url || '',
+    video_size: Number(e.video_size) || 0,
+    vod_cover_url: e.vod_cover_url || '',
+    duration: Number(e.duration) || 0,
+  }
 }
 
 const handleViewDetail = async (row) => {

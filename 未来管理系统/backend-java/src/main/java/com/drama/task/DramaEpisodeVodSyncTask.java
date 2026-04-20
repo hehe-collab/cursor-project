@@ -30,8 +30,8 @@ public class DramaEpisodeVodSyncTask {
         if (!vodService.isConfigured()) {
             return;
         }
-        List<DramaEpisode> rows =
-                dramaEpisodeMapper.selectByVodStatuses(List.of("uploading", "transcoding"));
+        List<DramaEpisode> rows = dramaEpisodeMapper.selectByVodStatuses(
+                List.of("uploading", "transcoding", "uploadsucc", "checking", "reviewing"));
         Set<Integer> changedDramaIds = new LinkedHashSet<>();
         for (DramaEpisode row : rows) {
             String vodVideoId =
