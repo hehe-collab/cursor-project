@@ -48,5 +48,7 @@ public interface DramaMapper {
 
     int updateVodCateId(@Param("id") Integer id, @Param("vodCateId") Long vodCateId);
 
+    int updateOssPath(@Param("id") Integer id, @Param("ossPath") String ossPath);
+
     int deleteById(@Param("id") Integer id);
 }

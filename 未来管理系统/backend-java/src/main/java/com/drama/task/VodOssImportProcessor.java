@@ -2,6 +2,9 @@ package com.drama.task;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.TypeReference;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import com.drama.entity.BatchTask;
 import com.drama.entity.BatchTaskItem;
 import com.drama.entity.Drama;
@@ -207,12 +210,15 @@ public class VodOssImportProcessor {
             vodResults = new ArrayList<>();
         }
 
-        // 把 vodResults 按 sourceURL 索引（因为返回顺序不一定与提交顺序一致）
-        Map<String, Map<String, Object>> resultBySource = new LinkedHashMap<>();
+        // 用 OSS key 反查 vodResults：把每个 row.sourceURL 解码后取 path 部分跟 ctx.key 比较
+        // 阿里云 VOD GetURLUploadInfos 返回的 UploadURL 与提交时字符串可能不一致（OSS 预签名
+        // 每次重新生成 + URL 编码差异），因此用 OSS key（路径无签名部分）作为稳定主键。
+        Map<String, Map<String, Object>> resultByKey = new LinkedHashMap<>();
         for (Map<String, Object> r : vodResults) {
             String src = String.valueOf(r.getOrDefault("sourceURL", ""));
-            if (!src.isEmpty()) {
-                resultBySource.put(src, r);
+            String key = extractOssKeyFromUrl(src);
+            if (!key.isEmpty()) {
+                resultByKey.put(key, r);
             }
         }
 
@@ -224,7 +230,7 @@ public class VodOssImportProcessor {
                 failed++;
                 continue;
             }
-            Map<String, Object> r = resultBySource.get(ctx.signedUrl);
+            Map<String, Object> r = resultByKey.get(ctx.key);
             String mediaId = r != null ? str(r.get("mediaId")) : "";
             String errorMsg = r != null ? str(r.get("errorMessage")) : "";
             if (mediaId.isBlank()) {
@@ -293,6 +299,41 @@ public class VodOssImportProcessor {
         if (name == null) return "";
         int dot = name.lastIndexOf('.');
         return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    /**
+     * 从一个 URL 字符串中解出 OSS key（path 部分，去除前导 /，URLDecode）。
+     *
+     * <p>用于把 VOD GetURLUploadInfos 返回的 UploadURL 反归一化到原始 OSS key，便于按 key 反查。
+     * 兼容：(a) 完整 https://bucket.oss-xxx.aliyuncs.com/path/file?signature=...
+     * (b) 任何 java.net.URI 能解析的 URL；(c) 解析失败时退化为字符串处理。
+     */
+    static String extractOssKeyFromUrl(String url) {
+        if (url == null || url.isEmpty()) return "";
+        String rawPath;
+        try {
+            URI uri = URI.create(url);
+            rawPath = uri.getRawPath();
+            if (rawPath == null) return "";
+        } catch (Exception e) {
+            // 非合法 URI，退化处理：截取 :// 后第一个 / 到 ? 之间
+            int schemeEnd = url.indexOf("://");
+            int start = schemeEnd >= 0 ? url.indexOf('/', schemeEnd + 3) : 0;
+            int q = url.indexOf('?', Math.max(start, 0));
+            rawPath = (start < 0)
+                    ? (q >= 0 ? url.substring(0, q) : url)
+                    : (q >= 0 ? url.substring(start, q) : url.substring(start));
+        }
+        String decoded;
+        try {
+            decoded = URLDecoder.decode(rawPath, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            decoded = rawPath;
+        }
+        while (decoded.startsWith("/")) {
+            decoded = decoded.substring(1);
+        }
+        return decoded;
     }
 
     private static Integer toInt(Object v) {

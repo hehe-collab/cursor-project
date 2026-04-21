@@ -132,6 +132,12 @@
         updated_at = NOW()
     WHERE id = #{id}
   </update>
+  <update id="updateOssPath">
+    UPDATE dramas
+    SET oss_path = #{ossPath},
+        updated_at = NOW()
+    WHERE id = #{id}
+  </update>
   <delete id="deleteById">
     DELETE FROM dramas WHERE id = #{id}
   </delete>

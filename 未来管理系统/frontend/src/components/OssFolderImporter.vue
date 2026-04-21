@@ -88,11 +88,16 @@ const props = defineProps({
     type: String,
     default: 'append',
   },
+  /** 默认 OSS 路径（修改剧时回填上一次导入的路径）。仅作初始填充，不会自动扫描。 */
+  defaultPath: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['update:modelValue', 'update:mode', 'scanned'])
 
-const ossPath = ref('')
+const ossPath = ref(props.defaultPath || '')
 const loading = ref(false)
 const scanResult = ref(null)
 const files = reactive([])
@@ -102,6 +107,15 @@ watch(
   () => props.mode,
   (v) => {
     if (v && v !== modeValue.value) modeValue.value = v
+  },
+)
+
+watch(
+  () => props.defaultPath,
+  (v) => {
+    if (typeof v === 'string' && v && !ossPath.value) {
+      ossPath.value = v
+    }
   },
 )
 
@@ -181,7 +195,7 @@ function removeItem(index) {
 
 defineExpose({
   reset() {
-    ossPath.value = ''
+    ossPath.value = props.defaultPath || ''
     scanResult.value = null
     files.splice(0, files.length)
     modeValue.value = props.mode || 'append'

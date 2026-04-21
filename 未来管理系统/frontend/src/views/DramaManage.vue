@@ -301,17 +301,22 @@
         <el-form-item label="免费集数" prop="free_episodes">
           <el-input-number v-model="formData.free_episodes" :min="0" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="分类" prop="vod_cate_path">
-          <el-cascader
-            v-model="formData.vod_cate_path"
-            :options="vodCategoryOptions"
-            :props="vodCascaderProps"
-            placeholder="请选择阿里云 VOD 分类（如 海外短剧-H5 / 印尼）"
+        <el-form-item label="分类" prop="vod_parent_cate_id">
+          <el-select
+            v-model="formData.vod_parent_cate_id"
+            placeholder="请选择分类（如 印尼 / 泰国 / 越南）"
             clearable
             filterable
             style="width: 100%"
-            @change="onVodCategoryChange"
-          />
+            @change="onVodLevel2Change"
+          >
+            <el-option
+              v-for="opt in vodLevel2Options"
+              :key="opt.value"
+              :value="opt.value"
+              :label="opt.label"
+            />
+          </el-select>
           <div class="vod-cate-hint" v-if="formData.vod_cate_id">
             已绑定剧分类 cateId: {{ formData.vod_cate_id }}（保存时按剧名自动建子分类）
           </div>
@@ -323,6 +328,7 @@
                 ref="ossImporterRef"
                 v-model="formData.oss_files"
                 v-model:mode="formData.oss_mode"
+                :default-path="formData.oss_path"
               />
             </el-tab-pane>
             <el-tab-pane label="本地上传" name="local">
@@ -453,15 +459,19 @@ const formRef = ref(null)
 
 const categoryList = ref([])
 
-// 阿里云 VOD 分类树（用于 cascader）：[{ value, label, children: [...] }]
+// 阿里云 VOD 分类树原始数据：[{ value(一级cateId), label, children: [{ value(二级cateId), label }] }]
 const vodCategoryOptions = ref([])
-const vodCascaderProps = {
-  value: 'value',
-  label: 'label',
-  children: 'children',
-  emitPath: true,
-  expandTrigger: 'hover',
-}
+
+// 扁平化为单层二级菜单（方案 B：只显示二级名，不显示一级）；用户实际选的就是二级 cateId（=三级的 parentId）
+const vodLevel2Options = computed(() => {
+  const out = []
+  for (const lvl1 of vodCategoryOptions.value || []) {
+    for (const lvl2 of lvl1.children || []) {
+      out.push({ value: lvl2.value, label: lvl2.label, parentId: lvl1.value })
+    }
+  }
+  return out
+})
 
 const defaultForm = () => ({
   id: null,
@@ -478,6 +488,7 @@ const defaultForm = () => ({
   vod_cate_path: [],
   episodes: [],
   oss_files: [],
+  oss_path: '',
   oss_mode: 'append',
 })
 
@@ -493,17 +504,16 @@ const rules = computed(() => {
     total_episodes: [{ required: true, message: '请输入总集数', trigger: 'blur' }],
     free_episodes: [{ required: true, message: '请输入免费集数', trigger: 'blur' }],
   }
-  // 新增剧时强制选分类（修改时若已有 vod_cate_id 不强制，因为 cascader path 不易反向回填）
+  // 新增剧时强制选分类；修改剧若已有 vod_cate_id 不强制（兼容旧数据）
   const isCreate = !formData.value?.id
   const hasCateBound = !!formData.value?.vod_cate_id
   if (isCreate || !hasCateBound) {
-    base.vod_cate_path = [
+    base.vod_parent_cate_id = [
       {
         required: true,
-        type: 'array',
         validator: (_rule, value, callback) => {
-          if (!Array.isArray(value) || value.length < 2) {
-            return callback(new Error('请选择完整的二级分类（如 海外短剧-H5 / 印尼）'))
+          if (value == null || value === '' || value <= 0) {
+            return callback(new Error('请选择分类'))
           }
           callback()
         },
@@ -627,17 +637,10 @@ async function loadVodCategoryTree() {
   }
 }
 
-function onVodCategoryChange(path) {
-  if (Array.isArray(path) && path.length >= 2) {
-    formData.value.vod_parent_cate_id = path[1]
-    formData.value.vod_cate_id = null  // 等用户保存时（或上传时）按剧名 ensure 拿三级
-  } else if (Array.isArray(path) && path.length === 1) {
-    formData.value.vod_parent_cate_id = path[0]
-    formData.value.vod_cate_id = null
-  } else {
-    formData.value.vod_parent_cate_id = null
-    formData.value.vod_cate_id = null
-  }
+function onVodLevel2Change(value) {
+  // value 即用户选的二级 cateId；我们把它作为 vod_parent_cate_id（用于保存时按剧名 ensure 三级）
+  formData.value.vod_parent_cate_id = value || null
+  formData.value.vod_cate_id = null
 }
 
 function onCateIdResolved(cateId) {
@@ -768,6 +771,7 @@ const handleEditRow = async (row) => {
     vod_cate_path: [],
     episodes: [],
     oss_files: [],
+    oss_path: row.oss_path || '',
     oss_mode: row.total_episodes > 0 ? 'append' : 'replace',
   }
   videoSourceTab.value = 'oss'

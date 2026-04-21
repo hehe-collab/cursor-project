@@ -4,6 +4,7 @@ import com.drama.common.Result;
 import com.drama.entity.BatchTask;
 import com.drama.entity.BatchTaskItem;
 import com.drama.exception.BusinessException;
+import com.drama.mapper.DramaMapper;
 import com.drama.service.BatchTaskService;
 import com.drama.service.VodService;
 import com.drama.task.VodOssImportProcessor;
@@ -34,6 +35,7 @@ public class VodController {
     private final VodService vodService;
     private final BatchTaskService batchTaskService;
     private final VodOssImportProcessor vodOssImportProcessor;
+    private final DramaMapper dramaMapper;
 
     @Operation(summary = "获取上传凭证", description = "获取阿里云VOD视频上传凭证")
     @GetMapping("/upload-auth")
@@ -216,6 +218,17 @@ public class VodController {
                 null,
                 configMap,
                 items);
+
+        // 把"oss://bucket/prefix/"写入 dramas.oss_path 便于修改时回填路径
+        String ossPathSummary = buildOssPathSummary(files);
+        if (ossPathSummary != null) {
+            try {
+                dramaMapper.updateOssPath(dramaId, ossPathSummary);
+            } catch (Exception ignore) {
+                // 写回失败不阻塞导入
+            }
+        }
+
         vodOssImportProcessor.executeAsync(task.getTaskId());
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -223,6 +236,18 @@ public class VodController {
         data.put("totalCount", items.size());
         data.put("dramaId", dramaId);
         return Result.success(data);
+    }
+
+    /** 由 files[0] 推算 OSS 路径摘要，形如 "oss://bucket/prefix/"（带尾 /，便于扫描接口直接用）。 */
+    private static String buildOssPathSummary(List<Map<String, Object>> files) {
+        if (files == null || files.isEmpty()) return null;
+        Map<String, Object> first = files.get(0);
+        String bucket = first == null ? "" : String.valueOf(first.getOrDefault("bucket", ""));
+        String key = first == null ? "" : String.valueOf(first.getOrDefault("key", ""));
+        if (bucket.isBlank() || key.isBlank()) return null;
+        int slash = key.lastIndexOf('/');
+        String prefix = slash >= 0 ? key.substring(0, slash + 1) : "";
+        return "oss://" + bucket + "/" + prefix;
     }
 
     private static Long parseLong(Object v) {
