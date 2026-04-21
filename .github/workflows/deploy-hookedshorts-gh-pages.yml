@@ -1,7 +1,6 @@
-# Build static site and deploy to GitHub Pages. After first push, enable:
-#   Repo → Settings → Pages → Build and deployment → Source: GitHub Actions
-# Then set Custom domain: hookedshorts.com and add DNS (see hookedshorts-site/部署与上线步骤.md).
-# Note: use https://hookedshorts.com only; the *.github.io/cursor-project URL may not load assets for this app.
+# Build static site and deploy to GitHub Pages.
+# Prerequisite: Settings → Pages → Source: GitHub Actions, then Re-run this workflow (or push).
+# Custom domain: Settings → Pages + DNS (see hookedshorts-site/部署与上线步骤.md).
 name: Deploy Hooked Shorts to GitHub Pages
 
 on:
@@ -17,13 +16,18 @@ permissions:
   pages: write
   id-token: write
 
+# Do not cancel an in-flight deploy; can leave the site half-published.
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  build:
+  # Single job: upload + deploy in one graph (avoids cross-job artifact edge cases).
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,24 +39,17 @@ jobs:
           cache: npm
           cache-dependency-path: hookedshorts-site/package-lock.json
 
-      - name: Install & build
+      - name: Install and build
         run: |
           cd hookedshorts-site
           npm ci
           npm run build
 
-      - name: Upload artifact
+      - name: Upload static export
         uses: actions/upload-pages-artifact@v3
         with:
           path: hookedshorts-site/out
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
