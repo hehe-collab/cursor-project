@@ -190,6 +190,7 @@ public class DramaService {
         d.setCover(str(body.get("cover_image")));
         d.setDescription(str(body.get("description")));
         d.setCategoryId(intOrNull(body.get("category_id")));
+        d.setVodCateId(longOrNull(body.get("vod_cate_id")));
         d.setStatus(toDbStatusSave(str(body.get("status"))));
         d.setTotalEpisodes(intOrZero(body.get("total_episodes")));
         d.setViewCount(intOrZero(body.get("view_count")));
@@ -277,6 +278,9 @@ public class DramaService {
         if (body.containsKey("category_id")) {
             existing.setCategoryId(intOrNull(body.get("category_id")));
         }
+        if (body.containsKey("vod_cate_id")) {
+            existing.setVodCateId(longOrNull(body.get("vod_cate_id")));
+        }
         if (body.containsKey("status")) {
             existing.setStatus(toDbStatusSave(str(body.get("status"))));
         }
@@ -360,6 +364,7 @@ public class DramaService {
         m.put("cover_image", d.getCover() != null ? d.getCover() : "");
         m.put("category_id", d.getCategoryId());
         m.put("category_name", d.getCategoryName() != null ? d.getCategoryName() : "");
+        m.put("vod_cate_id", d.getVodCateId());
         m.put("status", toApiStatus(d.getStatus()));
         m.put("total_episodes", d.getTotalEpisodes() != null ? d.getTotalEpisodes() : 0);
         m.put("view_count", d.getViewCount() != null ? d.getViewCount() : 0);
@@ -384,6 +389,7 @@ public class DramaService {
         m.put("cover_image", d.getCover() != null ? d.getCover() : "");
         m.put("category_id", d.getCategoryId());
         m.put("category_name", categoryName);
+        m.put("vod_cate_id", d.getVodCateId());
         m.put("status", toApiStatus(d.getStatus()));
         m.put("total_episodes", d.getTotalEpisodes() != null ? d.getTotalEpisodes() : 0);
         m.put("view_count", d.getViewCount() != null ? d.getViewCount() : 0);
@@ -735,6 +741,20 @@ public class DramaService {
     private static int intOrZero(Object o) {
         Integer n = intOrNull(o);
         return n != null ? n : 0;
+    }
+
+    private static Long longOrNull(Object o) {
+        if (o == null || o.toString().isBlank()) {
+            return null;
+        }
+        if (o instanceof Number) {
+            return ((Number) o).longValue();
+        }
+        try {
+            return Long.parseLong(o.toString().trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @SuppressWarnings("unchecked")

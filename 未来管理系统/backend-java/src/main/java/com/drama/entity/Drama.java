@@ -17,6 +17,8 @@ public class Drama {
     private String cover;
     private String description;
     private Integer categoryId;
+    /** 阿里云 VOD 三级分类 ID（按剧名建子分类）。null 表示未关联 VOD 分类。 */
+    private Long vodCateId;
     private String status;
     private Integer viewCount;
     private Integer sort;

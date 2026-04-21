@@ -275,8 +275,8 @@
       />
     </el-card>
 
-    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="600px" @closed="handleDialogClosed">
-      <el-form ref="formRef" :model="formData" :rules="rules" label-width="120px">
+    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="520px" @closed="handleDialogClosed">
+      <el-form ref="formRef" :model="formData" :rules="rules" label-width="80px">
         <el-form-item label="状态" prop="is_online">
           <el-radio-group v-model="formData.is_online">
             <el-radio :label="1">上架</el-radio>
@@ -301,16 +301,40 @@
         <el-form-item label="免费集数" prop="free_episodes">
           <el-input-number v-model="formData.free_episodes" :min="0" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="OSS路径" prop="oss_path">
-          <el-input v-model="formData.oss_path" type="textarea" :rows="2" placeholder="请输入OSS路径" />
+        <el-form-item label="分类" prop="vod_cate_path">
+          <el-cascader
+            v-model="formData.vod_cate_path"
+            :options="vodCategoryOptions"
+            :props="vodCascaderProps"
+            placeholder="请选择阿里云 VOD 分类（如 海外短剧-H5 / 印尼）"
+            clearable
+            filterable
+            style="width: 100%"
+            @change="onVodCategoryChange"
+          />
+          <div class="vod-cate-hint" v-if="formData.vod_cate_id">
+            已绑定剧分类 cateId: {{ formData.vod_cate_id }}（保存时按剧名自动建子分类）
+          </div>
         </el-form-item>
-        <el-form-item label="分类" prop="category_id">
-          <el-select v-model="formData.category_id" placeholder="请选择分类" clearable filterable style="width: 100%">
-            <el-option v-for="c in categoryList" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="视频文件">
-          <VodBatchUploader v-model="formData.episodes" :drama-title="formData.name" />
+        <el-form-item label="视频文件" class="form-item--full-width">
+          <el-tabs v-model="videoSourceTab" class="video-source-tabs">
+            <el-tab-pane label="OSS 文件夹导入（推荐）" name="oss">
+              <OssFolderImporter
+                ref="ossImporterRef"
+                v-model="formData.oss_files"
+                v-model:mode="formData.oss_mode"
+              />
+            </el-tab-pane>
+            <el-tab-pane label="本地上传" name="local">
+              <VodBatchUploader
+                v-model="formData.episodes"
+                :drama-title="formData.name"
+                :cate-id="formData.vod_cate_id"
+                :parent-cate-id="formData.vod_parent_cate_id"
+                @update:cate-id="onCateIdResolved"
+              />
+            </el-tab-pane>
+          </el-tabs>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -339,7 +363,6 @@
         <el-descriptions-item label="金豆数">{{ detailData.beans_per_episode }}</el-descriptions-item>
         <el-descriptions-item label="总集数">{{ detailData.total_episodes }}</el-descriptions-item>
         <el-descriptions-item label="免费集数">{{ detailData.free_episodes }}</el-descriptions-item>
-        <el-descriptions-item label="OSS路径">{{ detailData.oss_path }}</el-descriptions-item>
         <el-descriptions-item label="分类">{{ detailData.category_name || detailData.category || '-' }}</el-descriptions-item>
         <el-descriptions-item label="任务状态">
           <el-tag :type="getTaskStatusType(detailData.task_status)">{{ getTaskStatusText(detailData.task_status) }}</el-tag>
@@ -365,6 +388,7 @@ import SkeletonTable from '@/components/SkeletonTable.vue'
 import VirtualTable from '@/components/VirtualTable.vue'
 import Loading from '@/components/Loading.vue'
 import VodBatchUploader from '@/components/VodBatchUploader.vue'
+import OssFolderImporter from '@/components/OssFolderImporter.vue'
 import { exportJsonToXlsx } from '../utils/excelExport'
 import { copyToClipboard } from '@/utils/clipboard'
 import { debounce } from '@/utils/performance'
@@ -429,6 +453,16 @@ const formRef = ref(null)
 
 const categoryList = ref([])
 
+// 阿里云 VOD 分类树（用于 cascader）：[{ value, label, children: [...] }]
+const vodCategoryOptions = ref([])
+const vodCascaderProps = {
+  value: 'value',
+  label: 'label',
+  children: 'children',
+  emitPath: true,
+  expandTrigger: 'hover',
+}
+
 const defaultForm = () => ({
   id: null,
   is_online: 1,
@@ -438,12 +472,18 @@ const defaultForm = () => ({
   beans_per_episode: 5,
   total_episodes: null,
   free_episodes: 11,
-  oss_path: '',
   category_id: null,
+  vod_cate_id: null,
+  vod_parent_cate_id: null,
+  vod_cate_path: [],
   episodes: [],
+  oss_files: [],
+  oss_mode: 'append',
 })
 
 const formData = ref(defaultForm())
+const videoSourceTab = ref('oss')
+const ossImporterRef = ref(null)
 
 const rules = {
   is_online: [{ required: true, message: '请选择状态', trigger: 'change' }],
@@ -533,6 +573,54 @@ async function loadCategories() {
   } catch (_) {
     categoryList.value = []
   }
+}
+
+async function loadVodCategoryTree() {
+  try {
+    // 一级分类
+    const lvl1 = await request.get('/vod/categories', { params: { parentId: -1, type: 'default', pageSize: 100 } })
+    const level1 = lvl1?.data?.children || []
+    if (!level1.length) {
+      vodCategoryOptions.value = []
+      return
+    }
+    // 并发拉所有一级下的二级
+    const results = await Promise.all(
+      level1.map((c1) =>
+        request
+          .get('/vod/categories', { params: { parentId: c1.cateId, type: 'default', pageSize: 100 } })
+          .then((r) => ({ c1, children: r?.data?.children || [] }))
+          .catch(() => ({ c1, children: [] })),
+      ),
+    )
+    vodCategoryOptions.value = results.map(({ c1, children }) => ({
+      value: c1.cateId,
+      label: c1.cateName,
+      children: children.length
+        ? children.map((c2) => ({ value: c2.cateId, label: c2.cateName }))
+        : undefined,
+    }))
+  } catch (e) {
+    console.warn('load VOD categories failed:', e?.message || e)
+    vodCategoryOptions.value = []
+  }
+}
+
+function onVodCategoryChange(path) {
+  if (Array.isArray(path) && path.length >= 2) {
+    formData.value.vod_parent_cate_id = path[1]
+    formData.value.vod_cate_id = null  // 等用户保存时（或上传时）按剧名 ensure 拿三级
+  } else if (Array.isArray(path) && path.length === 1) {
+    formData.value.vod_parent_cate_id = path[0]
+    formData.value.vod_cate_id = null
+  } else {
+    formData.value.vod_parent_cate_id = null
+    formData.value.vod_cate_id = null
+  }
+}
+
+function onCateIdResolved(cateId) {
+  if (cateId) formData.value.vod_cate_id = Number(cateId)
 }
 
 function buildDramaFilterParams() {
@@ -653,10 +741,15 @@ const handleEditRow = async (row) => {
     beans_per_episode: row.beans_per_episode ?? 5,
     total_episodes: row.total_episodes != null ? row.total_episodes : null,
     free_episodes: row.free_episodes != null ? row.free_episodes : 11,
-    oss_path: row.oss_path || '',
     category_id: row.category_id ?? null,
+    vod_cate_id: row.vod_cate_id ?? null,
+    vod_parent_cate_id: null,
+    vod_cate_path: [],
     episodes: [],
+    oss_files: [],
+    oss_mode: row.total_episodes > 0 ? 'append' : 'replace',
   }
+  videoSourceTab.value = 'oss'
   dialogVisible.value = true
   try {
     const res = await getDramaDetail(row.id)
@@ -677,8 +770,8 @@ const buildSubmitPayload = () => {
     beans_per_episode,
     total_episodes,
     free_episodes,
-    oss_path,
     category_id,
+    vod_cate_id,
     episodes,
   } = formData.value
   const status = is_online === 1 ? 'published' : 'offline'
@@ -691,8 +784,8 @@ const buildSubmitPayload = () => {
     beans_per_episode,
     total_episodes,
     free_episodes,
-    oss_path,
     category_id: category_id ?? null,
+    vod_cate_id: vod_cate_id ?? null,
     status,
     is_online,
   }
@@ -722,23 +815,58 @@ const handleSubmit = async () => {
   submitLoading.value = true
   try {
     const payload = buildSubmitPayload()
-    if (formData.value.id) {
-      const res = await request.put(`/dramas/${formData.value.id}`, payload)
-      if (res.code === 0) {
-        invalidateDramaCaches()
-        ElMessage.success('修改成功')
-        dialogVisible.value = false
-        handleQuery()
+    let savedDramaId = formData.value.id
+    if (savedDramaId) {
+      const res = await request.put(`/dramas/${savedDramaId}`, payload)
+      if (res.code !== 0) {
+        ElMessage.error(res.message || '修改失败')
+        return
       }
+      invalidateDramaCaches()
     } else {
       const res = await request.post('/dramas', payload)
-      if (res.code === 0) {
-        invalidateDramaCaches()
-        ElMessage.success('新增成功')
-        dialogVisible.value = false
-        handleQuery()
+      if (res.code !== 0) {
+        ElMessage.error(res.message || '新增失败')
+        return
+      }
+      savedDramaId = res.data?.id || res.data?.dramaId || null
+      invalidateDramaCaches()
+    }
+
+    let importedOss = false
+    if (videoSourceTab.value === 'oss') {
+      const ossFiles = Array.isArray(formData.value.oss_files) ? formData.value.oss_files : []
+      if (ossFiles.length > 0) {
+        if (!savedDramaId) {
+          ElMessage.warning('OSS 导入失败：未拿到剧 ID')
+        } else {
+          try {
+            const importRes = await request.post('/vod/import-from-oss', {
+              dramaId: savedDramaId,
+              cateId: formData.value.vod_cate_id || null,
+              mode: formData.value.oss_mode || 'append',
+              files: ossFiles.map((f) => ({ bucket: f.bucket, key: f.key, name: f.name })),
+            })
+            if (importRes.code === 0) {
+              importedOss = true
+              ElMessage.success(
+                `已提交 ${importRes.data?.totalCount || ossFiles.length} 个文件到 VOD，正在后台导入`,
+              )
+            } else {
+              ElMessage.error(importRes.message || 'OSS 导入提交失败')
+            }
+          } catch (e) {
+            ElMessage.error(e?.message || 'OSS 导入提交失败')
+          }
+        }
       }
     }
+
+    if (!importedOss) {
+      ElMessage.success(formData.value.id ? '修改成功' : '新增成功')
+    }
+    dialogVisible.value = false
+    handleQuery()
   } catch (error) {
     console.error(error)
     ElMessage.error(error?.message || '提交失败')
@@ -782,7 +910,6 @@ const handleViewDetail = async (row) => {
         beans_per_episode: d.beans_per_episode,
         total_episodes: d.total_episodes,
         free_episodes: d.free_episodes,
-        oss_path: d.oss_path,
         category: d.category_name || d.category,
         task_status: d.task_status,
         created_at: d.created_at,
@@ -944,6 +1071,8 @@ const stopPolling = () => {
 
 onMounted(() => {
   handleQuery()
+  loadCategories()
+  loadVodCategoryTree()
   startPolling()
 })
 
@@ -1005,6 +1134,40 @@ onUnmounted(() => {
 .searching-tag {
   margin-left: 8px;
   vertical-align: middle;
+}
+
+.vod-cate-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+:deep(.el-dialog__body) {
+  padding: 12px 20px 8px;
+}
+:deep(.el-form-item) {
+  margin-bottom: 12px;
+}
+:deep(.video-source-tabs .el-tabs__header) {
+  margin-bottom: 8px;
+}
+:deep(.video-source-tabs .el-tabs__nav-wrap::after) {
+  height: 1px;
+}
+
+.form-item--full-width {
+  display: block;
+}
+.form-item--full-width :deep(.el-form-item__label) {
+  float: none;
+  display: block;
+  text-align: left;
+  width: auto !important;
+  padding-bottom: 4px;
+}
+.form-item--full-width :deep(.el-form-item__content) {
+  margin-left: 0 !important;
+  overflow: hidden;
 }
 
 </style>

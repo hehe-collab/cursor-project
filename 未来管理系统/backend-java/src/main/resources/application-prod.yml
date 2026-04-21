@@ -114,6 +114,12 @@ aliyun:
     template-group-id: ${ALIYUN_VOD_TEMPLATE_GROUP_ID:}
     storage-location: ${ALIYUN_VOD_STORAGE_LOCATION:}
     domain: ${ALIYUN_VOD_DOMAIN:}
+  oss:
+    bucket: ${ALIYUN_OSS_BUCKET:}
+    endpoint: ${ALIYUN_OSS_ENDPOINT:}
+    region: ${ALIYUN_OSS_REGION:}
+    bucket-private: ${ALIYUN_OSS_BUCKET_PRIVATE:true}
+    presign-expire-sec: ${ALIYUN_OSS_PRESIGN_EXPIRE_SEC:21600}
 
 app:
   upload-dir: ${APP_UPLOAD_DIR:${UPLOAD_PATH:/data/uploads}}

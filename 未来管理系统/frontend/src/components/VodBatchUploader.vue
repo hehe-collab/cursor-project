@@ -86,9 +86,27 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  /**
+   * 已绑定的剧三级 cateId（VOD 分类）。
+   * 父组件优先用这个；如果为空且 parentCateId 有值，第一次上传时本组件会调
+   * POST /api/vod/categories/ensure 按 dramaTitle 自动新建/复用三级分类，
+   * 并通过 update:cateId emit 回传。
+   */
+  cateId: {
+    type: [Number, String, null],
+    default: null,
+  },
+  /** 二级分类 cateId（如「印尼」），由父组件 cascader 选定。 */
+  parentCateId: {
+    type: [Number, String, null],
+    default: null,
+  },
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'update:cateId'])
+
+let resolvedCateId = null
+let cateIdResolving = null
 
 const tasks = reactive([])
 let uidSeq = 1
@@ -271,6 +289,11 @@ function removeTask(uid) {
       // ignore
     }
   }
+  const entry = pollingTimers.get(uid)
+  if (entry?.timer) {
+    clearTimeout(entry.timer)
+    pollingTimers.delete(uid)
+  }
   tasks.splice(idx, 1)
   emitChange()
   schedule()
@@ -352,6 +375,8 @@ function createUploader(t, regionId) {
         t.status = 'uploading'
       }
       emitChange()
+      // 上传完成后启动状态轮询，让 UI 自动从 「上传中/已上传」 推进到 「转码中→已就绪」
+      startStatusPolling(t)
       schedule()
     },
     onUploadFailed: (_uploadInfo, code, message) => {
@@ -372,12 +397,14 @@ function createUploader(t, regionId) {
 }
 
 async function handleUploadStarted(t, uploader, uploadInfo) {
+  let body = { title: composeTitle(t), fileName: t.fileName }
+  if (!uploadInfo?.videoId) {
+    const cateId = await resolveCateId()
+    if (cateId) body.cateId = cateId
+  }
   const res = uploadInfo?.videoId
     ? await request.get('/vod/refresh-upload-auth', { params: { videoId: uploadInfo.videoId } })
-    : await request.post('/vod/upload-auth', {
-        title: composeTitle(t),
-        fileName: t.fileName,
-      })
+    : await request.post('/vod/upload-auth', body)
   const data = res?.data || {}
   t.videoId = data.videoId || uploadInfo?.videoId || t.videoId
   uploader.setUploadAuthAndAddress(
@@ -386,6 +413,44 @@ async function handleUploadStarted(t, uploader, uploadInfo) {
     data.uploadAddress,
     data.videoId || uploadInfo?.videoId || t.videoId,
   )
+}
+
+/**
+ * 拿到当前剧的三级 cateId。
+ * 优先级：父组件 props.cateId > 已 resolved 缓存 > 调 ensure 接口（按 parentCateId + dramaTitle 自动建/复用）。
+ */
+async function resolveCateId() {
+  const fromProps = Number(props.cateId) || 0
+  if (fromProps > 0) {
+    resolvedCateId = fromProps
+    return fromProps
+  }
+  if (resolvedCateId) return resolvedCateId
+  const parent = Number(props.parentCateId) || 0
+  const name = (props.dramaTitle || '').trim()
+  if (parent <= 0 || !name) return null
+  if (cateIdResolving) return cateIdResolving
+  cateIdResolving = (async () => {
+    try {
+      const res = await request.post('/vod/categories/ensure', {
+        parentId: parent,
+        cateName: name,
+        type: 'default',
+      })
+      const id = Number(res?.data?.cateId) || 0
+      if (id > 0) {
+        resolvedCateId = id
+        emit('update:cateId', id)
+        return id
+      }
+    } catch (e) {
+      console.warn('VOD ensure category failed:', e?.message || e)
+    } finally {
+      cateIdResolving = null
+    }
+    return null
+  })()
+  return cateIdResolving
 }
 
 async function refreshAuth(t, uploader) {
@@ -402,6 +467,71 @@ function composeTitle(t) {
   const drama = (props.dramaTitle || '').trim()
   const base = stripExt(t.fileName) || 'episode'
   return drama ? `${drama}_${base}` : base
+}
+
+const POLL_INTERVAL_MS = 5000
+const POLL_MAX_MS = 5 * 60 * 1000
+const POLL_TERMINAL = new Set(['normal', 'failed', 'deleted'])
+const pollingTimers = new Map()
+
+function startStatusPolling(t) {
+  if (!t || !t.videoId) return
+  if (POLL_TERMINAL.has(t.status)) return
+  const existing = pollingTimers.get(t.uid)
+  if (existing) {
+    clearTimeout(existing.timer)
+  }
+  const startAt = Date.now()
+  const tick = async () => {
+    if (!tasks.find((x) => x.uid === t.uid)) {
+      pollingTimers.delete(t.uid)
+      return
+    }
+    if (Date.now() - startAt > POLL_MAX_MS) {
+      pollingTimers.delete(t.uid)
+      return
+    }
+    try {
+      const res = await request.get(`/vod/info/${t.videoId}`)
+      const info = res?.data || {}
+      const newStatus = info.status || t.status
+      let changed = false
+      if (newStatus && newStatus !== t.status) {
+        t.status = newStatus
+        changed = true
+      }
+      if (info.duration && Number(info.duration) > 0 && Number(info.duration) !== t.duration) {
+        t.duration = Number(info.duration)
+        changed = true
+      }
+      if (info.size && Number(info.size) > 0 && Number(info.size) !== t.fileSize) {
+        t.fileSize = Number(info.size)
+        changed = true
+      }
+      if (info.coverUrl && info.coverUrl !== t.vod_cover_url) {
+        t.vod_cover_url = info.coverUrl
+        changed = true
+      }
+      if (changed) emitChange()
+      if (POLL_TERMINAL.has(t.status)) {
+        pollingTimers.delete(t.uid)
+        return
+      }
+    } catch (e) {
+      console.warn('vod info poll error', t.videoId, e?.message || e)
+    }
+    const timer = setTimeout(tick, POLL_INTERVAL_MS)
+    pollingTimers.set(t.uid, { timer })
+  }
+  const timer = setTimeout(tick, POLL_INTERVAL_MS)
+  pollingTimers.set(t.uid, { timer })
+}
+
+function stopAllPolling() {
+  pollingTimers.forEach((entry) => {
+    if (entry?.timer) clearTimeout(entry.timer)
+  })
+  pollingTimers.clear()
 }
 
 function failTask(t, msg) {
@@ -479,10 +609,17 @@ onMounted(() => {
   loadFromModel(props.modelValue)
   initialized = true
   window.addEventListener('beforeunload', beforeUnloadHandler)
+  // 编辑模式：已加载的剧若有未就绪的分集，启动轮询追踪
+  tasks.forEach((t) => {
+    if (t.videoId && !POLL_TERMINAL.has(t.status)) {
+      startStatusPolling(t)
+    }
+  })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnloadHandler)
+  stopAllPolling()
   tasks.forEach((t) => {
     if (t.uploader && (t.status === 'uploading' || t.status === 'preparing')) {
       try {

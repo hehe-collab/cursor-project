@@ -85,13 +85,13 @@
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO dramas (
       public_id,
-      title, cover, description, category_id, status, view_count, sort,
+      title, cover, description, category_id, vod_cate_id, status, view_count, sort,
       display_name, display_text, total_episodes, free_episodes, beans_per_episode,
       oss_path, category, task_status, is_online
     )
     VALUES (
       #{publicId},
-      #{title}, #{cover}, #{description}, #{categoryId}, #{status},
+      #{title}, #{cover}, #{description}, #{categoryId}, #{vodCateId}, #{status},
       #{viewCount}, #{sort},
       #{displayName}, #{displayText}, #{totalEpisodes}, #{freeEpisodes}, #{beansPerEpisode},
       #{ossPath}, #{category}, #{taskStatus}, #{isOnline}
@@ -104,6 +104,7 @@
       cover = #{cover},
       description = #{description},
       category_id = #{categoryId},
+      vod_cate_id = #{vodCateId},
       status = #{status},
       sort = #{sort},
       view_count = #{viewCount},
