@@ -1,0 +1,58 @@
+# Build static site and deploy to GitHub Pages. After first push, enable:
+#   Repo → Settings → Pages → Build and deployment → Source: GitHub Actions
+# Then set Custom domain: hookedshorts.com and add DNS (see hookedshorts-site/部署与上线步骤.md).
+# Note: use https://hookedshorts.com only; the *.github.io/cursor-project URL may not load assets for this app.
+name: Deploy Hooked Shorts to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "hookedshorts-site/**"
+      - ".github/workflows/deploy-hookedshorts-gh-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: hookedshorts-site/package-lock.json
+
+      - name: Install & build
+        run: |
+          cd hookedshorts-site
+          npm ci
+          npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: hookedshorts-site/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
