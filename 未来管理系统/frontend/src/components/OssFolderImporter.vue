@@ -113,7 +113,7 @@ watch(
 watch(
   () => props.defaultPath,
   (v) => {
-    if (typeof v === 'string' && v && !ossPath.value) {
+    if (typeof v === 'string') {
       ossPath.value = v
     }
   },

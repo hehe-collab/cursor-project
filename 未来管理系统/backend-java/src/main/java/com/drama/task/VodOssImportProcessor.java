@@ -159,12 +159,15 @@ public class VodOssImportProcessor {
         }
 
         // 准备 UploadMediaByURL 入参（生成预签名 URL）
+        // vodItems 与 vodCtxIndexes 严格一一对应：vodCtxIndexes[i] 是 ctxList 的索引
         List<Map<String, Object>> vodItems = new ArrayList<>();
+        List<Integer> vodCtxIndexes = new ArrayList<>();
         List<ItemContext> ctxList = new ArrayList<>();
         int seq = 0;
         for (BatchTaskItem it : items) {
             ItemContext ctx = parseItem(it, startEpisodeNum + seq);
             ctxList.add(ctx);
+            int ctxIdx = ctxList.size() - 1;
             if (ctx.error != null) {
                 seq++;
                 continue;
@@ -180,7 +183,6 @@ public class VodOssImportProcessor {
             ctx.signedUrl = url;
             Map<String, Object> vodItem = new LinkedHashMap<>();
             vodItem.put("url", url);
-            // 给 VOD 的 title：剧名_集号_文件名（不含扩展名）
             String dramaTitle = drama.getTitle() != null ? drama.getTitle() : "";
             String niceTitle = (dramaTitle.isBlank() ? "" : dramaTitle + "_") + "EP" + ctx.episodeNum + "_" + ctx.fileNameNoExt;
             vodItem.put("title", niceTitle);
@@ -188,6 +190,7 @@ public class VodOssImportProcessor {
                 vodItem.put("cateId", cateId);
             }
             vodItems.add(vodItem);
+            vodCtxIndexes.add(ctxIdx);
             seq++;
         }
 
@@ -196,7 +199,7 @@ public class VodOssImportProcessor {
             return;
         }
 
-        // 批量提交到 VOD（内部按 10 一批）
+        // 批量提交到 VOD（内部按 10 一批，返回结果与提交顺序严格一一对应）
         List<Map<String, Object>> vodResults;
         try {
             vodResults = vodItems.isEmpty()
@@ -210,16 +213,13 @@ public class VodOssImportProcessor {
             vodResults = new ArrayList<>();
         }
 
-        // 用 OSS key 反查 vodResults：把每个 row.sourceURL 解码后取 path 部分跟 ctx.key 比较
-        // 阿里云 VOD GetURLUploadInfos 返回的 UploadURL 与提交时字符串可能不一致（OSS 预签名
-        // 每次重新生成 + URL 编码差异），因此用 OSS key（路径无签名部分）作为稳定主键。
-        Map<String, Map<String, Object>> resultByKey = new LinkedHashMap<>();
-        for (Map<String, Object> r : vodResults) {
-            String src = String.valueOf(r.getOrDefault("sourceURL", ""));
-            String key = extractOssKeyFromUrl(src);
-            if (!key.isEmpty()) {
-                resultByKey.put(key, r);
-            }
+        // 按提交顺序直接对应：vodResults[i] 对应 vodCtxIndexes[i] 对应的 ctxList 元素
+        // 不再依赖 sourceURL/OSS key 反查（规避 URL 编码差异问题）
+        for (int i = 0; i < vodResults.size() && i < vodCtxIndexes.size(); i++) {
+            ItemContext ctx = ctxList.get(vodCtxIndexes.get(i));
+            Map<String, Object> r = vodResults.get(i);
+            ctx.resolvedMediaId = str(r.get("mediaId"));
+            ctx.resolvedError = str(r.get("errorMessage"));
         }
 
         int success = 0;
@@ -230,9 +230,8 @@ public class VodOssImportProcessor {
                 failed++;
                 continue;
             }
-            Map<String, Object> r = resultByKey.get(ctx.key);
-            String mediaId = r != null ? str(r.get("mediaId")) : "";
-            String errorMsg = r != null ? str(r.get("errorMessage")) : "";
+            String mediaId = ctx.resolvedMediaId != null ? ctx.resolvedMediaId : "";
+            String errorMsg = ctx.resolvedError != null ? ctx.resolvedError : "";
             if (mediaId.isBlank()) {
                 String reason = errorMsg.isBlank() ? "VOD 未返回 mediaId" : errorMsg;
                 batchTaskService.markItemFailed(taskId, ctx.itemId, reason);
@@ -369,6 +368,8 @@ public class VodOssImportProcessor {
         String name;
         String fileNameNoExt;
         String signedUrl;
-        String error; // null 表示无错误
+        String error;
+        String resolvedMediaId;
+        String resolvedError;
     }
 }

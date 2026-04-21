@@ -384,7 +384,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, RefreshLeft, Plus, Edit, Delete, ArrowDown, Download, DocumentCopy } from '@element-plus/icons-vue'
 import request from '../api/request'
@@ -737,7 +737,11 @@ const handleToggleOnline = async (row) => {
 
 const handleAdd = () => {
   formData.value = defaultForm()
+  videoSourceTab.value = 'oss'
   dialogVisible.value = true
+  nextTick(() => {
+    ossImporterRef.value?.reset()
+  })
 }
 
 const handleEdit = () => {
@@ -776,6 +780,9 @@ const handleEditRow = async (row) => {
   }
   videoSourceTab.value = 'oss'
   dialogVisible.value = true
+  nextTick(() => {
+    ossImporterRef.value?.reset()
+  })
   try {
     const res = await getDramaDetail(row.id)
     if (res?.code === 0 && Array.isArray(res.data?.episodes)) {
