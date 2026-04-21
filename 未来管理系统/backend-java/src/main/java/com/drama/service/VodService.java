@@ -282,11 +282,40 @@ public class VodService {
                         sourceByJob.put(j.getJobId(), j.getSourceURL());
                     }
                 }
-                // 立刻查一次拿 mediaId（job 创建后即可查；status 通常为 Pending/Analysing）
-                // 调用方按 OSS key 反查（URLDecoder.decode 后比较），不依赖 sourceURL 字符串相等
-                List<Map<String, Object>> infos = jobIds.isEmpty()
-                        ? new ArrayList<>()
-                        : getURLUploadInfos(jobIds);
+                // 带重试拿 mediaId：UploadMediaByURL 是异步的，立即调 GetURLUploadInfos 可能
+                // 拿不到 mediaId（job 还在初始化中）。最多重试 MAX_RETRY 次，每次间隔 RETRY_MS。
+                final int MAX_RETRY = 5;
+                final long RETRY_MS = 1500;
+                List<Map<String, Object>> infos = new ArrayList<>();
+                if (!jobIds.isEmpty()) {
+                    for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
+                        if (attempt > 1) {
+                            try {
+                                Thread.sleep(RETRY_MS);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
+                        infos = getURLUploadInfos(jobIds);
+                        boolean allHaveMediaId = !infos.isEmpty()
+                                && infos.stream().allMatch(r -> {
+                                    String mid = String.valueOf(r.getOrDefault("mediaId", ""));
+                                    return !mid.isBlank();
+                                });
+                        if (allHaveMediaId) {
+                            log.info("[UploadMediaByURL] 第 {} 次查询全部拿到 mediaId（共 {} 条）", attempt, infos.size());
+                            break;
+                        }
+                        long gotCount = infos.stream().filter(r -> {
+                            String mid = String.valueOf(r.getOrDefault("mediaId", ""));
+                            return !mid.isBlank();
+                        }).count();
+                        log.info("[UploadMediaByURL] 第 {} 次查询 mediaId：拿到 {}/{}，{}",
+                                attempt, gotCount, jobIds.size(),
+                                attempt < MAX_RETRY ? "将在 " + RETRY_MS + "ms 后重试" : "放弃重试");
+                    }
+                }
                 if (infos.isEmpty()) {
                     for (Map.Entry<String, String> e : sourceByJob.entrySet()) {
                         Map<String, Object> row = new LinkedHashMap<>();

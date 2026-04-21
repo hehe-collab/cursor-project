@@ -928,6 +928,7 @@ const handleSubmit = async () => {
 const handleDialogClosed = () => {
   formRef.value?.resetFields()
   formData.value = defaultForm()
+  ossImporterRef.value?.reset()
 }
 
 function toEpisodeForm(e) {
