@@ -485,13 +485,34 @@ const formData = ref(defaultForm())
 const videoSourceTab = ref('oss')
 const ossImporterRef = ref(null)
 
-const rules = {
-  is_online: [{ required: true, message: '请选择状态', trigger: 'change' }],
-  name: [{ required: true, message: '请输入剧名', trigger: 'blur' }],
-  beans_per_episode: [{ required: true, message: '请输入每集金豆数', trigger: 'blur' }],
-  total_episodes: [{ required: true, message: '请输入总集数', trigger: 'blur' }],
-  free_episodes: [{ required: true, message: '请输入免费集数', trigger: 'blur' }],
-}
+const rules = computed(() => {
+  const base = {
+    is_online: [{ required: true, message: '请选择状态', trigger: 'change' }],
+    name: [{ required: true, message: '请输入剧名', trigger: 'blur' }],
+    beans_per_episode: [{ required: true, message: '请输入每集金豆数', trigger: 'blur' }],
+    total_episodes: [{ required: true, message: '请输入总集数', trigger: 'blur' }],
+    free_episodes: [{ required: true, message: '请输入免费集数', trigger: 'blur' }],
+  }
+  // 新增剧时强制选分类（修改时若已有 vod_cate_id 不强制，因为 cascader path 不易反向回填）
+  const isCreate = !formData.value?.id
+  const hasCateBound = !!formData.value?.vod_cate_id
+  if (isCreate || !hasCateBound) {
+    base.vod_cate_path = [
+      {
+        required: true,
+        type: 'array',
+        validator: (_rule, value, callback) => {
+          if (!Array.isArray(value) || value.length < 2) {
+            return callback(new Error('请选择完整的二级分类（如 海外短剧-H5 / 印尼）'))
+          }
+          callback()
+        },
+        trigger: 'change',
+      },
+    ]
+  }
+  return base
+})
 
 const detailDialogVisible = ref(false)
 const detailData = ref({})
@@ -840,10 +861,35 @@ const handleSubmit = async () => {
         if (!savedDramaId) {
           ElMessage.warning('OSS 导入失败：未拿到剧 ID')
         } else {
+          // 先按剧名 ensure 三级 cateId（与本地上传 VodBatchUploader 对齐），失败则后端兜底
+          const parentId = formData.value.vod_parent_cate_id
+          let cateId = formData.value.vod_cate_id
+          if (!cateId && parentId && (formData.value.name || '').trim()) {
+            try {
+              const ensureRes = await request.post('/vod/categories/ensure', {
+                parentId,
+                cateName: formData.value.name.trim(),
+                type: 'default',
+              })
+              if (ensureRes?.code === 0 && ensureRes.data?.cateId) {
+                cateId = Number(ensureRes.data.cateId)
+                formData.value.vod_cate_id = cateId
+                // 把三级 cateId 写回 dramas 行（防止下次重新打开还是空）
+                try {
+                  await request.put(`/dramas/${savedDramaId}`, { vod_cate_id: cateId })
+                } catch (_) {
+                  // 忽略写回失败，VodOssImportProcessor 也会兜底写
+                }
+              }
+            } catch (_) {
+              // 失败不阻塞，import-from-oss 会带 parentCateId 让后端兜底
+            }
+          }
           try {
             const importRes = await request.post('/vod/import-from-oss', {
               dramaId: savedDramaId,
-              cateId: formData.value.vod_cate_id || null,
+              cateId: cateId || null,
+              parentCateId: parentId || null,
               mode: formData.value.oss_mode || 'append',
               files: ossFiles.map((f) => ({ bucket: f.bucket, key: f.key, name: f.name })),
             })

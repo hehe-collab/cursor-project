@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
  * 异步处理「OSS 文件夹 → VOD UploadMediaByURL → 入库 drama_episodes」导入任务。
@@ -83,6 +84,29 @@ public class VodOssImportProcessor {
 
         if (cateId == null || cateId <= 0) {
             cateId = drama.getVodCateId();
+        }
+
+        // 兜底：cateId 仍为空但 config 带了 parentCateId，按剧名 ensure 三级子分类（幂等）
+        Long parentCateId = toLong(config.get("parentCateId"));
+        if ((cateId == null || cateId <= 0) && parentCateId != null && parentCateId > 0) {
+            String dramaTitle = drama.getTitle();
+            if (StringUtils.hasText(dramaTitle)) {
+                try {
+                    Long ensured = vodService.ensureCategory(parentCateId, dramaTitle.trim(), "default");
+                    if (ensured != null && ensured > 0) {
+                        cateId = ensured;
+                        try {
+                            dramaMapper.updateVodCateId(dramaId, ensured);
+                            drama.setVodCateId(ensured);
+                            log.info("[VodOssImport] 自动建/复用三级分类 cateId={} 已绑定 dramaId={}", ensured, dramaId);
+                        } catch (Exception writeE) {
+                            log.warn("[VodOssImport] 写回 dramas.vod_cate_id 失败（不影响导入继续）: dramaId={}", dramaId, writeE);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("[VodOssImport] ensureCategory 失败 parentId={} dramaTitle={}（视频将归未分类）", parentCateId, dramaTitle, e);
+                }
+            }
         }
 
         if (batchTaskService.isCancelled(taskId)) {

@@ -46,5 +46,7 @@ public interface DramaMapper {
 
     int updateTaskStatus(@Param("id") Integer id, @Param("taskStatus") String taskStatus);
 
+    int updateVodCateId(@Param("id") Integer id, @Param("vodCateId") Long vodCateId);
+
     int deleteById(@Param("id") Integer id);
 }

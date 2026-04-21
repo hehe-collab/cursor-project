@@ -126,6 +126,12 @@
         updated_at = NOW()
     WHERE id = #{id}
   </update>
+  <update id="updateVodCateId">
+    UPDATE dramas
+    SET vod_cate_id = #{vodCateId},
+        updated_at = NOW()
+    WHERE id = #{id}
+  </update>
   <delete id="deleteById">
     DELETE FROM dramas WHERE id = #{id}
   </delete>

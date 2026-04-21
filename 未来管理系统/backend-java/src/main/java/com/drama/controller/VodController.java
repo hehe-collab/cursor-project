@@ -188,21 +188,14 @@ public class VodController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> files = (List<Map<String, Object>>) filesObj;
 
-        Long cateId = null;
-        Object cateIdObj = body.get("cateId");
-        if (cateIdObj instanceof Number n) {
-            cateId = n.longValue();
-        } else if (cateIdObj != null && !String.valueOf(cateIdObj).isBlank()) {
-            try {
-                cateId = Long.parseLong(String.valueOf(cateIdObj).trim());
-            } catch (NumberFormatException ignore) {
-            }
-        }
+        Long cateId = parseLong(body.get("cateId"));
+        Long parentCateId = parseLong(body.get("parentCateId"));
         String mode = String.valueOf(body.getOrDefault("mode", "append"));
 
         Map<String, Object> configMap = new LinkedHashMap<>();
         configMap.put("dramaId", dramaId);
         configMap.put("cateId", cateId);
+        configMap.put("parentCateId", parentCateId);
         configMap.put("mode", mode);
         configMap.put("source", "oss");
 
@@ -230,5 +223,17 @@ public class VodController {
         data.put("totalCount", items.size());
         data.put("dramaId", dramaId);
         return Result.success(data);
+    }
+
+    private static Long parseLong(Object v) {
+        if (v == null) return null;
+        if (v instanceof Number n) return n.longValue();
+        String s = String.valueOf(v).trim();
+        if (s.isEmpty()) return null;
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

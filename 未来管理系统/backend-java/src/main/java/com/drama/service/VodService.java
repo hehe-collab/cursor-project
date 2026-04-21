@@ -275,11 +275,18 @@ public class VodService {
                 UploadMediaByURLResponse res = client.getAcsResponse(request);
                 List<UploadMediaByURLResponse.UploadJob> jobs = res.getUploadJobs();
                 List<String> jobIds = new ArrayList<>();
-                Map<String, String> sourceByJob = new LinkedHashMap<>();
+                // 关键：以"jobId → 我们提交时的原始 url"为基准建立索引；阿里云 VOD 在 GetURLUploadInfos
+                // 返回的 UploadURL 可能经过编码/归一化处理，与提交时的字符串不完全相同（特别当 OSS key
+                // 含中文/全角字符/&/空格时），不能用 sourceURL 作为匹配键。
+                Map<String, String> requestedSourceByJob = new LinkedHashMap<>();
                 if (jobs != null) {
+                    int idx = 0;
                     for (UploadMediaByURLResponse.UploadJob j : jobs) {
                         jobIds.add(j.getJobId());
-                        sourceByJob.put(j.getJobId(), j.getSourceURL());
+                        // 阿里云 UploadJobs 默认按 SourceUrl 提交顺序返回，按 idx 取我们提交时的原始 url
+                        String requestedUrl = idx < urls.size() ? urls.get(idx) : j.getSourceURL();
+                        requestedSourceByJob.put(j.getJobId(), requestedUrl);
+                        idx++;
                     }
                 }
                 // 立刻查一次拿 mediaId（job 创建后即可查；status 通常为 Pending/Analysing）
@@ -287,7 +294,7 @@ public class VodService {
                         ? new ArrayList<>()
                         : getURLUploadInfos(jobIds);
                 if (infos.isEmpty()) {
-                    for (Map.Entry<String, String> e : sourceByJob.entrySet()) {
+                    for (Map.Entry<String, String> e : requestedSourceByJob.entrySet()) {
                         Map<String, Object> row = new LinkedHashMap<>();
                         row.put("sourceURL", e.getValue());
                         row.put("jobId", e.getKey());
@@ -296,7 +303,15 @@ public class VodService {
                         all.add(row);
                     }
                 } else {
-                    all.addAll(infos);
+                    // 用提交时的原始 url 覆盖 VOD 返回的 UploadURL，使调用方按提交 url 匹配始终成立
+                    for (Map<String, Object> row : infos) {
+                        String jobId = String.valueOf(row.getOrDefault("jobId", ""));
+                        String requestedUrl = requestedSourceByJob.get(jobId);
+                        if (requestedUrl != null) {
+                            row.put("sourceURL", requestedUrl);
+                        }
+                        all.add(row);
+                    }
                 }
             } catch (Exception e) {
                 throw new BusinessException(500, msg(e, "调用 UploadMediaByURL 失败"));
