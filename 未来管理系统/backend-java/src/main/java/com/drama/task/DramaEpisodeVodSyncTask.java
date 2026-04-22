@@ -25,7 +25,7 @@ public class DramaEpisodeVodSyncTask {
     private final VodService vodService;
     private final DramaService dramaService;
 
-    @Scheduled(fixedDelayString = "${aliyun.vod.sync-delay-ms:60000}")
+    @Scheduled(fixedDelayString = "${aliyun.vod.sync-delay-ms:15000}")
     public void syncVodStatus() {
         if (!vodService.isConfigured()) {
             return;

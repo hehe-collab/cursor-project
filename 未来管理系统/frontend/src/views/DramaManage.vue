@@ -666,6 +666,11 @@ const handleQuery = async () => {
   searching.value = true
   loading.value = true
   try {
+    try {
+      await request.post('/dramas/refresh-vod-status')
+    } catch (_) {
+      // 刷新失败不阻塞列表查询
+    }
     const params = {
       page: pagination.value.page,
       pageSize: pagination.value.pageSize,

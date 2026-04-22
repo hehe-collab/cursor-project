@@ -4,6 +4,7 @@ import com.drama.annotation.LogOperation;
 import com.drama.annotation.RateLimit;
 import com.drama.common.Result;
 import com.drama.service.DramaService;
+import com.drama.task.DramaEpisodeVodSyncTask;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +27,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class DramaController {
 
     private final DramaService dramaService;
+    private final DramaEpisodeVodSyncTask vodSyncTask;
+
+    @Operation(summary = "主动刷新 VOD 状态", description = "立即同步所有未完成 episode 的 VOD 转码状态（只刷 uploading/transcoding 等，不影响已完成的）")
+    @PostMapping("/refresh-vod-status")
+    public Result<String> refreshVodStatus() {
+        vodSyncTask.syncVodStatus();
+        return Result.success("ok");
+    }
 
     @Operation(summary = "获取短剧统计", description = "按条件统计短剧数量")
     @GetMapping("/stats")
