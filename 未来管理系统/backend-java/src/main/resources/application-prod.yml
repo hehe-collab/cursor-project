@@ -114,6 +114,7 @@ aliyun:
     template-group-id: ${ALIYUN_VOD_TEMPLATE_GROUP_ID:}
     storage-location: ${ALIYUN_VOD_STORAGE_LOCATION:}
     domain: ${ALIYUN_VOD_DOMAIN:}
+    callback-secret: ${ALIYUN_VOD_CALLBACK_SECRET:}
   oss:
     bucket: ${ALIYUN_OSS_BUCKET:}
     endpoint: ${ALIYUN_OSS_ENDPOINT:}

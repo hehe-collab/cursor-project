@@ -23,6 +23,9 @@
     </foreach>
     ORDER BY updated_at ASC
   </select>
+  <select id="selectByVodVideoId" resultType="com.drama.entity.DramaEpisode">
+    SELECT * FROM drama_episodes WHERE vod_video_id = #{vodVideoId} LIMIT 1
+  </select>
   <insert id="insert" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO drama_episodes (
       drama_id, episode_num, title, video_id, video_url,

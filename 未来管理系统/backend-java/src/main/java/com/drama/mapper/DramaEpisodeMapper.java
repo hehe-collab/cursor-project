@@ -14,6 +14,8 @@ public interface DramaEpisodeMapper {
 
     java.util.List<DramaEpisode> selectByVodStatuses(@Param("statuses") java.util.List<String> statuses);
 
+    DramaEpisode selectByVodVideoId(@Param("vodVideoId") String vodVideoId);
+
     int insert(DramaEpisode row);
 
     int update(DramaEpisode row);
