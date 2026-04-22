@@ -213,13 +213,21 @@ public class VodOssImportProcessor {
             vodResults = new ArrayList<>();
         }
 
-        // 按提交顺序直接对应：vodResults[i] 对应 vodCtxIndexes[i] 对应的 ctxList 元素
-        // 不再依赖 sourceURL/OSS key 反查（规避 URL 编码差异问题）
+        // 按提交顺序直接对应：vodResults[i] → vodCtxIndexes[i] → ctxList 元素
+        log.info("[VodOssImport] vodResults.size={}, vodCtxIndexes.size={}, ctxList.size={}",
+                vodResults.size(), vodCtxIndexes.size(), ctxList.size());
         for (int i = 0; i < vodResults.size() && i < vodCtxIndexes.size(); i++) {
             ItemContext ctx = ctxList.get(vodCtxIndexes.get(i));
             Map<String, Object> r = vodResults.get(i);
-            ctx.resolvedMediaId = str(r.get("mediaId"));
-            ctx.resolvedError = str(r.get("errorMessage"));
+            String mid = r.get("mediaId") == null ? "" : String.valueOf(r.get("mediaId")).trim();
+            // 防止 "null" 字符串被当作有效 mediaId
+            if ("null".equalsIgnoreCase(mid)) mid = "";
+            ctx.resolvedMediaId = mid;
+            ctx.resolvedError = r.get("errorMessage") == null ? "" : String.valueOf(r.get("errorMessage")).trim();
+            if (i < 3) {
+                log.info("[VodOssImport] vodResults[{}]: mediaId='{}', jobId='{}', status='{}', ctxKey='{}'",
+                        i, mid, str(r.get("jobId")), str(r.get("status")), ctx.key);
+            }
         }
 
         int success = 0;
@@ -231,9 +239,10 @@ public class VodOssImportProcessor {
                 continue;
             }
             String mediaId = ctx.resolvedMediaId != null ? ctx.resolvedMediaId : "";
+            if ("null".equalsIgnoreCase(mediaId)) mediaId = "";
             String errorMsg = ctx.resolvedError != null ? ctx.resolvedError : "";
             if (mediaId.isBlank()) {
-                String reason = errorMsg.isBlank() ? "VOD 未返回 mediaId" : errorMsg;
+                String reason = errorMsg.isBlank() ? "VOD 未返回 mediaId（resolvedMediaId='" + ctx.resolvedMediaId + "'）" : errorMsg;
                 batchTaskService.markItemFailed(taskId, ctx.itemId, reason);
                 failed++;
                 continue;

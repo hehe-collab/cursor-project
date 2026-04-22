@@ -299,18 +299,13 @@ public class VodService {
                         }
                         infos = getURLUploadInfos(jobIds);
                         boolean allHaveMediaId = !infos.isEmpty()
-                                && infos.stream().allMatch(r -> {
-                                    String mid = String.valueOf(r.getOrDefault("mediaId", ""));
-                                    return !mid.isBlank();
-                                });
+                                && infos.stream().allMatch(r -> isValidMediaId(r.get("mediaId")));
                         if (allHaveMediaId) {
                             log.info("[UploadMediaByURL] 第 {} 次查询全部拿到 mediaId（共 {} 条）", attempt, infos.size());
                             break;
                         }
-                        long gotCount = infos.stream().filter(r -> {
-                            String mid = String.valueOf(r.getOrDefault("mediaId", ""));
-                            return !mid.isBlank();
-                        }).count();
+                        long gotCount = infos.stream()
+                                .filter(r -> isValidMediaId(r.get("mediaId"))).count();
                         log.info("[UploadMediaByURL] 第 {} 次查询 mediaId：拿到 {}/{}，{}",
                                 attempt, gotCount, jobIds.size(),
                                 attempt < MAX_RETRY ? "将在 " + RETRY_MS + "ms 后重试" : "放弃重试");
@@ -350,12 +345,12 @@ public class VodService {
             if (list != null) {
                 for (GetURLUploadInfosResponse.UrlUploadJobInfoDTO info : list) {
                     Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("jobId", info.getJobId());
-                    row.put("mediaId", info.getMediaId());
-                    row.put("sourceURL", info.getUploadURL());
-                    row.put("status", info.getStatus());
-                    row.put("errorCode", info.getErrorCode());
-                    row.put("errorMessage", info.getErrorMessage());
+                    row.put("jobId", info.getJobId() != null ? info.getJobId() : "");
+                    row.put("mediaId", info.getMediaId() != null ? info.getMediaId() : "");
+                    row.put("sourceURL", info.getUploadURL() != null ? info.getUploadURL() : "");
+                    row.put("status", info.getStatus() != null ? info.getStatus() : "");
+                    row.put("errorCode", info.getErrorCode() != null ? info.getErrorCode() : "");
+                    row.put("errorMessage", info.getErrorMessage() != null ? info.getErrorMessage() : "");
                     row.put("fileSize", info.getFileSize());
                     out.add(row);
                 }
@@ -601,5 +596,11 @@ public class VodService {
 
     private String str(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static boolean isValidMediaId(Object v) {
+        if (v == null) return false;
+        String s = String.valueOf(v).trim();
+        return !s.isEmpty() && !"null".equalsIgnoreCase(s);
     }
 }
