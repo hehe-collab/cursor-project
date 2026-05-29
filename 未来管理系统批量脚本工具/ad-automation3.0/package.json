@@ -1,0 +1,17 @@
+{
+  "name": "ad-automation3.0-hookedshorts",
+  "version": "3.0.0",
+  "description": "Hooked Shorts 管理后台 TikTok 广告批量建设 3.0（admin.hookedshorts.com/batch-tools）",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "template": "node create-template.js",
+    "test": "node test-excel.js",
+    "setup": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "1.58.2",
+    "xlsx": "^0.18.5"
+  }
+}
+
