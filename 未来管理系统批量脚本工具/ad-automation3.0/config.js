@@ -73,4 +73,21 @@ module.exports = {
     enableValidationLog: true,
     screenshotDir: './screenshots',
   },
+
+  /**
+   * 优化目标：Excel 语义 vs 管理后台 UI 下拉
+   *
+   * Excel「价值」= TikTok ROAS 投放目标（出价下限 1.1，无转化上限 1.3）
+   * Excel「转化」= TikTok 转化投放目标（出价上限 1.3）
+   *
+   * Hooked Shorts 当前未完成「价值/ROAS」与 TT 后台 ROAS 的打通，UI 下拉可能尚无「价值」。
+   * 此时仅 excelToUi.价值 做临时 UI 兜底；出价校验、业务语义仍以 Excel 列为准。
+   * 后台支持 ROAS 后，将 excelToUi.价值 改为 UI 上真实的 ROAS/价值选项文案即可。
+   */
+  optimizationTarget: {
+    excelToUi: {
+      价值: '转化', // 临时：UI 无 ROAS 时兜底；打通后改为后台 ROAS 选项文案
+      转化: '转化',
+    },
+  },
 };

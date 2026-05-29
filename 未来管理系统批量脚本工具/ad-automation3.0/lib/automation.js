@@ -887,11 +887,32 @@ async function ensureTabSmartPlus20(dialog) {
   log('已切换到 Smart+2.0 标签', 'OK');
 }
 
-/** Hooked Shorts 等后台：Excel「价值」对应 UI「转化」 */
-function normalizeOptimizationTarget(target) {
+/** Excel 优化目标规范化为业务语义：价值(ROAS) | 转化 */
+function canonicalExcelOptimizationTarget(target) {
   const t = String(target ?? '').trim();
-  if (t === '价值') return '转化';
+  if (t === '价值') return '价值';
+  if (t === '转化' || t === '下单') return '转化';
   return t;
+}
+
+/** TikTok 侧投放目标说明（与 Excel 列一一对应，非 UI 文案） */
+function tiktokObjectiveLabel(excelTarget) {
+  if (excelTarget === '价值') return 'ROAS';
+  if (excelTarget === '转化') return '转化';
+  return excelTarget;
+}
+
+/**
+ * Excel 语义 → 管理后台 UI 下拉选项。
+ * 默认与 Excel 相同；config.optimizationTarget.excelToUi 可配置临时兜底（如价值→转化）。
+ */
+function resolveUiOptimizationTarget(excelTarget) {
+  const canonical = canonicalExcelOptimizationTarget(excelTarget);
+  const map = config.optimizationTarget?.excelToUi || {};
+  if (Object.prototype.hasOwnProperty.call(map, canonical)) {
+    return map[canonical];
+  }
+  return canonical;
 }
 
 async function fillAdGroupNameV3(row, name) {
@@ -917,7 +938,9 @@ async function selectPixelAdGroupV3(page, row, pixelName) {
 }
 
 async function selectOptimizationAdGroupV3(page, row, target) {
-  const uiTarget = normalizeOptimizationTarget(target);
+  const excelTarget = canonicalExcelOptimizationTarget(target);
+  const uiTarget = resolveUiOptimizationTarget(excelTarget);
+  const ttObjective = tiktokObjectiveLabel(excelTarget);
   const targetSelect = row.locator('td').nth(5).locator('.el-select, .el-input').first();
   await targetSelect.click();
   await shortDelay();
@@ -926,11 +949,17 @@ async function selectOptimizationAdGroupV3(page, row, target) {
   await option.waitFor({ state: 'visible', timeout: 5000 });
   await option.click();
   await shortDelay();
-  log(`    优化目标: ${uiTarget}${uiTarget !== String(target ?? '').trim() ? `（Excel: ${target}）` : ''}`);
+  if (uiTarget !== excelTarget) {
+    log(
+      `    优化目标 UI: ${uiTarget}（Excel ${excelTarget}→TT ${ttObjective}；后台 ROAS 未打通，临时选 UI「${uiTarget}」，出价仍按 ${excelTarget}/ROAS 规则）`
+    );
+  } else {
+    log(`    优化目标: ${uiTarget}（Excel ${excelTarget}→TT ${ttObjective}）`);
+  }
 }
 
 async function inputBidAdGroupV3(page, row, bid, optimizationTarget, count) {
-  optimizationTarget = normalizeOptimizationTarget(optimizationTarget);
+  const excelTarget = canonicalExcelOptimizationTarget(optimizationTarget);
   const bidStr = String(bid ?? '').trim();
   if (!bidStr) {
     log(`    出价: 为空，Excel 首行须填写出价`, 'WARN');
@@ -956,10 +985,10 @@ async function inputBidAdGroupV3(page, row, bid, optimizationTarget, count) {
     if (!Number.isFinite(n) || n <= 0) {
       throw new Error(`出价「${bidStr}」格式错误：「${token}」不是大于 0 的数字`);
     }
-    if (optimizationTarget === '价值' && n < 1.1) return '1.1';
+    if (excelTarget === '价值' && n < 1.1) return '1.1';
     return token;
   });
-  if (optimizationTarget === '转化') {
+  if (excelTarget === '转化') {
     const overLimit = normalizedTokens.find((token) => Number(token) > 1.3);
     if (overLimit) {
       await pauseForUser(`出价 ${overLimit} 超过「转化」上限 1.3，请修改 Excel 或手动处理后按 Enter`);

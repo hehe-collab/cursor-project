@@ -76,7 +76,7 @@ rm -f browser-data/SingletonLock browser-data/SingletonCookie browser-data/Singl
 
 与参考工具 3.0 完全相同，详见参考目录 `README.md` 或运行 `npm run template` 后查看「字段说明」sheet。
 
-**Hooked Shorts 注意**：Excel 中优化目标填「价值」时，脚本会自动映射为后台下拉选项「转化」。
+**Hooked Shorts 注意（优化目标）**：见下方「优化目标：价值 vs 转化」专节。
 
 ## 与参考项目（dramahub8）的差异
 
@@ -90,8 +90,49 @@ rm -f browser-data/SingletonLock browser-data/SingletonCookie browser-data/Singl
 | 主体/账户筛选 | Element Plus 1.x 风格 | Element Plus 2.x：placeholder 在 span；账户用 `input.el-select__input` |
 | 广告表 UI | 推广链接列点 td | 链接列「未选择」、素材「已选 N 项」、标题「可多选标题包」 |
 | 提交按钮 | 「提交」 | 「提交任务」（脚本两种均支持） |
-| 优化目标 Excel | 「价值」= 后台「价值」 | Excel「价值」→ 后台「转化」 |
+| 优化目标 Excel | 「价值」= 后台「价值」 | 见下方专节（语义与 UI 分离） |
 | Chromium | 本地 `pw-browsers/` | **复用**参考项目 `chromium-1208`（见下方） |
+
+## 优化目标：价值 vs 转化
+
+Excel「优化目标」列与 TikTok 投放目标**语义一一对应**，脚本分两层处理：
+
+| Excel 填写 | TikTok 投放目标 | 出价校验规则 |
+|------------|-----------------|--------------|
+| **价值** | **ROAS**（价值优化 / 目标 ROAS） | 单出价 **≥ 1.1**（低于 1.1 自动抬到 1.1）；**无**转化上限 1.3 |
+| **转化** | **转化**（转化量优化） | 单出价 **≤ 1.3**（超过会暂停提示） |
+
+也支持 Excel 填「下单」，脚本会规范化为「转化」。
+
+### 与 Hooked Shorts 后台 UI 的关系（重要）
+
+管理后台广告组弹窗里的「优化目标」**下拉选项**，与 Excel 语义**不一定同名**：
+
+- Excel 填 **「转化」** → UI 选 **「转化」**（一致）
+- Excel 填 **「价值」** → 业务上是 **ROAS**，但当前 Hooked Shorts **尚未把「价值/ROAS」与 TikTok ROAS 打通**，UI 下拉可能还没有 ROAS 选项
+
+因此在 ROAS 未打通前，脚本只做 **UI 层临时兜底**：在弹窗里选 `config.js` 中配置的 UI 文案（默认 `excelToUi.价值: '转化'`），**避免自动化卡在找不到「价值」选项**。
+
+**出价校验、Excel 含义不变**：Excel 仍是「价值/ROAS」时，仍按 ROAS 规则（≥1.1，不按转化 1.3 上限卡）。
+
+配置位置（`config.js`）：
+
+```javascript
+optimizationTarget: {
+  excelToUi: {
+    价值: '转化', // 临时 UI 兜底；后台 ROAS 打通后改为 UI 上真实 ROAS/价值选项文案
+    转化: '转化',
+  },
+},
+```
+
+后台支持 ROAS 后，只需改 `excelToUi.价值`（例如改回 `'价值'` 或 `'ROAS'`），**不必改 Excel 列含义**。
+
+日志示例（临时兜底时）：
+
+```text
+优化目标 UI: 转化（Excel 价值→TT ROAS；后台 ROAS 未打通，临时选 UI「转化」，出价仍按 价值/ROAS 规则）
+```
 
 ## 浏览器与 Playwright 版本
 
@@ -146,7 +187,7 @@ A: 多为无头模式下 token 过期；删 `browser-data/` 让脚本重新自�
 A: 每批任务完成后，脚本打开 `/ad-task`，等待第一页无「进行中」任务后再开下一批，避免后台过载。可在 `config.js` 的 `parallel.pollAdTaskAfterBatch` 关闭。
 
 **Q: 和参考脚本能否共用同一份 Excel？**  
-A: 列结构相同，可直接复制；但优化目标「价值」在本后台会映射为「转化」，出价校验规则随之按「转化」处理（如上限 1.3）。
+A: 列结构相同，可直接复制。「优化目标」列含义也与参考工具一致（价值=ROAS，转化=转化）；Hooked Shorts 仅在 UI 下拉未支持 ROAS 时有临时兜底，见上文专节。
 
 ## 参考
 
