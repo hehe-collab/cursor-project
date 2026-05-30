@@ -8,6 +8,7 @@ import com.drama.entity.TikTokCampaign;
 import com.drama.entity.TitlePack;
 import com.drama.mapper.AdMaterialMapper;
 import com.drama.mapper.TitlePackMapper;
+import com.drama.util.TikTokOptimizationHelper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,7 +27,7 @@ public class BatchAdLaunchService {
 
     private static final BigDecimal DEFAULT_CAMPAIGN_BUDGET = new BigDecimal("1000");
     private static final BigDecimal DEFAULT_ADGROUP_BUDGET = new BigDecimal("500");
-    private static final String DEFAULT_OBJECTIVE = "TRAFFIC";
+    private static final String DEFAULT_OBJECTIVE = "CONVERSIONS";
     private static final String DEFAULT_BUDGET_MODE = "BUDGET_MODE_DAY";
     private static final String DEFAULT_BILLING_EVENT = "CPC";
     private static final String DEFAULT_BID_TYPE = "BID_TYPE_CUSTOM";
@@ -156,17 +157,18 @@ public class BatchAdLaunchService {
                     }
 
                     totalCount++;
-                    TikTokAdGroup created = adGroupService.createAdGroup(TikTokAdGroup.builder()
+                    TikTokAdGroup.TikTokAdGroupBuilder adGroupBuilder = TikTokAdGroup.builder()
                             .advertiserId(advertiserId)
                             .campaignId(campaignId)
                             .adgroupName(adGroupName)
                             .placements(JSON.toJSONString(List.of(DEFAULT_PLACEMENT)))
                             .budget(decimal(project != null ? project.get("dailyBudget") : null, DEFAULT_ADGROUP_BUDGET))
-                            .budgetMode(DEFAULT_BUDGET_MODE)
-                            .billingEvent(DEFAULT_BILLING_EVENT)
-                            .bidType(DEFAULT_BID_TYPE)
-                            .bidPrice(decimal(adGroupRow.get("price"), null))
-                            .build());
+                            .budgetMode(DEFAULT_BUDGET_MODE);
+                    TikTokOptimizationHelper.applyToAdGroupBuilder(
+                            adGroupBuilder,
+                            text(adGroupRow.get("optimizationGoal")),
+                            decimal(adGroupRow.get("price"), null));
+                    TikTokAdGroup created = adGroupService.createAdGroup(adGroupBuilder.build());
                     adgroupIdsByProject.put(projectId, new ArrayList<>(List.of(created.getAdgroupId())));
                     adGroupResults.add(adGroupRecord(
                             projectId,

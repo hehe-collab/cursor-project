@@ -291,8 +291,7 @@
             <template #default="{ row }">
               <el-select v-model="row.optimizationGoal" placeholder="请选择" clearable size="small" style="width: 100%">
                 <el-option label="转化" value="conversion" />
-                <el-option label="点击" value="click" />
-                <el-option label="展示" value="impression" />
+                <el-option label="价值 ROAS" value="value_roas" />
               </el-select>
             </template>
           </el-table-column>

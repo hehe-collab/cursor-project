@@ -107,6 +107,11 @@ public class TikTokAdGroupService {
         }
         putIfHasText(body, "billing_event", adGroup.getBillingEvent());
         putIfHasText(body, "bid_type", adGroup.getBidType());
+        putIfHasText(body, "optimization_goal", adGroup.getOptimizationGoal());
+        putIfHasText(body, "deep_bid_type", adGroup.getDeepBidType());
+        if (adGroup.getRoasBid() != null) {
+            body.put("roas_bid", adGroup.getRoasBid());
+        }
         if (adGroup.getBidPrice() != null) {
             body.put("bid_price", adGroup.getBidPrice());
         }

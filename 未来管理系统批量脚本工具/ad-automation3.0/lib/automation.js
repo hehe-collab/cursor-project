@@ -903,16 +903,37 @@ function tiktokObjectiveLabel(excelTarget) {
 }
 
 /**
- * Excel 语义 → 管理后台 UI 下拉选项。
- * 默认与 Excel 相同；config.optimizationTarget.excelToUi 可配置临时兜底（如价值→转化）。
+ * Excel 语义 → 管理后台 UI 下拉候选（按优先级）。
  */
-function resolveUiOptimizationTarget(excelTarget) {
+function uiCandidatesForExcelTarget(excelTarget) {
   const canonical = canonicalExcelOptimizationTarget(excelTarget);
   const map = config.optimizationTarget?.excelToUi || {};
-  if (Object.prototype.hasOwnProperty.call(map, canonical)) {
-    return map[canonical];
+  const fallbacks = config.optimizationTarget?.excelToUiFallbacks?.[canonical] || [];
+  const primary = Object.prototype.hasOwnProperty.call(map, canonical) ? map[canonical] : canonical;
+  return [...new Set([primary, ...fallbacks, canonical].filter(Boolean))];
+}
+
+async function pickOptimizationDropdownOption(dropdown, candidates, excelTarget) {
+  const items = dropdown.locator('.el-select-dropdown__item');
+  const count = await items.count();
+  if (count === 0) return null;
+  const texts = [];
+  for (let i = 0; i < count; i++) {
+    texts.push((await items.nth(i).innerText()).trim());
   }
-  return canonical;
+  for (const cand of candidates) {
+    const idx = texts.findIndex((t) => t === cand || t.includes(cand));
+    if (idx >= 0) return items.nth(idx);
+  }
+  if (excelTarget === '价值') {
+    const idx = texts.findIndex((t) => /价值|ROAS/i.test(t));
+    if (idx >= 0) return items.nth(idx);
+  }
+  if (excelTarget === '转化') {
+    const idx = texts.findIndex((t) => /^转化$/.test(t));
+    if (idx >= 0) return items.nth(idx);
+  }
+  return null;
 }
 
 async function fillAdGroupNameV3(row, name) {
@@ -939,23 +960,22 @@ async function selectPixelAdGroupV3(page, row, pixelName) {
 
 async function selectOptimizationAdGroupV3(page, row, target) {
   const excelTarget = canonicalExcelOptimizationTarget(target);
-  const uiTarget = resolveUiOptimizationTarget(excelTarget);
+  const candidates = uiCandidatesForExcelTarget(excelTarget);
   const ttObjective = tiktokObjectiveLabel(excelTarget);
   const targetSelect = row.locator('td').nth(5).locator('.el-select, .el-input').first();
   await targetSelect.click();
   await shortDelay();
   const dropdown = page.locator('.el-select-dropdown:visible').last();
-  const option = dropdown.locator('.el-select-dropdown__item').filter({ hasText: uiTarget });
-  await option.waitFor({ state: 'visible', timeout: 5000 });
+  const option = await pickOptimizationDropdownOption(dropdown, candidates, excelTarget);
+  if (!option) {
+    throw new Error(
+      `优化目标下拉无匹配项（Excel ${excelTarget}→TT ${ttObjective}，尝试过: ${candidates.join(' / ')}）`
+    );
+  }
+  const uiLabel = (await option.innerText()).trim();
   await option.click();
   await shortDelay();
-  if (uiTarget !== excelTarget) {
-    log(
-      `    优化目标 UI: ${uiTarget}（Excel ${excelTarget}→TT ${ttObjective}；后台 ROAS 未打通，临时选 UI「${uiTarget}」，出价仍按 ${excelTarget}/ROAS 规则）`
-    );
-  } else {
-    log(`    优化目标: ${uiTarget}（Excel ${excelTarget}→TT ${ttObjective}）`);
-  }
+  log(`    优化目标: ${uiLabel}（Excel ${excelTarget}→TT ${ttObjective}）`);
 }
 
 async function inputBidAdGroupV3(page, row, bid, optimizationTarget, count) {

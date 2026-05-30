@@ -28,6 +28,12 @@ public class TikTokAdGroup {
     private String billingEvent;
     private String bidType;
     private BigDecimal bidPrice;
+    /** TikTok optimization_goal：VALUE(ROAS) / CONVERT 等 */
+    private String optimizationGoal;
+    /** ROAS 目标（optimization_goal=VALUE 时使用） */
+    private BigDecimal roasBid;
+    /** 深度出价类型，如 VO_MIN_ROAS */
+    private String deepBidType;
     private String locationIds;
     private String ageGroups;
     private String gender;
