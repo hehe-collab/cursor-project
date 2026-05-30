@@ -6,6 +6,9 @@
 const XLSX = require('xlsx');
 const path = require('path');
 const fs = require('fs');
+const config = require('./config');
+
+const TASK_SHEET = config.excelTaskSheetName || 'HookedShorts任务';
 
 // 确保 data 目录存在
 const dataDir = path.join(__dirname, 'data');
@@ -221,7 +224,7 @@ ws['!cols'] = [
   { wch: 10 },  // 提交次数
 ];
 
-XLSX.utils.book_append_sheet(wb, ws, '任务列表');
+XLSX.utils.book_append_sheet(wb, ws, TASK_SHEET);
 
 // 创建说明页
 const instructions = [
@@ -272,7 +275,7 @@ console.log(`📁 文件位置: ${outputPath}`);
 console.log('');
 console.log('📋 使用说明:');
 console.log('   1. 打开 data/tasks-v3.0.xlsx');
-console.log('   2. 在「任务列表」sheet 中填写任务数据');
+console.log(`   2. 在「${TASK_SHEET}」sheet 中填写任务数据`);
 console.log('   3. 参考「字段说明」sheet 了解每列含义');
 console.log('   4. 相同任务编号的行会被合并为一次提交');
 console.log('   5. 每组第一行必须填写完整，后续行只需填 账户ID 和 推广链接关键词');

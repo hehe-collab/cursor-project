@@ -22,6 +22,8 @@ module.exports = {
 
   // ===== Excel 数据文件路径 =====
   excelPath: './data/tasks-v3.0.xlsx',
+  /** 任务数据 sheet 名（区别于参考工具/其他项目的「任务列表」） */
+  excelTaskSheetName: 'HookedShorts任务',
 
   // ===== 浏览器配置 =====
   browser: {

@@ -3,6 +3,7 @@
  */
 const XLSX = require('xlsx');
 const { log } = require('./utils');
+const config = require('../config');
 
 // Excel 列名映射
 const COLUMN_MAP = {
@@ -94,7 +95,17 @@ function readTasks(filePath) {
   log(`读取 Excel: ${filePath}`);
 
   const workbook = XLSX.readFile(filePath);
-  const sheetName = workbook.SheetNames[0];
+  const preferredSheet = config.excelTaskSheetName || 'HookedShorts任务';
+  let sheetName = preferredSheet;
+  if (!workbook.Sheets[sheetName]) {
+    if (workbook.Sheets['任务列表']) {
+      sheetName = '任务列表';
+      log(`未找到「${preferredSheet}」sheet，兼容读取旧表名「任务列表」`, 'WARN');
+    } else {
+      sheetName = workbook.SheetNames[0];
+      log(`未找到「${preferredSheet}」sheet，使用第一个 sheet「${sheetName}」`, 'WARN');
+    }
+  }
   const sheet = workbook.Sheets[sheetName];
   const rawData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 

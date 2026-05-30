@@ -74,7 +74,7 @@ rm -f browser-data/SingletonLock browser-data/SingletonCookie browser-data/Singl
 
 ## Excel 字段
 
-与参考工具 3.0 完全相同，详见参考目录 `README.md` 或运行 `npm run template` 后查看「字段说明」sheet。
+与参考工具 3.0 列结构相同，详见参考目录 `README.md` 或运行 `npm run template` 后查看「字段说明」sheet。任务数据写在 **`HookedShorts任务`** sheet（非通用「任务列表」）。
 
 **Hooked Shorts 注意（优化目标）**：见下方「优化目标：价值 vs 转化」专节。
 

@@ -95,7 +95,7 @@ async function main() {
   const headers = Object.keys(row);
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet([row], { header: headers });
-  XLSX.utils.book_append_sheet(wb, ws, '任务列表');
+  XLSX.utils.book_append_sheet(wb, ws, config.excelTaskSheetName || 'HookedShorts任务');
 
   const out = path.join(__dirname, '..', 'data', 'tasks-e2e.xlsx');
   XLSX.writeFile(wb, out);
